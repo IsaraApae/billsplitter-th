@@ -169,12 +169,16 @@ export async function getPaid(id: string): Promise<string[]> {
 
 export type UpdateResult = "ok" | "not_found" | "forbidden";
 
+function tokenMatches(token: string, editHash: string): boolean {
+  const a = Buffer.from(hash(token));
+  const b = Buffer.from(editHash);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 export async function updateSplit(id: string, token: string, doc: SplitDoc): Promise<UpdateResult> {
   const s = await db().get<StoredSplit>(docKey(id));
   if (!s) return "not_found";
-  const a = Buffer.from(hash(token));
-  const b = Buffer.from(s.editHash);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return "forbidden";
+  if (!tokenMatches(token, s.editHash)) return "forbidden";
   // Keep the original creation date.
   const next: StoredSplit = {
     doc: { ...doc, createdAt: s.doc.createdAt },
@@ -245,9 +249,19 @@ export async function devImageDel(key: string) {
   await db().del(`devimg:${key}`);
 }
 
-export async function setPaid(id: string, personId: string, paid: boolean): Promise<string[] | null> {
+/**
+ * Anyone with the link can tick "Paid"; only the creator (edit token) can
+ * untick it, so nobody else can mark a payment as undone.
+ */
+export async function setPaid(
+  id: string,
+  personId: string,
+  paid: boolean,
+  token: string | null,
+): Promise<string[] | "not_found" | "forbidden"> {
   const s = await db().get<StoredSplit>(docKey(id));
-  if (!s || !s.doc.people.some((p) => p.id === personId)) return null;
+  if (!s || !s.doc.people.some((p) => p.id === personId)) return "not_found";
+  if (!paid && !(token && tokenMatches(token, s.editHash))) return "forbidden";
   await (paid ? db().hset(paidKey(id), personId, String(Date.now())) : db().hdel(paidKey(id), personId));
   await Promise.all([db().expire(paidKey(id), TTL_SECONDS), db().expire(docKey(id), TTL_SECONDS)]);
   const ids = new Set(s.doc.people.map((p) => p.id));
