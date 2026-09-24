@@ -1,0 +1,146 @@
+import "server-only";
+import { Redis } from "@upstash/redis";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import type { SplitDoc } from "../types";
+
+// The Vercel Marketplace Upstash integration injects KV_REST_API_*; a direct
+// Upstash setup uses UPSTASH_REDIS_REST_*. Accept either.
+const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+/** Real Upstash client (also used by the rate limiter), or null if not configured. */
+export const redis: Redis | null = url && token ? new Redis({ url, token, enableAutoPipelining: true }) : null;
+
+export const TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days, refreshed on every write
+
+/** The few storage operations the app needs. */
+interface Kv {
+  get<T>(key: string): Promise<T | null>;
+  set(key: string, value: unknown, opts: { ex: number; nx?: boolean }): Promise<boolean>;
+  hkeys(key: string): Promise<string[]>;
+  hset(key: string, field: string, value: string): Promise<void>;
+  hdel(key: string, ...fields: string[]): Promise<void>;
+  expire(key: string, seconds: number): Promise<void>;
+}
+
+function upstashKv(r: Redis): Kv {
+  return {
+    get: (k) => r.get(k),
+    set: async (k, v, o) => (o.nx ? r.set(k, v, { ex: o.ex, nx: true }) : r.set(k, v, { ex: o.ex })) !== null,
+    hkeys: (k) => r.hkeys(k),
+    hset: async (k, f, v) => void (await r.hset(k, { [f]: v })),
+    hdel: async (k, ...f) => void (f.length && (await r.hdel(k, ...f))),
+    expire: async (k, s) => void (await r.expire(k, s)),
+  };
+}
+
+/** Dev-only in-memory store so the whole flow works locally without Redis. */
+function memoryKv(): Kv {
+  const g = globalThis as unknown as { __bsMem?: Map<string, unknown> };
+  const m = (g.__bsMem ??= new Map<string, unknown>());
+  const hash = (k: string) => {
+    let h = m.get(k) as Map<string, string> | undefined;
+    if (!h) m.set(k, (h = new Map()));
+    return h;
+  };
+  return {
+    get: async <T,>(k: string) => (m.has(k) ? (structuredClone(m.get(k)) as T) : null),
+    set: async (k, v, o) => {
+      if (o.nx && m.has(k)) return false;
+      m.set(k, structuredClone(v));
+      return true;
+    },
+    hkeys: async (k) => [...hash(k).keys()],
+    hset: async (k, f, v) => void hash(k).set(f, v),
+    hdel: async (k, ...f) => f.forEach((x) => hash(k).delete(x)),
+    expire: async () => {},
+  };
+}
+
+const kv: Kv | null = redis
+  ? upstashKv(redis)
+  : process.env.NODE_ENV !== "production"
+    ? memoryKv()
+    : null;
+
+export const storageReady = kv !== null;
+export const usingMemoryStore = !redis && kv !== null;
+
+export class StorageNotConfiguredError extends Error {
+  constructor() {
+    super("Storage is not configured (missing KV_REST_API_URL / KV_REST_API_TOKEN).");
+  }
+}
+
+function db(): Kv {
+  if (!kv) throw new StorageNotConfiguredError();
+  return kv;
+}
+
+const docKey = (id: string) => `split:${id}`;
+const paidKey = (id: string) => `split:${id}:paid`;
+
+interface StoredSplit {
+  doc: SplitDoc;
+  editHash: string;
+  updatedAt: string;
+}
+
+export const newId = () => randomBytes(12).toString("base64url"); // 96 bits, 16 chars
+export const newToken = () => randomBytes(32).toString("base64url");
+const hash = (s: string) => createHash("sha256").update(s).digest("hex");
+
+export function isValidId(id: string): boolean {
+  return /^[\w-]{16}$/.test(id);
+}
+
+export async function createSplit(doc: SplitDoc): Promise<{ id: string; token: string }> {
+  const token = newToken();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const id = newId();
+    const stored: StoredSplit = { doc, editHash: hash(token), updatedAt: new Date().toISOString() };
+    if (await db().set(docKey(id), stored, { ex: TTL_SECONDS, nx: true })) return { id, token };
+  }
+  throw new Error("Could not allocate an id");
+}
+
+export async function getSplit(id: string): Promise<{ doc: SplitDoc; updatedAt: string } | null> {
+  const s = await db().get<StoredSplit>(docKey(id));
+  return s ? { doc: s.doc, updatedAt: s.updatedAt } : null;
+}
+
+export async function getPaid(id: string): Promise<string[]> {
+  return db().hkeys(paidKey(id));
+}
+
+export type UpdateResult = "ok" | "not_found" | "forbidden";
+
+export async function updateSplit(id: string, token: string, doc: SplitDoc): Promise<UpdateResult> {
+  const s = await db().get<StoredSplit>(docKey(id));
+  if (!s) return "not_found";
+  const a = Buffer.from(hash(token));
+  const b = Buffer.from(s.editHash);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return "forbidden";
+  // Keep the original creation date.
+  const next: StoredSplit = {
+    doc: { ...doc, createdAt: s.doc.createdAt },
+    editHash: s.editHash,
+    updatedAt: new Date().toISOString(),
+  };
+  const removed = s.doc.people.map((p) => p.id).filter((pid) => !doc.people.some((p) => p.id === pid));
+  await Promise.all([
+    db().set(docKey(id), next, { ex: TTL_SECONDS }),
+    db().hdel(paidKey(id), ...removed),
+    db().expire(paidKey(id), TTL_SECONDS),
+  ]);
+  return "ok";
+}
+
+export async function setPaid(id: string, personId: string, paid: boolean): Promise<string[] | null> {
+  const s = await db().get<StoredSplit>(docKey(id));
+  if (!s || !s.doc.people.some((p) => p.id === personId)) return null;
+  await (paid ? db().hset(paidKey(id), personId, String(Date.now())) : db().hdel(paidKey(id), personId));
+  await Promise.all([db().expire(paidKey(id), TTL_SECONDS), db().expire(docKey(id), TTL_SECONDS)]);
+  const ids = new Set(s.doc.people.map((p) => p.id));
+  return (await getPaid(id)).filter((p) => ids.has(p));
+}
