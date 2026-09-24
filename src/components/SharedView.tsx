@@ -99,7 +99,7 @@ export function SharedView({
 
   async function togglePaid(personId: string) {
     const next = !paid.has(personId);
-    if (!next && !canEdit) return; // only the organiser can undo a payment
+    if (!canEdit) return; // only the organiser can change who has paid
     setError(null);
     const flip = (s: Set<string>, on: boolean) => {
       const n = new Set(s);
@@ -241,27 +241,39 @@ export function SharedView({
                 mode={doc.mode}
                 highlight={isPaid ? "paid" : "unpaid"}
                 leading={
-                  <label className="grid size-11 shrink-0 cursor-pointer place-items-center">
-                    <input
-                      type="checkbox"
-                      className="peer sr-only"
-                      checked={isPaid}
-                      disabled={busy || (isPaid && !canEdit)}
-                      onChange={() => togglePaid(p.personId)}
-                      aria-label={`${p.name} paid`}
-                      title={isPaid && !canEdit ? "Only the organiser can undo a payment" : undefined}
-                    />
-                    <span
-                      aria-hidden
-                      className={cx(
-                        "grid size-8 place-items-center rounded-full transition-[background-color,transform] duration-300 ease-spring peer-focus-visible:ring-4 peer-focus-visible:ring-accent/30 peer-active:scale-90",
-                        isPaid ? "bg-accent text-accent-ink" : "shadow-[inset_0_0_0_2px_var(--field-border)]",
-                        busy && "opacity-50",
+                  canEdit ? (
+                    <label className="grid size-11 shrink-0 cursor-pointer place-items-center">
+                      <input
+                        type="checkbox"
+                        className="peer sr-only"
+                        checked={isPaid}
+                        disabled={busy}
+                        onChange={() => togglePaid(p.personId)}
+                        aria-label={`${p.name} paid`}
+                      />
+                      <span
+                        aria-hidden
+                        className={cx(
+                          "grid size-8 place-items-center rounded-full transition-[background-color,transform] duration-300 ease-spring peer-focus-visible:ring-4 peer-focus-visible:ring-accent/30 peer-active:scale-90",
+                          isPaid ? "bg-accent text-accent-ink" : "shadow-[inset_0_0_0_2px_var(--field-border)]",
+                          busy && "opacity-50",
+                        )}
+                      >
+                        {isPaid && <Check size={18} strokeWidth={3} />}
+                      </span>
+                    </label>
+                  ) : (
+                    // Read-only for everyone but the organiser: a status icon, not a control.
+                    <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
+                      {isPaid ? (
+                        <span className="grid size-8 place-items-center rounded-full bg-accent text-accent-ink">
+                          <Check size={18} strokeWidth={3} />
+                        </span>
+                      ) : (
+                        <span className="size-2.5 rounded-full bg-warn" />
                       )}
-                    >
-                      {isPaid && <Check size={18} strokeWidth={3} />}
                     </span>
-                  </label>
+                  )
                 }
                 badge={
                   <span className={cx("text-[12px] font-bold", isPaid ? "text-accent" : "text-warn")}>
@@ -293,8 +305,9 @@ export function SharedView({
           </p>
         )}
         <p className="px-1 text-[13px] text-ink-2">
-          Tick the circle when someone has paid. Everyone with the link sees it.{" "}
-          {canEdit ? "As the organiser, you can also untick it." : "Only the organiser can undo a tick."}
+          {canEdit
+            ? "Tick the circle when someone has paid you. Everyone with the link sees it."
+            : "The organiser ticks people off as they receive payments."}
         </p>
       </section>
 

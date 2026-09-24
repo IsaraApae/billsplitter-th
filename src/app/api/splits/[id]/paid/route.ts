@@ -33,7 +33,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/pai
     const token = req.headers.get("x-edit-token");
     const paid = await setPaid(id, body.personId, body.paid, token && token.length <= 100 ? token : null);
     if (paid === "not_found") return jsonError(404, "not_found", "Split or person not found.");
-    if (paid === "forbidden") return jsonError(403, "forbidden", "Only the organiser can undo a payment.");
+    if (paid === "forbidden") return jsonError(403, "forbidden", "Only the organiser can change who has paid.");
     return Response.json({ paid }, { headers: noStore });
   });
 }

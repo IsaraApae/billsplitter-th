@@ -249,10 +249,7 @@ export async function devImageDel(key: string) {
   await db().del(`devimg:${key}`);
 }
 
-/**
- * Anyone with the link can tick "Paid"; only the creator (edit token) can
- * untick it, so nobody else can mark a payment as undone.
- */
+/** Only the creator (edit token) can mark someone paid or unpaid. */
 export async function setPaid(
   id: string,
   personId: string,
@@ -261,7 +258,7 @@ export async function setPaid(
 ): Promise<string[] | "not_found" | "forbidden"> {
   const s = await db().get<StoredSplit>(docKey(id));
   if (!s || !s.doc.people.some((p) => p.id === personId)) return "not_found";
-  if (!paid && !(token && tokenMatches(token, s.editHash))) return "forbidden";
+  if (!(token && tokenMatches(token, s.editHash))) return "forbidden";
   await (paid ? db().hset(paidKey(id), personId, String(Date.now())) : db().hdel(paidKey(id), personId));
   await Promise.all([db().expire(paidKey(id), TTL_SECONDS), db().expire(docKey(id), TTL_SECONDS)]);
   const ids = new Set(s.doc.people.map((p) => p.id));
