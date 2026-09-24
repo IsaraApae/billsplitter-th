@@ -1,14 +1,25 @@
 "use client";
 
+import { Check, UserPlus, UsersRound, X } from "lucide-react";
 import { useState } from "react";
 import type { CalcResult } from "@/lib/calc";
-import { uid } from "@/lib/draft";
-import { formatMoney } from "@/lib/money";
+import { ensureFriend } from "@/lib/client/friendsStore";
+import { ME_ID } from "@/lib/friends";
 import type { SplitDoc } from "@/lib/types";
-import { Callout, Section, Segmented, cx } from "../ui";
+import { Avatar, Callout, Money, Section, Segmented, cx } from "../ui";
 import type { SetDoc } from "./Wizard";
 
-export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc; calc: CalcResult }) {
+export function PeopleStep({
+  doc,
+  setDoc,
+  calc,
+  onPickFriends,
+}: {
+  doc: SplitDoc;
+  setDoc: SetDoc;
+  calc: CalcResult;
+  onPickFriends: () => void;
+}) {
   const [name, setName] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [onlyUnassigned, setOnlyUnassigned] = useState(false);
@@ -21,10 +32,15 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
       .map((s) => s.trim().slice(0, 40))
       .filter(Boolean);
     if (!names.length) return;
-    setDoc((d) => ({
-      ...d,
-      people: [...d.people, ...names.map((n) => ({ id: uid(), name: n }))].slice(0, 50),
-    }));
+    // Typed names are saved to Friends too (no duplicates by name).
+    const friends = names.map((n) => ensureFriend({ name: n }));
+    setDoc((d) => {
+      const have = new Set(d.people.map((p) => p.id));
+      const fresh = friends
+        .filter((f) => !have.has(f.id))
+        .map((f) => ({ id: f.id, name: f.name, emoji: f.emoji, color: f.color }));
+      return { ...d, people: [...d.people, ...fresh].slice(0, 50) };
+    });
     setName("");
   }
 
@@ -62,8 +78,53 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
   const visibleItems = doc.items.filter((it) => !onlyUnassigned || unassigned.has(it.id));
 
   return (
-    <div className="space-y-6">
-      <Section title="Who's splitting?">
+    <div className="space-y-7">
+      <div>
+        <h1 className="large-title">Who&apos;s splitting?</h1>
+        <p className="mt-1 text-[15px] text-ink-2">Tap a name to rename it for this split.</p>
+      </div>
+
+      <div className="card space-y-4 p-4">
+        <ul className="flex flex-wrap gap-2" aria-label="People">
+          {doc.people.map((p) => (
+            <li key={p.id}>
+              {editing === p.id ? (
+                <input
+                  autoFocus
+                  className="input h-11 min-h-11 w-44 rounded-full"
+                  aria-label={`Rename ${p.name}`}
+                  value={p.name}
+                  enterKeyHint="done"
+                  onChange={(e) => rename(p.id, e.target.value)}
+                  onBlur={() => setEditing(null)}
+                  onKeyDown={(e) => e.key === "Enter" && setEditing(null)}
+                />
+              ) : (
+                <span className="inline-flex h-11 items-center rounded-full bg-field pl-1.5 shadow-[inset_0_0_0_1px_var(--field-border)]">
+                  <button
+                    type="button"
+                    className="flex h-full max-w-44 items-center gap-2 pr-1 font-semibold"
+                    onClick={() => setEditing(p.id)}
+                    aria-label={`Rename ${p.name}`}
+                  >
+                    <Avatar person={p} size={32} />
+                    <span className="truncate">{p.name || "Unnamed"}</span>
+                    {p.id === ME_ID && <span className="text-[12px] font-medium text-ink-2">you</span>}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn size-10 text-ink-3 hover:text-danger"
+                    aria-label={`Remove ${p.name}`}
+                    onClick={() => removePerson(p.id)}
+                  >
+                    <X size={16} />
+                  </button>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -73,66 +134,20 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
         >
           <input
             className="input"
-            placeholder="Name (or several, comma-separated)"
+            placeholder="Add a name (or several, comma-separated)"
             aria-label="Person name"
             value={name}
             enterKeyHint="done"
             onChange={(e) => setName(e.target.value)}
           />
-          <button type="submit" className="btn-primary shrink-0" disabled={!name.trim()}>
-            Add
+          <button type="submit" className="btn-primary w-12 shrink-0 px-0" disabled={!name.trim()} aria-label="Add person">
+            <UserPlus size={20} />
           </button>
         </form>
-
-        {doc.people.length === 0 && (
-          <div className="flex flex-wrap gap-2">
-            {["Me", "Me, Friend 1, Friend 2"].map((s) => (
-              <button key={s} type="button" className="btn-secondary text-sm" onClick={() => add(s)}>
-                + {s}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <ul className="flex flex-wrap gap-2" aria-label="People">
-          {doc.people.map((p) => (
-            <li key={p.id}>
-              {editing === p.id ? (
-                <input
-                  autoFocus
-                  className="input h-11 w-40 rounded-full"
-                  aria-label={`Rename ${p.name}`}
-                  value={p.name}
-                  enterKeyHint="done"
-                  onChange={(e) => rename(p.id, e.target.value)}
-                  onBlur={() => setEditing(null)}
-                  onKeyDown={(e) => e.key === "Enter" && setEditing(null)}
-                />
-              ) : (
-                <span className="inline-flex h-11 items-center rounded-full border border-zinc-300 bg-white pl-4 dark:border-zinc-700 dark:bg-zinc-900">
-                  <button
-                    type="button"
-                    className="h-full max-w-40 truncate font-medium"
-                    onClick={() => setEditing(p.id)}
-                    aria-label={`Rename ${p.name}`}
-                  >
-                    {p.name || "Unnamed"}
-                  </button>
-                  <button
-                    type="button"
-                    className="grid size-11 place-items-center rounded-full text-lg text-zinc-400 hover:text-red-600"
-                    aria-label={`Remove ${p.name}`}
-                    onClick={() => removePerson(p.id)}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-        {doc.people.length > 0 && <p className="text-xs text-zinc-500">Tap a name to rename it.</p>}
-      </Section>
+        <button type="button" className="btn-secondary h-12 w-full" onClick={onPickFriends}>
+          <UsersRound size={18} aria-hidden /> Pick from Friends
+        </button>
+      </div>
 
       <Section title="How to split">
         <Segmented
@@ -147,12 +162,14 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
       </Section>
 
       {doc.mode === "equal" && doc.people.length > 0 && (
-        <div className="card p-4 text-center">
-          <p className="text-sm text-zinc-500">Each of {doc.people.length} pays about</p>
-          <p className="text-3xl font-bold tabular-nums">
-            {formatMoney(Math.max(...calc.people.map((p) => p.total)), currency)}
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">incl. extras set on the next step</p>
+        <div className="glass rounded-3xl p-6 text-center">
+          <p className="text-[15px] font-medium text-ink-2">Each of {doc.people.length} pays about</p>
+          <Money
+            value={Math.max(...calc.people.map((p) => p.total))}
+            currency={currency}
+            className="mt-1 block text-[44px] leading-none font-bold tracking-tight"
+          />
+          <p className="mt-2 text-[13px] text-ink-2">incl. extras set on the next step</p>
         </div>
       )}
 
@@ -164,10 +181,8 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
               <button
                 type="button"
                 className={cx(
-                  "min-h-9 rounded-full px-3 text-sm font-semibold",
-                  onlyUnassigned
-                    ? "bg-amber-500 text-white"
-                    : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
+                  "chip min-h-9 px-3 text-[13px] font-bold",
+                  onlyUnassigned ? "bg-warn text-white dark:text-black" : "bg-warn-soft text-warn",
                 )}
                 aria-pressed={onlyUnassigned}
                 onClick={() => setOnlyUnassigned((v) => !v)}
@@ -180,14 +195,16 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
           {doc.people.length === 0 ? (
             <Callout tone="info">Add people above, then tap names on each item.</Callout>
           ) : unassigned.size === 0 ? (
-            <Callout tone="success">✓ Every item is assigned.</Callout>
+            <Callout tone="success" icon={<Check size={18} />}>
+              Every item is assigned.
+            </Callout>
           ) : null}
           {onlyUnassigned && unassigned.size === 0 && (
             <button type="button" className="btn-ghost text-sm" onClick={() => setOnlyUnassigned(false)}>
               Show all items
             </button>
           )}
-          <ul className="space-y-2">
+          <ul className="space-y-2.5">
             {visibleItems.map((it) => {
               const line = calc.lines.find((l) => l.itemId === it.id);
               const missing = unassigned.has(it.id);
@@ -196,24 +213,26 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
               return (
                 <li
                   key={it.id}
-                  className={cx(
-                    "card p-3",
-                    missing && "border-amber-400 bg-amber-50/60 ring-1 ring-amber-400 dark:border-amber-600 dark:bg-amber-950/30 dark:ring-amber-600",
-                  )}
+                  className={cx("card p-3.5", missing && "shadow-[inset_0_0_0_2px_var(--warn)] ring-0")}
                 >
-                  <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="mb-3 flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">
-                        {it.qty > 1 && <span className="text-zinc-500">{it.qty}× </span>}
+                        {it.qty > 1 && <span className="text-ink-2">{it.qty}× </span>}
                         {it.name || "Unnamed item"}
                       </p>
-                      <p className="text-sm text-zinc-500 tabular-nums">
-                        {formatMoney(line?.lineTotal ?? 0, currency)}
-                        {k > 1 && ` · ÷${k} ≈ ${formatMoney(Math.round((line?.lineTotal ?? 0) / k), currency)} each`}
+                      <p className="text-[13px] font-medium text-ink-2">
+                        <Money value={line?.lineTotal ?? 0} currency={currency} />
+                        {k > 1 && (
+                          <>
+                            {" "}
+                            · ÷{k} ≈ <Money value={Math.round((line?.lineTotal ?? 0) / k)} currency={currency} /> each
+                          </>
+                        )}
                       </p>
                     </div>
                     {missing && (
-                      <span className="shrink-0 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
+                      <span className="shrink-0 rounded-full bg-warn-soft px-2.5 py-1 text-[12px] font-bold text-warn">
                         Unassigned
                       </span>
                     )}
@@ -224,10 +243,8 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
                       aria-pressed={allOn}
                       onClick={() => setAll(it.id, !allOn)}
                       className={cx(
-                        "min-h-11 rounded-full border px-3 text-sm font-semibold",
-                        allOn
-                          ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900"
-                          : "border-dashed border-zinc-400 text-zinc-600 dark:border-zinc-600 dark:text-zinc-300",
+                        "chip px-4 text-[14px] font-semibold",
+                        allOn ? "bg-ink text-[var(--bg)]" : "text-ink-2 shadow-[inset_0_0_0_1.5px_var(--field-border)]",
                       )}
                     >
                       {allOn ? "✓ Everyone" : "Select all"}
@@ -241,14 +258,12 @@ export function PeopleStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
                           aria-pressed={on}
                           onClick={() => toggle(it.id, p.id)}
                           className={cx(
-                            "min-h-11 max-w-40 truncate rounded-full border px-4 text-sm font-medium transition",
-                            on
-                              ? "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500 dark:text-zinc-950"
-                              : "border-zinc-300 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200",
+                            "chip max-w-44 pl-1.5 text-[14px]",
+                            on ? "bg-accent text-accent-ink" : "bg-field text-ink shadow-[inset_0_0_0_1px_var(--field-border)]",
                           )}
                         >
-                          {on && "✓ "}
-                          {p.name || "Unnamed"}
+                          <Avatar person={p} size={30} />
+                          <span className="truncate">{p.name || "Unnamed"}</span>
                         </button>
                       );
                     })}

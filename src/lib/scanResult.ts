@@ -9,6 +9,8 @@ export interface ScanResult {
   discount: number | null;
   total: number | null;
   currency: string | null;
+  /** which engine produced this (set by /api/scan or the on-device fallback) */
+  engine?: "gemini" | "offline";
 }
 
 function num(v: unknown): number | null {

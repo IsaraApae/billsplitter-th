@@ -21,6 +21,7 @@ interface Kv {
   hset(key: string, field: string, value: string): Promise<void>;
   hdel(key: string, ...fields: string[]): Promise<void>;
   expire(key: string, seconds: number): Promise<void>;
+  del(key: string): Promise<void>;
 }
 
 function upstashKv(r: Redis): Kv {
@@ -31,6 +32,7 @@ function upstashKv(r: Redis): Kv {
     hset: async (k, f, v) => void (await r.hset(k, { [f]: v })),
     hdel: async (k, ...f) => void (f.length && (await r.hdel(k, ...f))),
     expire: async (k, s) => void (await r.expire(k, s)),
+    del: async (k) => void (await r.del(k)),
   };
 }
 
@@ -54,6 +56,7 @@ function memoryKv(): Kv {
     hset: async (k, f, v) => void hash(k).set(f, v),
     hdel: async (k, ...f) => f.forEach((x) => hash(k).delete(x)),
     expire: async () => {},
+    del: async (k) => void m.delete(k),
   };
 }
 
@@ -134,6 +137,61 @@ export async function updateSplit(id: string, token: string, doc: SplitDoc): Pro
     db().expire(paidKey(id), TTL_SECONDS),
   ]);
   return "ok";
+}
+
+// ---- Owner profile (the creator's device) — holds the uploaded PromptPay QR --
+
+const ownerKey = (id: string) => `owner:${id}`;
+const OWNER_TTL = 60 * 60 * 24 * 400; // refreshed whenever the owner shares a split
+
+export interface OwnerRecord {
+  editHash: string;
+  qrUrl: string | null; // Vercel Blob URL (or "dev:<key>" locally)
+  version: number; // bumps on every change, used to bust image caches
+}
+
+export const isValidOwnerId = isValidId;
+
+export async function getOwner(id: string): Promise<OwnerRecord | null> {
+  return isValidOwnerId(id) ? db().get<OwnerRecord>(ownerKey(id)) : null;
+}
+
+/** Returns the record if `token` owns it, "forbidden" if not, null if it doesn't exist. */
+export async function getOwnerForWrite(id: string, token: string): Promise<OwnerRecord | "forbidden" | null> {
+  const o = await getOwner(id);
+  if (!o) return null;
+  const a = Buffer.from(hash(token));
+  const b = Buffer.from(o.editHash);
+  return a.length === b.length && timingSafeEqual(a, b) ? o : "forbidden";
+}
+
+export async function createOwner(): Promise<{ id: string; token: string }> {
+  const token = newToken();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const id = newId();
+    const rec: OwnerRecord = { editHash: hash(token), qrUrl: null, version: 0 };
+    if (await db().set(ownerKey(id), rec, { ex: OWNER_TTL, nx: true })) return { id, token };
+  }
+  throw new Error("Could not allocate an owner id");
+}
+
+export async function saveOwner(id: string, rec: OwnerRecord): Promise<void> {
+  await db().set(ownerKey(id), rec, { ex: OWNER_TTL });
+}
+
+export async function touchOwner(id: string): Promise<void> {
+  if (isValidOwnerId(id)) await db().expire(ownerKey(id), OWNER_TTL);
+}
+
+// Dev-only image storage when Vercel Blob isn't configured.
+export async function devImagePut(key: string, dataUrl: string) {
+  await db().set(`devimg:${key}`, dataUrl, { ex: OWNER_TTL });
+}
+export async function devImageGet(key: string) {
+  return db().get<string>(`devimg:${key}`);
+}
+export async function devImageDel(key: string) {
+  await db().del(`devimg:${key}`);
 }
 
 export async function setPaid(id: string, personId: string, paid: boolean): Promise<string[] | null> {

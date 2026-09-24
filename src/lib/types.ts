@@ -3,9 +3,14 @@
 
 export type SplitMode = "equal" | "itemized";
 
+export const PERSON_COLORS = ["emerald", "sky", "violet", "rose", "amber", "teal", "indigo", "slate"] as const;
+export type PersonColor = (typeof PERSON_COLORS)[number];
+
 export interface Person {
   id: string;
   name: string;
+  emoji?: string;
+  color?: PersonColor;
 }
 
 export interface Item {
@@ -30,9 +35,20 @@ export interface Rate {
   rateBp: number;
 }
 
+/**
+ * How the creator gets paid.
+ * - "generate": build a PromptPay QR from `promptpay` with each person's exact amount
+ * - "upload": show the creator's uploaded QR image (looked up live via `ownerId`)
+ * - "none": no QR, just the note
+ * Older splits have no `qrMode`; they behave like "generate" when `promptpay` is set.
+ */
+export type QrMode = "none" | "upload" | "generate";
+
 export interface PaymentInfo {
   promptpay: string; // phone / national ID / e-wallet id, digits only
   note: string; // free text, e.g. bank + account
+  qrMode?: QrMode;
+  ownerId?: string; // creator's device profile id (for the uploaded QR)
 }
 
 /** Figures printed on a scanned receipt, used only for mismatch warnings. */

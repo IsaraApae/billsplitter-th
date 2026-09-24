@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CURRENCIES } from "./money";
-import type { SplitDoc } from "./types";
+import { PERSON_COLORS, type SplitDoc } from "./types";
 
 const id = z.string().min(1).max(40).regex(/^[\w-]+$/);
 const name = z.string().trim().min(1).max(80);
@@ -14,7 +14,17 @@ export const splitDocSchema = z
     createdAt: z.iso.datetime(),
     currency: z.enum(CURRENCIES),
     mode: z.enum(["equal", "itemized"]),
-    people: z.array(z.object({ id, name })).min(1).max(50),
+    people: z
+      .array(
+        z.object({
+          id,
+          name,
+          emoji: z.string().max(16).optional(),
+          color: z.enum(PERSON_COLORS).optional(),
+        }),
+      )
+      .min(1)
+      .max(50),
     items: z
       .array(
         z.object({
@@ -39,6 +49,8 @@ export const splitDocSchema = z
     payment: z.object({
       promptpay: z.string().regex(/^\d{0,15}$/).default(""),
       note: z.string().max(300).default(""),
+      qrMode: z.enum(["none", "upload", "generate"]).optional(),
+      ownerId: z.string().regex(/^[\w-]{16}$/).optional(),
     }),
     receipt: z.object({ subtotal: money.nullable(), total: money.nullable() }),
   })

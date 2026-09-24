@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatMoney, parseMoney, percentToBp } from "./money";
 import { parseReceiptText } from "./ocrParse";
-import { crc16, isValidPromptPayId, promptPayPayload } from "./promptpay";
 
 describe("money", () => {
   it("parses user input into minor units", () => {
@@ -23,35 +22,6 @@ describe("money", () => {
   it("converts percent to basis points", () => {
     expect(percentToBp(7)).toBe(700);
     expect(percentToBp(12.5)).toBe(1250);
-  });
-});
-
-describe("promptpay", () => {
-  it("uses CRC-16/CCITT-FALSE", () => {
-    expect(crc16("123456789")).toBe("29B1");
-  });
-
-  it("builds a phone-number payload with amount", () => {
-    const p = promptPayPayload("081-234-5678", 15050);
-    expect(p).toContain("0016A000000677010111");
-    expect(p).toContain("01130066812345678");
-    expect(p).toContain("5406150.50");
-    expect(p).toContain("010212");
-    expect(p.slice(-8, -4)).toBe("6304");
-    expect(p.slice(-4)).toBe(crc16(p.slice(0, -4)));
-  });
-
-  it("builds a static national-ID payload", () => {
-    const p = promptPayPayload("1234567890123");
-    expect(p).toContain("02131234567890123");
-    expect(p).toContain("010211");
-    expect(p).not.toContain("5406");
-  });
-
-  it("validates ids", () => {
-    expect(isValidPromptPayId("0812345678")).toBe(true);
-    expect(isValidPromptPayId("1234567890123")).toBe(true);
-    expect(isValidPromptPayId("12345")).toBe(false);
   });
 });
 

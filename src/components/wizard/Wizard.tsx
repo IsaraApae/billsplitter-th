@@ -1,12 +1,16 @@
 "use client";
 
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { calculate } from "@/lib/calc";
+import { rememberPeople } from "@/lib/client/friendsStore";
+import { getProfile, paymentFromProfile } from "@/lib/client/profile";
 import { getEditToken, load, remove, save, setEditToken, upsertHistory } from "@/lib/client/storage";
 import { defaultTitle, newDoc } from "@/lib/draft";
-import { formatMoney } from "@/lib/money";
-import type { PaymentInfo, SplitDoc } from "@/lib/types";
-import { Callout, cx } from "../ui";
+import { toPeople } from "@/lib/friends";
+import type { Person, SplitDoc } from "@/lib/types";
+import { CrewSheet } from "../CrewSheet";
+import { Callout, Money, cx } from "../ui";
 import { ExtrasStep } from "./ExtrasStep";
 import { ItemsStep } from "./ItemsStep";
 import { PeopleStep } from "./PeopleStep";
@@ -15,7 +19,6 @@ import { ShareStep } from "./ShareStep";
 
 const STEPS = ["Items", "People", "Extras", "Review", "Share"] as const;
 const DRAFT_KEY = "bs:draft";
-const PAYMENT_KEY = "bs:payment";
 
 export interface DraftState {
   doc: SplitDoc;
@@ -27,17 +30,22 @@ export interface DraftState {
 export type SetDoc = (fn: (d: SplitDoc) => SplitDoc) => void;
 
 function freshState(): DraftState {
-  return { doc: newDoc(load<PaymentInfo>(PAYMENT_KEY, { promptpay: "", note: "" })), step: 0, editingId: null };
+  const profile = getProfile();
+  const doc = newDoc(paymentFromProfile(profile));
+  doc.people = toPeople({ name: profile.name, emoji: profile.emoji, color: profile.color }, []);
+  return { doc, step: 0, editingId: null };
 }
 
 /** Initial state from localStorage, or a request to load a shared split (?edit=id). */
-function boot(): { draft: DraftState; editId: string | null; error: string | null } {
+function boot(): { draft: DraftState; editId: string | null; error: string | null; isNew: boolean } {
   const saved = load<DraftState | null>(DRAFT_KEY, null);
-  const draft = saved?.doc?.v === 1 ? saved : freshState();
+  const isNew = !(saved?.doc?.v === 1);
+  const draft = isNew ? freshState() : saved!;
   const editId = new URLSearchParams(window.location.search).get("edit");
-  if (!editId) return { draft, editId: null, error: null };
-  if (!getEditToken(editId)) return { draft, editId: null, error: "You can only edit splits created on this device." };
-  return { draft, editId, error: null };
+  if (!editId) return { draft, editId: null, error: null, isNew };
+  if (!getEditToken(editId))
+    return { draft, editId: null, error: "You can only edit splits created on this device.", isNew: false };
+  return { draft, editId, error: null, isNew: false };
 }
 
 export function Wizard() {
@@ -45,6 +53,7 @@ export function Wizard() {
   const [state, setState] = useState<DraftState | null>(init.editId ? null : init.draft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(init.error);
+  const [crewOpen, setCrewOpen] = useState(init.isNew && !init.editId);
   const loadingEdit = state === null;
 
   // Load a shared split for editing.
@@ -71,7 +80,11 @@ export function Wizard() {
   const calc = useMemo(() => (state ? calculate(state.doc) : null), [state]);
 
   if (!state || !calc || loadingEdit) {
-    return <div className="mx-auto max-w-2xl p-4 text-zinc-500">{loadingEdit ? "Loading split…" : ""}</div>;
+    return (
+      <div className="mx-auto max-w-2xl p-6 text-center text-ink-2" aria-live="polite">
+        {loadingEdit ? "Loading split…" : ""}
+      </div>
+    );
   }
 
   const { doc, step } = state;
@@ -79,14 +92,21 @@ export function Wizard() {
   const go = (n: number) => {
     setError(null);
     setState((s) => (s ? { ...s, step: n } : s));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   };
+
+  const setPeople = (people: Person[]) =>
+    setDoc((d) => {
+      const ids = new Set(people.map((p) => p.id));
+      return { ...d, people, items: d.items.map((it) => ({ ...it, assigned: it.assigned.filter((a) => ids.has(a)) })) };
+    });
 
   function startNew() {
     if (doc.items.length && step !== 4 && !confirm("Discard this draft and start a new split?")) return;
     remove(DRAFT_KEY);
     setError(null);
     setState(freshState());
+    setCrewOpen(true);
   }
 
   async function finish() {
@@ -98,6 +118,7 @@ export function Wizard() {
       title: doc.title.trim() || defaultTitle(new Date(doc.createdAt)),
       people: doc.people.map((p, i) => ({ ...p, name: p.name.trim() || `Person ${i + 1}` })),
       items: doc.items.map((it, i) => ({ ...it, name: it.name.trim() || `Item ${i + 1}` })),
+      payment: paymentFromProfile(getProfile()),
     };
     try {
       const editing = state!.editingId;
@@ -111,13 +132,12 @@ export function Wizard() {
       if (!res.ok) throw new Error(data?.message ?? `Saving failed (${res.status}).`);
       const id: string = editing ?? data.id;
       if (!editing) setEditToken(id, data.token);
-      save(PAYMENT_KEY, clean.payment);
-      const c = calculate(clean);
+      rememberPeople(clean.people);
       upsertHistory({
         id,
         title: clean.title,
         createdAt: clean.createdAt,
-        total: c.total,
+        total: calculate(clean).total,
         currency: clean.currency,
         people: clean.people.length,
         paid: 0,
@@ -144,27 +164,25 @@ export function Wizard() {
   ][step];
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-3 pb-40">
-      <nav aria-label="Steps" className="mb-5">
-        <ol className="grid grid-cols-5 gap-1">
+    <div className="mx-auto max-w-2xl px-4 pt-4 pb-44">
+      <nav aria-label="Steps" className="mb-6">
+        <ol className="glass-lite grid grid-cols-5 gap-1 rounded-full p-1">
           {STEPS.map((label, i) => {
-            const reachable = i < 4 ? true : state.editingId !== null && step === 4;
+            const reachable = i < 4 || (state.editingId !== null && step === 4);
+            const current = i === step;
             return (
               <li key={label}>
                 <button
                   type="button"
-                  disabled={!reachable || i === step}
+                  disabled={!reachable || current}
                   onClick={() => go(i)}
-                  aria-current={i === step ? "step" : undefined}
-                  className="flex min-h-11 w-full flex-col items-center gap-1 text-xs font-medium disabled:cursor-default"
+                  aria-current={current ? "step" : undefined}
+                  className={cx(
+                    "flex min-h-10 w-full items-center justify-center rounded-full text-[13px] font-semibold transition-[background-color,color] duration-300 disabled:cursor-default",
+                    current ? "bg-accent text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.3)]" : i < step ? "text-accent" : "text-ink-2",
+                  )}
                 >
-                  <span
-                    className={cx(
-                      "h-1.5 w-full rounded-full",
-                      i <= step ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800",
-                    )}
-                  />
-                  <span className={i === step ? "text-zinc-900 dark:text-white" : "text-zinc-500"}>{label}</span>
+                  {label}
                 </button>
               </li>
             );
@@ -178,54 +196,12 @@ export function Wizard() {
         </div>
       )}
 
-      {step === 0 && <ItemsStep doc={doc} setDoc={setDoc} calc={calc} />}
-      {step === 1 && <PeopleStep doc={doc} setDoc={setDoc} calc={calc} />}
-      {step === 2 && <ExtrasStep doc={doc} setDoc={setDoc} calc={calc} />}
-      {step === 3 && <ReviewStep doc={doc} setDoc={setDoc} calc={calc} goTo={go} />}
-      {step === 4 && state.editingId && <ShareStep doc={doc} calc={calc} id={state.editingId} />}
-
-      {/* Thumb-friendly bottom action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-[var(--bg)]/95 backdrop-blur dark:border-zinc-800">
-        <div className="mx-auto max-w-2xl px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          {error && (
-            <div className="mb-2">
-              <Callout tone="error">{error}</Callout>
-            </div>
-          )}
-          <div className="mb-2 flex items-baseline justify-between text-sm">
-            <span className="text-zinc-500">
-              {!canNext && nextHint ? <span className="text-amber-600 dark:text-amber-400">{nextHint}</span> : "Grand total"}
-            </span>
-            <span className="text-lg font-bold tabular-nums">{formatMoney(calc.total, doc.currency)}</span>
-          </div>
-          <div className="flex gap-2">
-            {step > 0 && step < 4 && (
-              <button type="button" className="btn-secondary w-24" onClick={() => go(step - 1)}>
-                Back
-              </button>
-            )}
-            {step < 3 && (
-              <button type="button" className="btn-primary flex-1" disabled={!canNext} onClick={() => go(step + 1)}>
-                Next: {STEPS[step + 1]}
-              </button>
-            )}
-            {step === 3 && (
-              <button type="button" className="btn-primary flex-1" disabled={!canNext || busy} onClick={finish}>
-                {busy ? "Saving…" : state.editingId ? "Save & share" : "Finish & share"}
-              </button>
-            )}
-            {step === 4 && (
-              <>
-                <button type="button" className="btn-secondary flex-1" onClick={() => go(0)}>
-                  Edit
-                </button>
-                <button type="button" className="btn-primary flex-1" onClick={startNew}>
-                  New split
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+      <div key={step} className="rise">
+        {step === 0 && <ItemsStep doc={doc} setDoc={setDoc} calc={calc} />}
+        {step === 1 && <PeopleStep doc={doc} setDoc={setDoc} calc={calc} onPickFriends={() => setCrewOpen(true)} />}
+        {step === 2 && <ExtrasStep doc={doc} setDoc={setDoc} calc={calc} />}
+        {step === 3 && <ReviewStep doc={doc} setDoc={setDoc} calc={calc} goTo={go} />}
+        {step === 4 && state.editingId && <ShareStep doc={doc} calc={calc} id={state.editingId} />}
       </div>
 
       {step < 4 && doc.items.length > 0 && (
@@ -235,6 +211,60 @@ export function Wizard() {
           </button>
         </div>
       )}
+
+      <CrewSheet
+        open={crewOpen}
+        onClose={() => setCrewOpen(false)}
+        people={doc.people}
+        onConfirm={(people) => {
+          setPeople(people);
+          setCrewOpen(false);
+        }}
+      />
+
+      {/* Floating, thumb-friendly glass action bar */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="glass pointer-events-auto mx-auto max-w-2xl rounded-[28px] p-2.5">
+          {error && (
+            <div className="mb-2">
+              <Callout tone="error">{error}</Callout>
+            </div>
+          )}
+          <div className="mb-2 flex items-baseline justify-between px-2">
+            <span className="text-[13px] font-medium">
+              {!canNext && nextHint ? <span className="text-warn">{nextHint}</span> : <span className="text-ink-2">Grand total</span>}
+            </span>
+            <Money value={calc.total} currency={doc.currency} className="text-[22px] font-bold tracking-tight" />
+          </div>
+          <div className="flex gap-2">
+            {step > 0 && step < 4 && (
+              <button type="button" className="btn-secondary h-13 w-14 px-0" aria-label="Back" onClick={() => go(step - 1)}>
+                <ChevronLeft size={22} />
+              </button>
+            )}
+            {step < 3 && (
+              <button type="button" className="btn-primary h-13 flex-1 text-[17px]" disabled={!canNext} onClick={() => go(step + 1)}>
+                Next: {STEPS[step + 1]}
+              </button>
+            )}
+            {step === 3 && (
+              <button type="button" className="btn-primary h-13 flex-1 text-[17px]" disabled={!canNext || busy} onClick={finish}>
+                {busy ? "Saving…" : state.editingId ? "Save & share" : "Finish & share"}
+              </button>
+            )}
+            {step === 4 && (
+              <>
+                <button type="button" className="btn-secondary h-13 flex-1" onClick={() => go(0)}>
+                  Edit
+                </button>
+                <button type="button" className="btn-primary h-13 flex-1" onClick={startNew}>
+                  New split
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

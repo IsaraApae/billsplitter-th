@@ -1,33 +1,43 @@
+import type { ReactNode } from "react";
 import type { CalcResult } from "@/lib/calc";
-import { formatMoney } from "@/lib/money";
 import type { SplitDoc } from "@/lib/types";
+import { Money } from "./ui";
 
 const pct = (bp: number) => `${bp / 100}%`;
 
 /** Bill-level breakdown: items → discount → service → VAT → total. */
-export function Breakdown({ doc, calc }: { doc: Pick<SplitDoc, "currency" | "discount" | "service" | "vat">; calc: CalcResult }) {
-  const f = (n: number) => formatMoney(n, doc.currency);
+export function Breakdown({
+  doc,
+  calc,
+}: {
+  doc: Pick<SplitDoc, "currency" | "discount" | "service" | "vat">;
+  calc: CalcResult;
+}) {
+  const c = doc.currency;
   const d = doc.discount;
-  const discountLabel =
-    d.type === "percent" ? `Discount ${pct(d.value)}` : "Discount";
-  const rows: [string, string, string?][] = [["Items subtotal", f(calc.itemsSubtotal)]];
+  const discountLabel = `${d.type === "percent" ? `Discount ${pct(d.value)}` : "Discount"}${d.scope === "selected" ? " (selected)" : ""}`;
+  const rows: { k: string; v: ReactNode; accent?: boolean }[] = [
+    { k: "Items subtotal", v: <Money value={calc.itemsSubtotal} currency={c} /> },
+  ];
   if (calc.discount > 0) {
-    rows.push([`${discountLabel}${d.scope === "selected" ? " (selected items)" : ""}`, `−${f(calc.discount)}`, "text-emerald-700 dark:text-emerald-400"]);
-    rows.push(["After discount", f(calc.discountedSubtotal)]);
+    rows.push({ k: discountLabel, v: <>−<Money value={calc.discount} currency={c} /></>, accent: true });
+    rows.push({ k: "After discount", v: <Money value={calc.discountedSubtotal} currency={c} /> });
   }
-  if (doc.service.enabled) rows.push([`Service charge ${pct(doc.service.rateBp)}`, f(calc.service)]);
-  if (doc.vat.enabled) rows.push([`VAT ${pct(doc.vat.rateBp)}`, f(calc.vat)]);
+  if (doc.service.enabled) rows.push({ k: `Service charge ${pct(doc.service.rateBp)}`, v: <Money value={calc.service} currency={c} /> });
+  if (doc.vat.enabled) rows.push({ k: `VAT ${pct(doc.vat.rateBp)}`, v: <Money value={calc.vat} currency={c} /> });
   return (
-    <dl className="card divide-y divide-zinc-100 px-4 dark:divide-zinc-800">
-      {rows.map(([k, v, cls]) => (
-        <div key={k} className="flex justify-between gap-4 py-2.5 text-[15px]">
-          <dt className="text-zinc-600 dark:text-zinc-400">{k}</dt>
-          <dd className={`tabular-nums ${cls ?? ""}`}>{v}</dd>
+    <dl className="card divide-y divide-[var(--line)] px-4">
+      {rows.map(({ k, v, accent }) => (
+        <div key={k} className="flex justify-between gap-4 py-3 text-[15px]">
+          <dt className="text-ink-2">{k}</dt>
+          <dd className={accent ? "font-semibold text-accent" : "font-medium"}>{v}</dd>
         </div>
       ))}
-      <div className="flex justify-between gap-4 py-3 text-lg font-bold">
-        <dt>Grand total</dt>
-        <dd className="tabular-nums">{f(calc.total)}</dd>
+      <div className="flex items-baseline justify-between gap-4 py-3.5">
+        <dt className="text-[17px] font-bold">Grand total</dt>
+        <dd>
+          <Money value={calc.total} currency={c} className="text-[24px] font-bold tracking-tight" />
+        </dd>
       </div>
     </dl>
   );

@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { PayQrSource } from "@/components/PayQr";
 import { SharedView } from "@/components/SharedView";
 import { calculate } from "@/lib/calc";
 import { formatMoney } from "@/lib/money";
-import { getPaid, isValidId, storageReady } from "@/lib/server/redis";
+import { effectiveQrMode } from "@/lib/promptpay";
+import { getOwner, getPaid, isValidId, storageReady } from "@/lib/server/redis";
 import { loadSplit } from "@/lib/server/splits";
+import type { SplitDoc } from "@/lib/types";
 
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -23,16 +26,27 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
   };
 }
 
+/** Which QR to show: always the creator's *current* uploaded QR, or a generated one. */
+async function resolveQr(doc: SplitDoc): Promise<PayQrSource | null> {
+  const mode = effectiveQrMode(doc.payment, doc.currency);
+  if (mode === "generate") return { mode, promptpay: doc.payment.promptpay };
+  if (mode === "upload" && doc.payment.ownerId) {
+    const owner = await getOwner(doc.payment.ownerId).catch(() => null);
+    if (owner?.qrUrl) return { mode, ownerId: doc.payment.ownerId, version: owner.version };
+  }
+  return null;
+}
+
 export default async function SharedPage({ params }: PageProps<"/s/[id]">) {
   const { id } = await params;
   if (!isValidId(id)) notFound();
   if (!storageReady) {
     return (
       <main className="mx-auto max-w-2xl p-4">
-        <div className="card p-6 text-center">
+        <div className="glass rounded-[28px] p-8 text-center">
           <h1 className="text-xl font-bold">Sharing isn&apos;t set up yet</h1>
-          <p className="mt-2 text-zinc-500">The Redis database isn&apos;t connected to this deployment.</p>
-          <Link href="/" className="btn-primary mt-4">
+          <p className="mt-2 text-ink-2">The Redis database isn&apos;t connected to this deployment.</p>
+          <Link href="/" className="btn-primary mt-5">
             Go home
           </Link>
         </div>
@@ -41,6 +55,6 @@ export default async function SharedPage({ params }: PageProps<"/s/[id]">) {
   }
   const s = await loadSplit(id);
   if (!s) notFound();
-  const paid = await getPaid(id).catch(() => []);
-  return <SharedView id={id} doc={s.doc} updatedAt={s.updatedAt} initialPaid={paid} />;
+  const [paid, qr] = await Promise.all([getPaid(id).catch(() => []), resolveQr(s.doc)]);
+  return <SharedView id={id} doc={s.doc} updatedAt={s.updatedAt} initialPaid={paid} qr={qr} />;
 }

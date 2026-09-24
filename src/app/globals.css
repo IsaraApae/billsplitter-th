@@ -3,17 +3,126 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), var(--font-thai), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), var(--font-thai), "Segoe UI", Roboto,
+    sans-serif;
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-strong: var(--accent-strong);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-field: var(--field);
+  --color-line: var(--line);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* ---------- Tokens -------------------------------------------------------
+   Text colours are chosen for ≥ 4.5:1 contrast on the glass fills below
+   (worst case: glass over the brightest background blob). */
 :root {
   color-scheme: light;
-  --bg: #f6f7f9;
+  --bg: #eef2f7;
+  --blob-1: rgb(56 189 248 / 0.38);
+  --blob-2: rgb(167 139 250 / 0.36);
+  --blob-3: rgb(52 211 153 / 0.32);
+  --blob-4: rgb(251 113 133 / 0.26);
+
+  --ink: #0b1220;
+  --ink-2: #394457;
+  --ink-3: #556072;
+  --accent: #047857;
+  --accent-ink: #ffffff;
+  --accent-soft: rgb(4 120 87 / 0.12);
+  --accent-strong: #065f46; /* text on accent-soft */
+  --accent-glow: rgb(4 120 87 / 0.45);
+  --warn: #92400e;
+  --warn-soft: rgb(245 158 11 / 0.16);
+  --danger: #b91c1c;
+  --danger-soft: rgb(239 68 68 / 0.12);
+  --info: #075985;
+  --info-soft: rgb(14 165 233 / 0.12);
+
+  --glass: rgb(255 255 255 / 0.62);
+  --glass-strong: rgb(255 255 255 / 0.8);
+  --glass-lite: rgb(255 255 255 / 0.72);
+  --glass-blur: blur(24px) saturate(180%);
+  --glass-sheen: rgb(255 255 255 / 0.55);
+  --glass-border: rgb(255 255 255 / 0.7);
+  --glass-highlight: rgb(255 255 255 / 0.95);
+  --glass-hairline: rgb(15 23 42 / 0.07);
+  --glass-shadow: 0 12px 32px -14px rgb(15 23 42 / 0.22), 0 2px 6px -2px rgb(15 23 42 / 0.08);
+  --glass-solid: #f8fafc;
+  --field: rgb(255 255 255 / 0.72);
+  --field-border: rgb(15 23 42 / 0.12);
+  --line: rgb(15 23 42 / 0.08);
+  --hover: rgb(15 23 42 / 0.05);
 }
+
 .dark {
   color-scheme: dark;
-  --bg: #09090b;
+  --bg: #06080f;
+  --blob-1: rgb(14 165 233 / 0.28);
+  --blob-2: rgb(139 92 246 / 0.3);
+  --blob-3: rgb(16 185 129 / 0.22);
+  --blob-4: rgb(244 63 94 / 0.18);
+
+  --ink: #f4f6fb;
+  --ink-2: #c9d0dc;
+  --ink-3: #a3acbb;
+  --accent: #34d399;
+  --accent-ink: #032419;
+  --accent-soft: rgb(52 211 153 / 0.16);
+  --accent-strong: #6ee7b7;
+  --accent-glow: rgb(52 211 153 / 0.35);
+  --warn: #fbbf24;
+  --warn-soft: rgb(251 191 36 / 0.14);
+  --danger: #fca5a5;
+  --danger-soft: rgb(248 113 113 / 0.14);
+  --info: #7dd3fc;
+  --info-soft: rgb(56 189 248 / 0.14);
+
+  --glass: rgb(30 36 52 / 0.56);
+  --glass-strong: rgb(28 33 48 / 0.78);
+  --glass-lite: rgb(26 31 45 / 0.8);
+  --glass-sheen: rgb(255 255 255 / 0.07);
+  --glass-border: rgb(255 255 255 / 0.1);
+  --glass-highlight: rgb(255 255 255 / 0.16);
+  --glass-hairline: rgb(0 0 0 / 0.45);
+  --glass-shadow: 0 14px 36px -14px rgb(0 0 0 / 0.7), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --glass-solid: #161b27;
+  --field: rgb(8 11 18 / 0.5);
+  --field-border: rgb(255 255 255 / 0.12);
+  --line: rgb(255 255 255 / 0.08);
+  --hover: rgb(255 255 255 / 0.06);
+}
+
+/* Solid fallbacks: no backdrop-filter support, reduced transparency, or more contrast. */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :root,
+  .dark {
+    --glass: var(--glass-solid);
+    --glass-strong: var(--glass-solid);
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root,
+  .dark {
+    --glass: var(--glass-solid);
+    --glass-strong: var(--glass-solid);
+    --glass-lite: var(--glass-solid);
+    --glass-blur: none;
+    --glass-sheen: transparent;
+  }
+  .app-bg {
+    display: none;
+  }
 }
 
 html,
@@ -22,38 +131,171 @@ body {
 }
 
 body {
+  color: var(--ink);
   -webkit-tap-highlight-color: transparent;
-  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Numeric inputs: no spinners */
+/* Soft colourful backdrop for the glass (gradients only — no blur filters). */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 32% at 12% 6%, var(--blob-1), transparent 70%),
+    radial-gradient(38% 30% at 92% 18%, var(--blob-2), transparent 70%),
+    radial-gradient(46% 34% at 80% 88%, var(--blob-3), transparent 72%),
+    radial-gradient(40% 30% at 8% 78%, var(--blob-4), transparent 70%),
+    var(--bg);
+}
+
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-input[type="number"] {
-  -moz-appearance: textfield;
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------- Glass surfaces ---------------------------------------------- */
+
+/* Blurred glass — use sparingly: header, action bar, sheets, hero cards. */
+@utility glass {
+  background-color: var(--glass);
+  background-image: linear-gradient(180deg, var(--glass-sheen) 0%, transparent 42%);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    inset 0 0 0 1px var(--glass-border),
+    0 0 0 0.5px var(--glass-hairline),
+    var(--glass-shadow);
+}
+@utility glass-strong {
+  background-color: var(--glass-strong);
+  background-image: linear-gradient(180deg, var(--glass-sheen) 0%, transparent 30%);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    inset 0 0 0 1px var(--glass-border),
+    var(--glass-shadow);
+}
+/* Unblurred glass for list rows and repeated cards (cheap to scroll). */
+@utility glass-lite {
+  background-color: var(--glass-lite);
+  background-image: linear-gradient(180deg, var(--glass-sheen) 0%, transparent 36%);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    inset 0 0 0 1px var(--glass-border),
+    0 0 0 0.5px var(--glass-hairline),
+    0 6px 18px -12px rgb(15 23 42 / 0.25);
 }
 
 @utility card {
-  @apply rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900;
+  @apply glass-lite rounded-3xl;
 }
 @utility input {
-  @apply min-h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100;
+  @apply min-h-12 w-full rounded-2xl border border-[var(--field-border)] bg-field px-4 text-base text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-ink-3 focus:border-accent focus:ring-4 focus:ring-accent/20;
 }
 @utility btn {
-  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold transition select-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40;
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-semibold select-none transition-[transform,background-color,box-shadow,opacity,filter] duration-300 ease-spring active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 motion-reduce:transition-none motion-reduce:active:scale-100;
 }
 @utility btn-primary {
-  @apply btn bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-zinc-950 dark:hover:bg-emerald-400;
+  @apply btn bg-accent text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_10px_24px_-10px_var(--accent-glow)] hover:brightness-110;
 }
 @utility btn-secondary {
-  @apply btn border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800;
+  @apply btn glass-lite text-ink hover:brightness-[1.03];
 }
 @utility btn-ghost {
-  @apply btn text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800;
+  @apply btn text-ink-2 hover:bg-[var(--hover)];
+}
+@utility icon-btn {
+  @apply inline-grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-[transform,background-color] duration-300 ease-spring hover:bg-[var(--hover)] active:scale-90 motion-reduce:transition-none;
 }
 @utility label {
-  @apply text-sm font-medium text-zinc-600 dark:text-zinc-400;
+  @apply text-[13px] font-medium text-ink-2;
+}
+@utility chip {
+  @apply inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium transition-[transform,background-color,box-shadow] duration-300 ease-spring active:scale-95 motion-reduce:transition-none;
+}
+@utility large-title {
+  @apply text-[32px] leading-[1.1] font-bold tracking-[-0.02em] text-ink;
+}
+
+/* ---------- Bottom sheet (native <dialog>) ------------------------------ */
+dialog.sheet {
+  margin: auto auto 0;
+  width: 100%;
+  max-width: 640px;
+  max-height: min(90dvh, 900px);
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  border-radius: 28px 28px 0 0;
+  transform: translateY(0);
+  transition:
+    transform 0.5s var(--ease-spring),
+    display 0.5s allow-discrete,
+    overlay 0.5s allow-discrete;
+}
+dialog.sheet:not([open]) {
+  transform: translateY(100%);
+}
+@starting-style {
+  dialog.sheet[open] {
+    transform: translateY(100%);
+  }
+}
+dialog.sheet::backdrop {
+  background: rgb(2 6 23 / 0);
+  transition:
+    background-color 0.35s ease,
+    display 0.5s allow-discrete,
+    overlay 0.5s allow-discrete;
+}
+dialog.sheet[open]::backdrop {
+  background: rgb(2 6 23 / 0.38);
+}
+@starting-style {
+  dialog.sheet[open]::backdrop {
+    background: rgb(2 6 23 / 0);
+  }
+}
+@media (min-width: 640px) {
+  dialog.sheet {
+    margin-bottom: 24px;
+    border-radius: 28px;
+  }
+}
+
+/* Entrance for step content */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.rise {
+  animation: rise 0.45s var(--ease-spring) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet,
+  dialog.sheet::backdrop {
+    transition: none;
+  }
+  .rise {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
 }
