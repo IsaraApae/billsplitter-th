@@ -2,8 +2,8 @@
 
 import { Check, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { wholeUnit, type CalcResult } from "@/lib/calc";
-import { formatStep } from "@/lib/money";
+import type { CalcResult } from "@/lib/calc";
+import { wholeUnitName } from "@/lib/money";
 import type { Discount, SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
 import { Money, MoneyInput, PercentInput, Section, Segmented, Sheet, Toggle, cx } from "../ui";
@@ -131,18 +131,24 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
         </p>
       </Section>
 
-      <Section title="Round up">
+      <Section title="Rounding">
         <div className="card p-4">
           <Toggle
-            label={`Round up to the nearest ${formatStep(wholeUnit(currency), currency)}`}
+            label={`Round to whole ${wholeUnitName(currency)}`}
             hint={
-              doc.roundUp && calc.roundingExtra > 0 ? (
+              doc.roundUp ? (
                 <>
-                  Friends pay <Money value={calc.roundingExtra} currency={currency} /> more in total, which goes to you.
-                  Nobody rounds down, so you never lose money.
+                  Friends pay whole amounts — some round up, some down — but together never less than their exact
+                  shares, so you never lose money
+                  {calc.roundingExtra > 0 && (
+                    <>
+                      {" "}(you save <Money value={calc.roundingExtra} currency={currency} />)
+                    </>
+                  )}
+                  .
                 </>
               ) : (
-                "Everyone's share rounds up to a whole number. Nobody rounds down, so you never lose money."
+                "Friends pay whole amounts; together never less than their exact shares, so you never lose money."
               )
             }
             checked={!!doc.roundUp}

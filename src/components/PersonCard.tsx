@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import type { PersonResult } from "@/lib/calc";
+import { ORGANISER_ID, type PersonResult } from "@/lib/calc";
 import type { Person, SplitMode } from "@/lib/types";
 import { Avatar, Money, cx } from "./ui";
 
@@ -87,8 +87,16 @@ export function PersonCard({
             {person.payable !== person.total ? (
               <>
                 <Row k="Exact share" v={<Money value={person.total} currency={currency} />} />
-                <Row k="Rounded up" v={<>+<Money value={person.payable - person.total} currency={currency} /></>} />
-                <Row k="To pay" v={<Money value={person.payable} currency={currency} />} strong />
+                <Row
+                  k={person.payable > person.total ? "Rounded up" : "Rounded down"}
+                  v={
+                    <>
+                      {person.payable > person.total ? "+" : "−"}
+                      <Money value={Math.abs(person.payable - person.total)} currency={currency} />
+                    </>
+                  }
+                />
+                <Row k={person.personId === ORGANISER_ID ? "Your share" : "To pay"} v={<Money value={person.payable} currency={currency} />} strong />
               </>
             ) : (
               <Row k="Total" v={<Money value={person.total} currency={currency} />} strong />
