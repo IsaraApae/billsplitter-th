@@ -1,6 +1,6 @@
 import "server-only";
 import { Ratelimit } from "@upstash/ratelimit";
-import { redis } from "./redis";
+import { countHit, redis } from "./redis";
 
 type Bucket = "scan" | "write" | "read";
 
@@ -50,7 +50,13 @@ export async function rateLimit(req: Request, bucket: Bucket): Promise<Response 
       allowed = true; // never block users because the limiter itself failed
     }
   } else {
-    allowed = memoryLimit(key, max, 60_000);
+    let hits: number | null = null;
+    try {
+      hits = await countHit(key, 60); // TCP Redis (e.g. Redis Cloud)
+    } catch {
+      hits = 0; // never block users because the limiter itself failed
+    }
+    allowed = hits === null ? memoryLimit(key, max, 60_000) : hits <= max;
   }
   if (allowed) return null;
   const retry = Math.max(1, Math.ceil((reset - Date.now()) / 1000));

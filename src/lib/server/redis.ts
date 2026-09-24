@@ -1,14 +1,17 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
+import { createClient, type RedisClientType } from "redis";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { SplitDoc } from "../types";
 
-// The Vercel Marketplace Upstash integration injects KV_REST_API_*; a direct
-// Upstash setup uses UPSTASH_REDIS_REST_*. Accept either.
+// Two supported backends:
+// - Upstash (REST): KV_REST_API_* from the Marketplace integration, or UPSTASH_REDIS_REST_*.
+// - Any Redis over TCP (e.g. Redis Cloud from the Marketplace): REDIS_URL.
 const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const tcpUrl = process.env.REDIS_URL;
 
-/** Real Upstash client (also used by the rate limiter), or null if not configured. */
+/** Upstash REST client (also used by the Upstash rate limiter), or null. */
 export const redis: Redis | null = url && token ? new Redis({ url, token, enableAutoPipelining: true }) : null;
 
 export const TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days, refreshed on every write
@@ -34,6 +37,53 @@ function upstashKv(r: Redis): Kv {
     expire: async (k, s) => void (await r.expire(k, s)),
     del: async (k) => void (await r.del(k)),
   };
+}
+
+type TcpClient = RedisClientType;
+let tcpClient: Promise<TcpClient> | null = null;
+
+/** One connection per warm serverless instance, reconnecting after failures. */
+function tcp(): Promise<TcpClient> {
+  if (!tcpClient) {
+    const client: TcpClient = createClient({ url: tcpUrl, socket: { connectTimeout: 5000, reconnectStrategy: (n) => Math.min(n * 200, 2000) } });
+    client.on("error", (e) => console.error("Redis error", e?.message ?? e));
+    tcpClient = client.connect().then(() => client).catch((e) => {
+      tcpClient = null;
+      throw e;
+    });
+  }
+  return tcpClient;
+}
+
+function tcpKv(): Kv {
+  return {
+    get: async <T,>(k: string) => {
+      const v = await (await tcp()).get(k);
+      return v === null ? null : (JSON.parse(v) as T);
+    },
+    set: async (k, v, o) =>
+      (await (await tcp()).set(k, JSON.stringify(v), {
+        expiration: { type: "EX", value: o.ex },
+        ...(o.nx ? { condition: "NX" as const } : {}),
+      })) !== null,
+    hkeys: async (k) => (await tcp()).hKeys(k),
+    hset: async (k, f, v) => void (await (await tcp()).hSet(k, f, v)),
+    hdel: async (k, ...f) => void (f.length && (await (await tcp()).hDel(k, f))),
+    expire: async (k, s) => void (await (await tcp()).expire(k, s)),
+    del: async (k) => void (await (await tcp()).del(k)),
+  };
+}
+
+/**
+ * Fixed-window counter for rate limiting on a TCP Redis (Upstash uses its own
+ * limiter). Returns the hit count in the current window, or null if unavailable.
+ */
+export async function countHit(key: string, windowSec: number): Promise<number | null> {
+  if (!tcpUrl || redis) return null;
+  const c = await tcp();
+  const k = `rl:${key}:${Math.floor(Date.now() / 1000 / windowSec)}`;
+  const [n] = await c.multi().incr(k).expire(k, windowSec + 1).exec();
+  return Number(n);
 }
 
 /** Dev-only in-memory store so the whole flow works locally without Redis. */
@@ -62,16 +112,17 @@ function memoryKv(): Kv {
 
 const kv: Kv | null = redis
   ? upstashKv(redis)
-  : process.env.NODE_ENV !== "production"
-    ? memoryKv()
-    : null;
+  : tcpUrl
+    ? tcpKv()
+    : process.env.NODE_ENV !== "production"
+      ? memoryKv()
+      : null;
 
 export const storageReady = kv !== null;
-export const usingMemoryStore = !redis && kv !== null;
 
 export class StorageNotConfiguredError extends Error {
   constructor() {
-    super("Storage is not configured (missing KV_REST_API_URL / KV_REST_API_TOKEN).");
+    super("Storage is not configured (set REDIS_URL, or KV_REST_API_URL + KV_REST_API_TOKEN).");
   }
 }
 
