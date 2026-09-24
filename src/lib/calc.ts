@@ -15,7 +15,16 @@ export interface CalcInput {
   discount: Discount;
   service: Rate;
   vat: Rate;
+  /**
+   * Round each person's amount *up* to this step (minor units, e.g. 500 = ฿5).
+   * 0/undefined = exact. The organiser (id "me") is never rounded — they paid
+   * the bill, so the few extra baht everyone else pays go to them.
+   */
+  roundUp?: number;
 }
+
+/** The person who paid the bill (the device owner in new splits). */
+export const ORGANISER_ID = "me";
 
 export interface ItemLine {
   itemId: string;
@@ -43,7 +52,10 @@ export interface PersonResult {
   discounted: number;
   service: number;
   vat: number;
+  /** exact share of the bill */
   total: number;
+  /** what they're asked to pay: `total`, rounded up when rounding is on */
+  payable: number;
 }
 
 export interface CalcResult {
@@ -55,6 +67,10 @@ export interface CalcResult {
   vat: number;
   total: number;
   people: PersonResult[];
+  /** sum of everyone's `payable` */
+  collected: number;
+  /** collected − total: the extra from rounding up (goes to the organiser) */
+  roundingExtra: number;
   unassignedItemIds: string[];
   /** true when the split can be finalised (people present, every item assigned) */
   complete: boolean;
@@ -151,6 +167,7 @@ export function calculate(input: CalcInput): CalcResult {
     service: 0,
     vat: 0,
     total: 0,
+    payable: 0,
   }));
 
   if (n > 0) {
@@ -207,6 +224,13 @@ export function calculate(input: CalcInput): CalcResult {
     results.forEach((r) => (r.total = r.discounted + r.service + r.vat));
   }
 
+  const step = input.roundUp && input.roundUp > 0 ? Math.round(input.roundUp) : 0;
+  for (const r of results) {
+    r.payable = step && r.personId !== ORGANISER_ID ? Math.ceil(r.total / step) * step : r.total;
+  }
+  const collected = results.reduce((s, r) => s + r.payable, 0);
+  const assignedTotal = results.reduce((s, r) => s + r.total, 0);
+
   return {
     lines,
     itemsSubtotal: itemsSub,
@@ -216,6 +240,8 @@ export function calculate(input: CalcInput): CalcResult {
     vat,
     total,
     people: results,
+    collected,
+    roundingExtra: collected - assignedTotal,
     unassignedItemIds,
     complete: n > 0 && items.length > 0 && unassignedItemIds.length === 0,
   };

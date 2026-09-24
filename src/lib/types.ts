@@ -70,4 +70,6 @@ export interface SplitDoc {
   vat: Rate;
   payment: PaymentInfo;
   receipt: ReceiptTotals;
+  /** Round each person's share up to this step, in minor units (e.g. 500 = ฿5). 0/absent = exact. */
+  roundUp?: number;
 }

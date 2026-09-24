@@ -87,3 +87,8 @@ export function percentToBp(pct: number): number {
 export function bpToPercentString(bp: number): string {
   return String(bp / 100);
 }
+
+/** A rounding step without trailing zero decimals, e.g. 500 THB -> "฿5". */
+export function formatStep(minor: number, currency: string): string {
+  return formatMoney(minor, currency).replace(/\.0+$/, "");
+}
