@@ -2,7 +2,8 @@
 
 import { Check, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import type { CalcResult } from "@/lib/calc";
+import { wholeUnit, type CalcResult } from "@/lib/calc";
+import { formatStep } from "@/lib/money";
 import type { Discount, SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
 import { Money, MoneyInput, PercentInput, Section, Segmented, Sheet, Toggle, cx } from "../ui";
@@ -128,6 +129,26 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
         <p className="px-1 text-[13px] text-ink-2">
           Each person&apos;s share of service charge and VAT is proportional to what they ordered after discount.
         </p>
+      </Section>
+
+      <Section title="Round up">
+        <div className="card p-4">
+          <Toggle
+            label={`Round up to the nearest ${formatStep(wholeUnit(currency), currency)}`}
+            hint={
+              doc.roundUp && calc.roundingExtra > 0 ? (
+                <>
+                  Friends pay <Money value={calc.roundingExtra} currency={currency} /> more in total, which goes to you.
+                  Nobody rounds down, so you never lose money.
+                </>
+              ) : (
+                "Everyone's share rounds up to a whole number. Nobody rounds down, so you never lose money."
+              )
+            }
+            checked={!!doc.roundUp}
+            onChange={(roundUp) => setDoc((x) => ({ ...x, roundUp }))}
+          />
+        </div>
       </Section>
 
       <Section title="Breakdown">

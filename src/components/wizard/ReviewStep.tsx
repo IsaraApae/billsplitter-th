@@ -75,14 +75,23 @@ export function ReviewStep({
             ))}
           </ul>
           <p className="px-1 text-[13px] text-ink-2">
-            Everyone&apos;s share is rounded up to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
-            {calc.roundingExtra > 0 && (
+            {doc.roundUp ? (
               <>
-                {" "}— friends pay <Money value={calc.roundingExtra} currency={doc.currency} /> more in total, which
-                goes to you
+                Everyone&apos;s share is rounded up to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
+                {calc.roundingExtra > 0 && (
+                  <>
+                    {" "}— friends pay <Money value={calc.roundingExtra} currency={doc.currency} /> more in total,
+                    which goes to you
+                  </>
+                )}
+                . Nobody rounds down, so you never lose money.
+              </>
+            ) : (
+              <>
+                Totals add up exactly to <Money value={calc.total} currency={doc.currency} />; leftover satang/cents
+                from rounding are spread one at a time. Turn on Round up in Extras for whole numbers.
               </>
             )}
-            . Nobody rounds down, so you never lose money.
           </p>
         </Section>
       )}
