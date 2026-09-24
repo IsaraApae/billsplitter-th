@@ -1,96 +1,102 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { PersonResult } from "@/lib/calc";
-import { formatMoney } from "@/lib/money";
-import type { SplitMode } from "@/lib/types";
-import { cx } from "./ui";
+import type { Person, SplitMode } from "@/lib/types";
+import { Avatar, Money, cx } from "./ui";
 
 export function PersonCard({
   person,
+  profile,
   currency,
   mode,
   highlight,
   leading,
   badge,
-  footer,
+  action,
   defaultOpen = false,
 }: {
   person: PersonResult;
+  profile?: Pick<Person, "name" | "emoji" | "color">;
   currency: string;
   mode: SplitMode;
   highlight?: "unpaid" | "paid";
   leading?: ReactNode;
   badge?: ReactNode;
-  footer?: ReactNode;
+  action?: ReactNode;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const f = (n: number) => formatMoney(n, currency);
   return (
     <li
       className={cx(
-        "card overflow-hidden",
-        highlight === "unpaid" && "border-l-4 border-l-amber-500 dark:border-l-amber-500",
-        highlight === "paid" && "opacity-75",
+        "card overflow-hidden transition-opacity duration-300",
+        highlight === "unpaid" && "shadow-[inset_4px_0_0_var(--warn)]",
+        highlight === "paid" && "opacity-70",
       )}
     >
-      <div className="flex items-center gap-3 p-3">
+      <div className="flex items-center gap-2 p-2.5 pl-3">
         {leading}
         <button
           type="button"
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
+          <Avatar person={profile ?? { name: person.name }} size={36} />
           <span className="min-w-0 flex-1">
-            <span className={cx("block truncate font-semibold", highlight === "paid" && "line-through decoration-zinc-400")}>
+            <span className={cx("block truncate font-semibold", highlight === "paid" && "line-through decoration-ink-3")}>
               {person.name}
             </span>
             {badge}
           </span>
-          <span className="text-lg font-bold tabular-nums">{f(person.total)}</span>
-          <span aria-hidden className={cx("text-zinc-400 transition", open && "rotate-180")}>
-            ▾
-          </span>
+          <Money value={person.total} currency={currency} className="text-[19px] font-bold tracking-tight" />
+          {!action && (
+            <ChevronDown
+              size={18}
+              aria-hidden
+              className={cx("shrink-0 text-ink-3 transition-transform duration-300", open && "rotate-180")}
+            />
+          )}
         </button>
+        {action}
       </div>
       {open && (
-        <div className="border-t border-zinc-100 px-4 py-3 text-sm dark:border-zinc-800">
+        <div className="border-t border-line px-4 py-3 text-[14px]">
           {mode === "itemized" ? (
-            <ul className="space-y-1">
+            <ul className="space-y-1.5">
               {person.items.map((it) => (
                 <li key={it.itemId} className="flex justify-between gap-3">
                   <span className="min-w-0 truncate">
                     {it.name}
-                    {it.sharedBy > 1 && <span className="text-zinc-500"> ÷{it.sharedBy}</span>}
+                    {it.sharedBy > 1 && <span className="text-ink-2"> ÷{it.sharedBy}</span>}
                   </span>
-                  <span className="tabular-nums">{f(it.amount)}</span>
+                  <Money value={it.amount} currency={currency} />
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-zinc-500">Equal share of the whole bill ({person.items.length} items).</p>
+            <p className="text-ink-2">Equal share of the whole bill ({person.items.length} items).</p>
           )}
-          <dl className="mt-2 space-y-0.5 border-t border-dashed border-zinc-200 pt-2 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-            <Row k="Items" v={f(person.subtotal)} />
-            {person.discount > 0 && <Row k="Discount" v={`−${f(person.discount)}`} />}
-            {person.service > 0 && <Row k="Service charge" v={f(person.service)} />}
-            {person.vat > 0 && <Row k="VAT" v={f(person.vat)} />}
-            <Row k="Total" v={f(person.total)} strong />
+          <dl className="mt-2.5 space-y-1 border-t border-dashed border-line pt-2.5 text-ink-2">
+            <Row k="Items" v={<Money value={person.subtotal} currency={currency} />} />
+            {person.discount > 0 && <Row k="Discount" v={<>−<Money value={person.discount} currency={currency} /></>} />}
+            {person.service > 0 && <Row k="Service charge" v={<Money value={person.service} currency={currency} />} />}
+            {person.vat > 0 && <Row k="VAT" v={<Money value={person.vat} currency={currency} />} />}
+            <Row k="Total" v={<Money value={person.total} currency={currency} />} strong />
           </dl>
-          {footer}
         </div>
       )}
     </li>
   );
 }
 
-function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
+function Row({ k, v, strong }: { k: string; v: ReactNode; strong?: boolean }) {
   return (
-    <div className={cx("flex justify-between", strong && "font-semibold text-zinc-900 dark:text-zinc-100")}>
+    <div className={cx("flex justify-between", strong && "font-semibold text-ink")}>
       <dt>{k}</dt>
-      <dd className="tabular-nums">{v}</dd>
+      <dd>{v}</dd>
     </div>
   );
 }

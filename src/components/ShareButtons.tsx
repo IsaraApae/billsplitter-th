@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, Copy, Share } from "lucide-react";
 import { useState } from "react";
 import { useBrowserValue } from "@/lib/client/hooks";
 
@@ -44,15 +45,20 @@ export function ShareButtons({ url, title, text }: { url: string; title: string;
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
         {canShare && (
-          <button type="button" className="btn-primary h-14" onClick={share}>
-            <span aria-hidden>↗</span> Share
+          <button type="button" className="btn-primary h-13 text-[16px]" onClick={share}>
+            <Share size={18} aria-hidden /> Share
           </button>
         )}
-        <button type="button" className={canShare ? "btn-secondary h-14" : "btn-primary col-span-2 h-14"} onClick={copy}>
-          {copied ? "✓ Copied" : "Copy link"}
+        <button
+          type="button"
+          className={canShare ? "btn-secondary h-13 text-[16px]" : "btn-primary col-span-2 h-13 text-[16px]"}
+          onClick={copy}
+        >
+          {copied ? <Check size={18} aria-hidden /> : <Copy size={18} aria-hidden />}
+          {copied ? "Copied" : "Copy link"}
         </button>
       </div>
-      {msg && <p className="text-sm text-red-600">{msg}</p>}
+      {msg && <p className="px-1 text-[13px] text-danger">{msg}</p>}
     </div>
   );
 }

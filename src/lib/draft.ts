@@ -3,6 +3,7 @@
 import { itemsSubtotal } from "./calc";
 import { isCurrency, parseMoney } from "./money";
 import type { ScanResult } from "./scanResult";
+import { cleanScannedItems, type DroppedLine } from "./scanFilter";
 import type { Item, PaymentInfo, SplitDoc } from "./types";
 
 export function uid(): string {
@@ -44,8 +45,13 @@ function inferRateBp(amount: number, base: number): number | null {
  * Merge a scan into the draft. Returns the new doc plus human-readable notes
  * about anything we inferred (so nothing changes silently).
  */
-export function applyScan(doc: SplitDoc, scan: ScanResult): { doc: SplitDoc; notes: string[]; added: number } {
+export function applyScan(
+  doc: SplitDoc,
+  scan: ScanResult,
+): { doc: SplitDoc; notes: string[]; added: number; dropped: DroppedLine[] } {
   const notes: string[] = [];
+  // Same clean-up whichever engine read the receipt.
+  const { items: scannedItems, dropped } = cleanScannedItems(scan.items);
   let currency = doc.currency;
   if (doc.items.length === 0 && scan.currency && isCurrency(scan.currency) && scan.currency !== currency) {
     currency = scan.currency;
@@ -53,7 +59,7 @@ export function applyScan(doc: SplitDoc, scan: ScanResult): { doc: SplitDoc; not
   }
   const m = (v: number | null) => (v === null ? null : parseMoney(v, currency));
 
-  const items: Item[] = scan.items.map((s) => {
+  const items: Item[] = scannedItems.map((s) => {
     const line = parseMoney(s.price, currency) ?? 0;
     if (s.qty > 1 && line % s.qty === 0) {
       return { id: uid(), name: s.name, qty: s.qty, price: line / s.qty, assigned: [] };
@@ -103,5 +109,5 @@ export function applyScan(doc: SplitDoc, scan: ScanResult): { doc: SplitDoc; not
       notes.push("No VAT line found — check the VAT setting in Extras.");
     }
   }
-  return { doc: next, notes, added: items.length };
+  return { doc: next, notes, added: items.length, dropped };
 }

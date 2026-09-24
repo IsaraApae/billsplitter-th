@@ -1,7 +1,7 @@
 import { parseSplitDoc } from "@/lib/schema";
 import { jsonError, readJson, safely } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
-import { getPaid, getSplit, isValidId, updateSplit } from "@/lib/server/redis";
+import { getPaid, getSplit, isValidId, touchOwner, updateSplit } from "@/lib/server/redis";
 
 export async function GET(req: Request, ctx: RouteContext<"/api/splits/[id]">) {
   const limited = await rateLimit(req, "read");
@@ -31,6 +31,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/splits/[id]">) {
     const r = await updateSplit(id, token, parsed.doc);
     if (r === "not_found") return jsonError(404, "not_found", "This split doesn't exist or has expired.");
     if (r === "forbidden") return jsonError(403, "forbidden", "Only the creator can edit this split.");
+    if (parsed.doc.payment.ownerId) await touchOwner(parsed.doc.payment.ownerId);
     return Response.json({ id });
   });
 }
