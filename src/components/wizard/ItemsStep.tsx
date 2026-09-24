@@ -29,6 +29,7 @@ interface ScanInfo {
 const REASONS: Record<string, string> = {
   not_configured: "cloud scanning isn't set up",
   quota: "free cloud quota used up",
+  busy: "cloud scanner busy — try again later",
   timeout: "cloud scan timed out",
   network: "couldn't reach the cloud",
   api_error: "cloud service error",

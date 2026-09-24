@@ -4,8 +4,11 @@ import { rateLimit } from "@/lib/server/ratelimit";
 
 export const maxDuration = 45;
 
-// Full Flash model (not Flash-Lite): better at reading small receipt print.
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+// Full Flash models (not Flash-Lite): better at reading small receipt print.
+// The fallback is used when the primary is overloaded or out of quota.
+const MODELS = [
+  ...new Set([process.env.GEMINI_MODEL || "gemini-3.8-flash", process.env.GEMINI_FALLBACK_MODEL || "gemini-3.7-flash"]),
+];
 const MAX_BYTES = 4_000_000; // Vercel's request body limit is ~4.5 MB
 const TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -85,14 +88,14 @@ const LEGACY_SCHEMA = {
   required: ["items", "vat_included"],
 };
 
-type FallbackReason = "not_configured" | "quota" | "timeout" | "network" | "api_error" | "bad_output";
+type FallbackReason = "not_configured" | "quota" | "busy" | "timeout" | "network" | "api_error" | "bad_output";
 
 function log(entry: Record<string, unknown>) {
   console.info(JSON.stringify({ evt: "scan", ...entry }));
 }
 
 function fallback(status: number, reason: FallbackReason, message: string, started: number) {
-  log({ engine: "none", reason, status, ms: Date.now() - started, model: MODEL });
+  log({ engine: "none", reason, status, ms: Date.now() - started });
   return jsonError(status, reason === "quota" ? "quota" : reason === "not_configured" ? "not_configured" : "scan_failed", message, {
     fallback: true,
     reason,
@@ -116,13 +119,58 @@ function body(mime: string, data: string, legacy: boolean) {
   });
 }
 
+type Attempt =
+  | { ok: true; res: Response; model: string; legacy: boolean }
+  | { ok: false; reason: FallbackReason; status: number };
+
+/** One model: the strict request, then (only if the API rejects its shape) the legacy one. */
+async function callModel(model: string, key: string, mime: string, data: string, timeoutMs: number): Promise<Attempt> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const call = (legacy: boolean) =>
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: body(mime, data, legacy),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  try {
+    let legacy = false;
+    let res = await call(false);
+    if (res.status === 400) {
+      log({ model, note: "retrying with legacy schema", detail: (await res.text().catch(() => "")).slice(0, 300) });
+      legacy = true;
+      res = await call(true);
+    }
+    if (res.ok) return { ok: true, res, model, legacy };
+    const detail = (await res.text().catch(() => "")).slice(0, 300);
+    log({ model, status: res.status, detail });
+    if (res.status === 429) return { ok: false, reason: "quota", status: 429 };
+    if (res.status === 503 || res.status === 500 || res.status === 504) return { ok: false, reason: "busy", status: res.status };
+    return { ok: false, reason: "api_error", status: res.status };
+  } catch (e) {
+    const timeout = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+    log({ model, error: timeout ? "timeout" : String(e) });
+    return { ok: false, reason: timeout ? "timeout" : "network", status: 0 };
+  }
+}
+
+const MESSAGES: Record<FallbackReason, string> = {
+  not_configured: "Cloud scanning isn't set up (GEMINI_API_KEY missing).",
+  quota: "The free scanning quota is used up for now.",
+  busy: "The scanning service is busy right now.",
+  timeout: "The scanning service took too long.",
+  network: "Couldn't reach the scanning service.",
+  api_error: "The scanning service returned an error.",
+  bad_output: "Couldn't read the scan result.",
+};
+
 export async function POST(req: Request) {
   const started = Date.now();
   const limited = await rateLimit(req, "scan");
   if (limited) return limited;
 
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return fallback(503, "not_configured", "Cloud scanning isn't set up (GEMINI_API_KEY missing).", started);
+  if (!key) return fallback(503, "not_configured", MESSAGES.not_configured, started);
 
   let file: File | null = null;
   try {
@@ -137,47 +185,36 @@ export async function POST(req: Request) {
   if (file.size > MAX_BYTES) return jsonError(413, "too_large", "That image is too large (max 4 MB).");
 
   const data = Buffer.from(await file.arrayBuffer()).toString("base64");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
-  const call = (legacy: boolean) =>
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: body(file!.type, data, legacy),
-      signal: AbortSignal.timeout(35_000),
-    });
 
-  let res: Response;
-  let legacy = false;
-  try {
-    res = await call(false);
-    if (res.status === 400) {
-      // Older API surface: retry once without responseJsonSchema / media_resolution / thinking.
-      log({ note: "retrying with legacy schema", detail: (await res.text().catch(() => "")).slice(0, 300) });
-      legacy = true;
-      res = await call(true);
-    }
-  } catch (e) {
-    const timeout = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
-    return fallback(502, timeout ? "timeout" : "network", "Couldn't reach the scanning service.", started);
+  // Primary model, a quick retry if it's overloaded, then the fallback Flash model.
+  const plan = [MODELS[0], MODELS[0], ...MODELS.slice(1)];
+  let last: Attempt = { ok: false, reason: "api_error", status: 0 };
+  for (let i = 0; i < plan.length; i++) {
+    const model = plan[i];
+    const retryingSame = i > 0 && plan[i - 1] === model;
+    // Only retry the same model when it was busy; quota/other errors skip straight to the next model.
+    if (retryingSame && !(last.ok === false && last.reason === "busy")) continue;
+    const remaining = maxDuration * 1000 - (Date.now() - started) - 3000;
+    if (remaining < 8000) break;
+    if (retryingSame) await new Promise((r) => setTimeout(r, 1200));
+    last = await callModel(model, key, file.type, data, Math.min(30_000, remaining));
+    if (last.ok) break;
   }
-
-  if (res.status === 429) return fallback(429, "quota", "The free scanning quota is used up for now.", started);
-  if (!res.ok) {
-    log({ detail: (await res.text().catch(() => "")).slice(0, 500) });
-    return fallback(502, "api_error", `The scanning service returned an error (${res.status}).`, started);
+  if (!last.ok) {
+    return fallback(last.status === 429 ? 429 : 502, last.reason, MESSAGES[last.reason], started);
   }
 
   try {
-    const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] };
+    const json = (await last.res.json()) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] };
     const text =
       json.candidates?.[0]?.content?.parts
         ?.filter((p) => !p.thought)
         .map((p) => p.text ?? "")
         .join("") ?? "";
     const result = sanitizeScan(extractJson(text));
-    log({ engine: "gemini", model: MODEL, legacy, ms: Date.now() - started, items: result.items.length });
-    return Response.json({ ...result, engine: "gemini", model: MODEL });
+    log({ engine: "gemini", model: last.model, legacy: last.legacy, ms: Date.now() - started, items: result.items.length });
+    return Response.json({ ...result, engine: "gemini", model: last.model });
   } catch {
-    return fallback(502, "bad_output", "Couldn't read the scan result.", started);
+    return fallback(502, "bad_output", MESSAGES.bad_output, started);
   }
 }
