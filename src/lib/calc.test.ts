@@ -251,7 +251,7 @@ describe("rounding always sums exactly to the grand total", () => {
   });
 });
 
-describe("round up", () => {
+describe("round up (always, to the nearest whole unit)", () => {
   const svc = { enabled: true, rateBp: 1000 };
   const vat = { enabled: true, rateBp: 700 };
   const withMe = [
@@ -265,56 +265,45 @@ describe("round up", () => {
     item("beer", 9000, ["b", "c"], 2),
   ];
 
-  it("is off by default: payable equals the exact share", () => {
-    const r = calculate(base({ service: svc, vat }));
-    expect(r.people.map((p) => p.payable)).toEqual(totals(r));
-    expect(r.collected).toBe(r.total);
-    expect(r.roundingExtra).toBe(0);
-  });
-
-  it("rounds everyone except the organiser up to the step; the extra goes to the organiser", () => {
-    const r = calculate(base({ people: withMe, items, service: svc, vat, roundUp: 500 }));
+  it("rounds everyone, including the organiser, up to the next ฿1", () => {
+    const r = calculate(base({ people: withMe, items, service: svc, vat }));
     expect(totals(r)).toEqual([25894, 22363, 22363]); // exact shares unchanged
-    expect(r.people.map((p) => p.payable)).toEqual([25894, 22500, 22500]);
+    expect(r.people.map((p) => p.payable)).toEqual([25900, 22400, 22400]);
     expect(r.total).toBe(70620); // the bill itself is unchanged
-    expect(r.collected).toBe(70894);
-    expect(r.roundingExtra).toBe(274);
+    // Only what the others pay extra counts toward the organiser.
+    expect(r.roundingExtra).toBe(37 + 37);
   });
 
-  it("rounds everyone when there is no organiser (older splits)", () => {
-    const r = calculate(base({ mode: "equal", items: [item("x", 10000, [])], roundUp: 100 }));
-    expect(totals(r)).toEqual([3334, 3333, 3333]);
-    expect(r.people.map((p) => p.payable)).toEqual([3400, 3400, 3400]);
-    expect(r.roundingExtra).toBe(200);
+  it("leaves whole amounts alone and never rounds down", () => {
+    const r = calculate(base({ items: [item("x", 30000, ["a"]), item("y", 0, ["b"]), item("z", 12301, ["c"])] }));
+    expect(r.people.map((p) => p.payable)).toEqual([30000, 0, 12400]);
   });
 
-  it("leaves exact multiples and zero shares alone", () => {
-    const r = calculate(
-      base({ items: [item("x", 30000, ["a"]), item("y", 0, ["b"]), item("z", 12345, ["c"])], roundUp: 1000 }),
-    );
-    expect(r.people.map((p) => p.payable)).toEqual([30000, 0, 13000]);
+  it("uses the currency's whole unit (no-op for zero-decimal currencies)", () => {
+    const usd = calculate({ ...base({ items: [item("x", 1001, ["a"])] }), currency: "USD" });
+    expect(usd.people[0].payable).toBe(1100);
+    const jpy = calculate({ ...base({ items: [item("x", 1001, ["a"])] }), currency: "JPY" });
+    expect(jpy.people[0].payable).toBe(1001);
   });
 
-  it("holds for random bills: payable ≥ exact, a multiple of the step, and < exact + step", () => {
+  it("the organiser never loses money (random bills)", () => {
     let seed = 7;
     const rand = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
     for (let t = 0; t < 500; t++) {
-      const step = [100, 500, 1000][t % 3];
       const ps = [{ id: "me", name: "Me" }, ...Array.from({ length: 1 + Math.floor(rand() * 6) }, (_, i) => ({ id: `p${i}`, name: `P${i}` }))];
       const its = Array.from({ length: 1 + Math.floor(rand() * 8) }, (_, i) =>
         item(`i${i}`, Math.floor(rand() * 50000), ps.filter(() => rand() < 0.6).map((p) => p.id).concat(ps[0].id)),
       );
-      const r = calculate({ mode: rand() < 0.3 ? "equal" : "itemized", people: ps, items: its, discount: noDiscount, service: svc, vat, roundUp: step });
+      const r = calculate({ mode: rand() < 0.3 ? "equal" : "itemized", people: ps, items: its, discount: noDiscount, service: svc, vat });
+      const others = r.people.filter((p) => p.personId !== "me");
+      // What the organiser collects is never less than the others' exact shares.
+      expect(sum(others.map((p) => p.payable))).toBeGreaterThanOrEqual(sum(others.map((p) => p.total)));
       for (const p of r.people) {
-        if (p.personId === "me") expect(p.payable).toBe(p.total);
-        else {
-          expect(p.payable).toBeGreaterThanOrEqual(p.total);
-          expect(p.payable % step).toBe(0);
-          expect(p.payable - p.total).toBeLessThan(step);
-        }
+        expect(p.payable).toBeGreaterThanOrEqual(p.total);
+        expect(p.payable % 100).toBe(0);
+        expect(p.payable - p.total).toBeLessThan(100); // cheapest: under ฿1 each
       }
-      expect(sum(r.people.map((p) => p.total))).toBe(r.total); // exact split still sums to the bill
-      expect(r.collected - r.total).toBe(r.roundingExtra);
+      expect(sum(r.people.map((p) => p.total))).toBe(r.total);
     }
   });
 });

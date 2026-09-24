@@ -2,9 +2,7 @@
 
 import { Check, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { ORGANISER_ID, type CalcResult } from "@/lib/calc";
-import { getProfile, saveProfile } from "@/lib/client/profile";
-import { currencyExponent, currencySymbol } from "@/lib/money";
+import type { CalcResult } from "@/lib/calc";
 import type { Discount, SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
 import { Money, MoneyInput, PercentInput, Section, Segmented, Sheet, Toggle, cx } from "../ui";
@@ -16,13 +14,6 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
   const setDiscount = (patch: Partial<Discount>) => setDoc((x) => ({ ...x, discount: { ...x.discount, ...patch } }));
   const currency = doc.currency;
   const selectedCount = d.itemIds.length;
-  const unit = 10 ** currencyExponent(currency); // one whole baht/dollar in minor units
-  const roundUp = doc.roundUp ?? 0;
-  const hasOrganiser = doc.people.some((p) => p.id === ORGANISER_ID);
-  const setRoundUp = (step: number) => {
-    setDoc((x) => ({ ...x, roundUp: step }));
-    saveProfile({ ...getProfile(), roundUp: step }); // remembered for the next split
-  };
 
   return (
     <div className="space-y-7">
@@ -137,36 +128,6 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
         <p className="px-1 text-[13px] text-ink-2">
           Each person&apos;s share of service charge and VAT is proportional to what they ordered after discount.
         </p>
-      </Section>
-
-      <Section title="Round up">
-        <div className="card space-y-3 p-4">
-          <Segmented
-            label="Round each share up to"
-            value={String(roundUp)}
-            onChange={(v) => setRoundUp(Number(v))}
-            options={[
-              { value: "0", label: "Off" },
-              ...[1, 5, 10].map((n) => ({
-                value: String(n * unit),
-                label: `${currencySymbol(currency)}${n}`,
-              })),
-            ]}
-          />
-          <p className="px-1 text-[13px] text-ink-2">
-            {roundUp === 0 ? (
-              "Everyone pays their exact share, to the satang."
-            ) : calc.roundingExtra > 0 ? (
-              <>
-                Friends pay a rounded-up amount; the extra <Money value={calc.roundingExtra} currency={currency} /> goes
-                to {hasOrganiser ? "you" : "whoever paid the bill"}.
-                {hasOrganiser && " Your own share isn't rounded."}
-              </>
-            ) : (
-              "Everyone's share is already a round number."
-            )}
-          </p>
-        </div>
       </Section>
 
       <Section title="Breakdown">

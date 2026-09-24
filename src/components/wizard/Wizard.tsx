@@ -33,7 +33,6 @@ function freshState(): DraftState {
   const profile = getProfile();
   const doc = newDoc(paymentFromProfile(profile));
   doc.people = toPeople({ name: profile.name, emoji: profile.emoji, color: profile.color }, []);
-  doc.roundUp = profile.roundUp ?? 0;
   return { doc, step: 0, editingId: null };
 }
 

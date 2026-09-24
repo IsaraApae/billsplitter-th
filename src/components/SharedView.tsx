@@ -4,7 +4,7 @@ import { Check, Copy, Pencil, QrCode } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { calculate } from "@/lib/calc";
+import { calculate, wholeUnit } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { getEditToken, getHistory, patchHistory } from "@/lib/client/storage";
 import { ME_ID } from "@/lib/friends";
@@ -276,11 +276,16 @@ export function SharedView({
             );
           })}
         </ul>
-        {calc.roundingExtra > 0 && (
+        {calc.people.some((p) => p.payable !== p.total) && (
           <p className="px-1 text-[13px] text-ink-2">
-            Amounts are rounded up to the nearest {formatStep(doc.roundUp ?? 0, doc.currency)}; the extra{" "}
-            <Money value={calc.roundingExtra} currency={doc.currency} /> goes to{" "}
-            {doc.people.find((p) => p.id === ME_ID)?.name ?? "whoever paid the bill"}.
+            Amounts are rounded up to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
+            {calc.roundingExtra > 0 && (
+              <>
+                ; the extra <Money value={calc.roundingExtra} currency={doc.currency} /> goes to{" "}
+                {doc.people.find((p) => p.id === ME_ID)?.name ?? "whoever paid the bill"}
+              </>
+            )}
+            .
           </p>
         )}
         <p className="px-1 text-[13px] text-ink-2">Tick the circle when someone has paid. Everyone with the link sees it.</p>

@@ -53,7 +53,6 @@ export const splitDocSchema = z
       ownerId: z.string().regex(/^[\w-]{16}$/).optional(),
     }),
     receipt: z.object({ subtotal: money.nullable(), total: money.nullable() }),
-    roundUp: z.number().int().min(0).max(1_000_00).optional(),
   })
   .superRefine((doc, ctx) => {
     const ids = new Set(doc.people.map((p) => p.id));
