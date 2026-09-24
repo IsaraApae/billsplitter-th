@@ -8,7 +8,7 @@ import { calculate, wholeUnit } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { getEditToken, getHistory, patchHistory } from "@/lib/client/storage";
 import { ME_ID } from "@/lib/friends";
-import { formatStep } from "@/lib/money";
+import { formatStep, wholeUnitName } from "@/lib/money";
 import { formatPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
@@ -278,10 +278,11 @@ export function SharedView({
         </ul>
         {calc.people.some((p) => p.payable !== p.total) && (
           <p className="px-1 text-[13px] text-ink-2">
-            Amounts are rounded up to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
+            Amounts are rounded to whole {wholeUnitName(doc.currency)}{" "}
+            (some up, some down, within {formatStep(wholeUnit(doc.currency), doc.currency)} of each exact share)
             {calc.roundingExtra > 0 && (
               <>
-                ; the extra <Money value={calc.roundingExtra} currency={doc.currency} /> goes to{" "}
+                ; together that&apos;s <Money value={calc.roundingExtra} currency={doc.currency} /> more for{" "}
                 {doc.people.find((p) => p.id === ME_ID)?.name ?? "whoever paid the bill"}
               </>
             )}

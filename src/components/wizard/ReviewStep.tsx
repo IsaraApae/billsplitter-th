@@ -3,9 +3,9 @@
 import { ChevronRight, QrCode } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { wholeUnit, type CalcResult } from "@/lib/calc";
+import type { CalcResult } from "@/lib/calc";
 import { getProfile, qrImageUrl } from "@/lib/client/profile";
-import { formatStep } from "@/lib/money";
+import { wholeUnitName } from "@/lib/money";
 import { formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
@@ -77,19 +77,19 @@ export function ReviewStep({
           <p className="px-1 text-[13px] text-ink-2">
             {doc.roundUp ? (
               <>
-                Everyone&apos;s share is rounded up to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
+                Friends pay whole {wholeUnitName(doc.currency)} amounts; together
+                they never pay less than their exact shares, so you never lose money
                 {calc.roundingExtra > 0 && (
                   <>
-                    {" "}— friends pay <Money value={calc.roundingExtra} currency={doc.currency} /> more in total,
-                    which goes to you
+                    {" "}— your share is <Money value={calc.roundingExtra} currency={doc.currency} /> lower
                   </>
                 )}
-                . Nobody rounds down, so you never lose money.
+                .
               </>
             ) : (
               <>
                 Totals add up exactly to <Money value={calc.total} currency={doc.currency} />; leftover satang/cents
-                from rounding are spread one at a time. Turn on Round up in Extras for whole numbers.
+                from rounding are spread one at a time. Turn on Rounding in Extras for whole amounts.
               </>
             )}
           </p>

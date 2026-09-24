@@ -92,3 +92,13 @@ export function bpToPercentString(bp: number): string {
 export function formatStep(minor: number, currency: string): string {
   return formatMoney(minor, currency).replace(/\.0+$/, "");
 }
+
+/** Plain-English name of a currency's whole unit, e.g. THB → "baht". */
+export function wholeUnitName(currency: string): string {
+  const names: Record<string, string> = {
+    THB: "baht", USD: "dollars", AUD: "dollars", NZD: "dollars", CAD: "dollars", SGD: "dollars", HKD: "dollars",
+    TWD: "dollars", EUR: "euros", GBP: "pounds", CNY: "yuan", MYR: "ringgit", PHP: "pesos", INR: "rupees",
+    CHF: "francs", IDR: "rupiah", LAK: "kip", VND: "dong", KRW: "won", JPY: "yen",
+  };
+  return names[currency] ?? currency;
+}

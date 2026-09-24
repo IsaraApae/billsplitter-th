@@ -18,13 +18,32 @@ export interface CalcInput {
   vat: Rate;
   /** Used to round everyone's amount up to one whole unit (฿1, $1…). */
   currency?: string;
-  /** Round each share up to the nearest whole unit. Off unless true. */
+  /** Round payers to whole units without the organiser losing money. Off unless true. */
   roundUp?: boolean;
 }
 
 /** Smallest whole-unit step for a currency, in minor units (THB → 100 satang, JPY → 1). */
 export function wholeUnit(currency = "THB"): number {
   return 10 ** currencyExponent(currency);
+}
+
+/**
+ * Cheapest whole-unit rounding that never loses the organiser money: the
+ * group's total is rounded *up* to a whole unit, then shared out in whole
+ * units — everyone gets their share rounded down, and the leftover units go
+ * to the largest remainders (so some round up, some down). Each amount is
+ * within one unit of the exact share, and together they're never less than
+ * the exact total (surplus < 1 unit).
+ */
+export function roundToWholeUnits(exact: number[], unit: number): number[] {
+  if (unit <= 1) return [...exact];
+  const target = Math.ceil(exact.reduce((a, b) => a + b, 0) / unit);
+  const floors = exact.map((v) => Math.floor(v / unit));
+  let left = target - floors.reduce((a, b) => a + b, 0);
+  const order = exact.map((_, i) => i).sort((a, b) => (exact[b] % unit) - (exact[a] % unit) || a - b);
+  const units = [...floors];
+  for (let k = 0; left > 0; k++, left--) units[order[k]] += 1;
+  return units.map((u) => u * unit);
 }
 
 /** The person who paid the bill (the device owner in new splits). */
@@ -58,7 +77,11 @@ export interface PersonResult {
   vat: number;
   /** exact share of the bill */
   total: number;
-  /** what they're asked to pay: `total` rounded up to a whole unit (never less) */
+  /**
+   * What they're asked to pay. Equals `total` unless rounding is on: then
+   * payers pay whole units (some up, some down) and the organiser's amount is
+   * what's left of the bill (never more than their exact share).
+   */
   payable: number;
 }
 
@@ -74,8 +97,8 @@ export interface CalcResult {
   /** sum of everyone's `payable` */
   collected: number;
   /**
-   * How much more the others pay than their exact shares because of rounding —
-   * this goes to the organiser, so the organiser never loses money.
+   * How much more the payers pay in total than their exact shares because of
+   * rounding (0 ≤ extra < 1 unit). It reduces the organiser's share.
    */
   roundingExtra: number;
   unassignedItemIds: string[];
@@ -231,16 +254,22 @@ export function calculate(input: CalcInput): CalcResult {
     results.forEach((r) => (r.total = r.discounted + r.service + r.vat));
   }
 
-  // Optional: round *up* to the smallest whole unit (฿1) — the cheapest
-  // rounding, and because nobody rounds down, the organiser never collects
-  // less than the others' exact shares.
-  const step = input.roundUp ? wholeUnit(input.currency) : 0;
-  for (const r of results) r.payable = step ? Math.ceil(r.total / step) * step : r.total;
+  for (const r of results) r.payable = r.total;
+  const organiser = results.find((r) => r.personId === ORGANISER_ID);
+  const payers = results.filter((r) => r !== organiser);
+  if (input.roundUp && payers.length > 0) {
+    const unit = wholeUnit(input.currency);
+    const whole = roundToWholeUnits(
+      payers.map((r) => r.total),
+      unit,
+    );
+    payers.forEach((r, i) => (r.payable = whole[i]));
+    // The organiser paid the bill: their share is whatever is left, which is
+    // never more than their exact share (they never lose money).
+    if (organiser) organiser.payable = total - payers.reduce((s, r) => s + r.payable, 0);
+  }
   const collected = results.reduce((s, r) => s + r.payable, 0);
-  const hasOrganiser = results.some((r) => r.personId === ORGANISER_ID);
-  const roundingExtra = results
-    .filter((r) => !hasOrganiser || r.personId !== ORGANISER_ID)
-    .reduce((s, r) => s + (r.payable - r.total), 0);
+  const roundingExtra = payers.reduce((s, r) => s + (r.payable - r.total), 0);
 
   return {
     lines,
