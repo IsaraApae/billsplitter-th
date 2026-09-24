@@ -8,6 +8,7 @@ import { calculate } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { getEditToken, getHistory, patchHistory } from "@/lib/client/storage";
 import { ME_ID } from "@/lib/friends";
+import { formatStep } from "@/lib/money";
 import { formatPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
@@ -49,7 +50,7 @@ export function SharedView({
   const paidCount = doc.people.filter((p) => paid.has(p.id)).length;
   const total = doc.people.length;
   const allPaid = paidCount === total;
-  const outstanding = calc.people.filter((p) => !paid.has(p.personId)).reduce((s, p) => s + p.total, 0);
+  const outstanding = calc.people.filter((p) => !paid.has(p.personId)).reduce((s, p) => s + p.payable, 0);
   const pp = doc.payment.promptpay;
   const payPerson = calc.people.find((p) => p.personId === payFor);
 
@@ -265,7 +266,7 @@ export function SharedView({
                   </span>
                 }
                 action={
-                  qr && !isPaid && p.total > 0 && doc.currency === "THB" && p.personId !== ME_ID ? (
+                  qr && !isPaid && p.payable > 0 && doc.currency === "THB" && p.personId !== ME_ID ? (
                     <button type="button" className="btn-primary min-h-10 px-4 text-[14px]" onClick={() => setPayFor(p.personId)}>
                       Pay
                     </button>
@@ -275,6 +276,13 @@ export function SharedView({
             );
           })}
         </ul>
+        {calc.roundingExtra > 0 && (
+          <p className="px-1 text-[13px] text-ink-2">
+            Amounts are rounded up to the nearest {formatStep(doc.roundUp ?? 0, doc.currency)}; the extra{" "}
+            <Money value={calc.roundingExtra} currency={doc.currency} /> goes to{" "}
+            {doc.people.find((p) => p.id === ME_ID)?.name ?? "whoever paid the bill"}.
+          </p>
+        )}
         <p className="px-1 text-[13px] text-ink-2">Tick the circle when someone has paid. Everyone with the link sees it.</p>
       </section>
 
@@ -315,7 +323,7 @@ export function SharedView({
       </section>
 
       <Sheet open={!!payPerson} onClose={() => setPayFor(null)} title={payPerson ? `Pay ${payPerson.name}'s share` : "Pay"}>
-        {payPerson && qr && <PayQr source={qr} amount={payPerson.total} name={payPerson.name} />}
+        {payPerson && qr && <PayQr source={qr} amount={payPerson.payable} name={payPerson.name} />}
       </Sheet>
     </main>
   );

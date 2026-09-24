@@ -165,7 +165,7 @@ export function PeopleStep({
         <div className="glass rounded-3xl p-6 text-center">
           <p className="text-[15px] font-medium text-ink-2">Each of {doc.people.length} pays about</p>
           <Money
-            value={Math.max(...calc.people.map((p) => p.total))}
+            value={Math.max(...calc.people.map((p) => p.payable))}
             currency={currency}
             className="mt-1 block text-[44px] leading-none font-bold tracking-tight"
           />

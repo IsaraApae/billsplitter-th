@@ -51,7 +51,7 @@ export function PersonCard({
             </span>
             {badge}
           </span>
-          <Money value={person.total} currency={currency} className="text-[19px] font-bold tracking-tight" />
+          <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" />
           {!action && (
             <ChevronDown
               size={18}
@@ -84,7 +84,15 @@ export function PersonCard({
             {person.discount > 0 && <Row k="Discount" v={<>−<Money value={person.discount} currency={currency} /></>} />}
             {person.service > 0 && <Row k="Service charge" v={<Money value={person.service} currency={currency} />} />}
             {person.vat > 0 && <Row k="VAT" v={<Money value={person.vat} currency={currency} />} />}
-            <Row k="Total" v={<Money value={person.total} currency={currency} />} strong />
+            {person.payable !== person.total ? (
+              <>
+                <Row k="Exact share" v={<Money value={person.total} currency={currency} />} />
+                <Row k="Rounded up" v={<>+<Money value={person.payable - person.total} currency={currency} /></>} />
+                <Row k="To pay" v={<Money value={person.payable} currency={currency} />} strong />
+              </>
+            ) : (
+              <Row k="Total" v={<Money value={person.total} currency={currency} />} strong />
+            )}
           </dl>
         </div>
       )}
