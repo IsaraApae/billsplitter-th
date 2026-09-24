@@ -22,8 +22,10 @@ export function newDoc(payment: PaymentInfo = { promptpay: "", note: "" }): Spli
     people: [],
     items: [],
     discount: { enabled: false, type: "percent", value: 1000, scope: "all", itemIds: [] },
-    service: { enabled: true, rateBp: 1000 },
-    vat: { enabled: true, rateBp: 700 },
+    // Off by default; rates are pre-filled for when they're switched on.
+    service: { enabled: false, rateBp: 1000 },
+    vat: { enabled: false, rateBp: 700 },
+    roundUp: false,
     payment,
     receipt: { subtotal: null, total: null },
   };
@@ -93,19 +95,19 @@ export function applyScan(
       const bp = inferRateBp(service, base);
       next.service = { enabled: true, rateBp: bp ?? doc.service.rateBp };
       notes.push(`Service charge found on receipt (${(next.service.rateBp / 100).toString()}%).`);
-    } else if (subtotal !== null || scan.total !== null) {
+    } else if (doc.service.enabled && (subtotal !== null || scan.total !== null)) {
       next.service = { ...doc.service, enabled: false };
       notes.push("No service charge on the receipt — turned it off (you can change this in Extras).");
     }
     if (scan.vatIncluded) {
+      if (doc.vat.enabled) notes.push("Receipt says prices include VAT — VAT turned off so it isn't added twice.");
       next.vat = { ...doc.vat, enabled: false };
-      notes.push("Receipt says prices include VAT — VAT turned off so it isn't added twice.");
     } else if (vat !== null && vat > 0) {
       const svc = next.service.enabled ? (service ?? 0) : 0;
       const bp = inferRateBp(vat, base + svc);
       next.vat = { enabled: true, rateBp: bp ?? doc.vat.rateBp };
       notes.push(`VAT found on receipt (${(next.vat.rateBp / 100).toString()}%).`);
-    } else if (subtotal !== null || scan.total !== null) {
+    } else if (doc.vat.enabled && (subtotal !== null || scan.total !== null)) {
       notes.push("No VAT line found — check the VAT setting in Extras.");
     }
   }

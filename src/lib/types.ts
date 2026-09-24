@@ -70,4 +70,6 @@ export interface SplitDoc {
   vat: Rate;
   payment: PaymentInfo;
   receipt: ReceiptTotals;
+  /** Round each share up to the nearest whole unit (฿1). Absent = off. */
+  roundUp?: boolean;
 }

@@ -18,6 +18,8 @@ export interface CalcInput {
   vat: Rate;
   /** Used to round everyone's amount up to one whole unit (฿1, $1…). */
   currency?: string;
+  /** Round each share up to the nearest whole unit. Off unless true. */
+  roundUp?: boolean;
 }
 
 /** Smallest whole-unit step for a currency, in minor units (THB → 100 satang, JPY → 1). */
@@ -229,11 +231,11 @@ export function calculate(input: CalcInput): CalcResult {
     results.forEach((r) => (r.total = r.discounted + r.service + r.vat));
   }
 
-  // Always round *up* to the smallest whole unit (฿1): the cheapest rounding,
-  // and because nobody rounds down, the organiser never collects less than
-  // the others' exact shares.
-  const step = wholeUnit(input.currency);
-  for (const r of results) r.payable = Math.ceil(r.total / step) * step;
+  // Optional: round *up* to the smallest whole unit (฿1) — the cheapest
+  // rounding, and because nobody rounds down, the organiser never collects
+  // less than the others' exact shares.
+  const step = input.roundUp ? wholeUnit(input.currency) : 0;
+  for (const r of results) r.payable = step ? Math.ceil(r.total / step) * step : r.total;
   const collected = results.reduce((s, r) => s + r.payable, 0);
   const hasOrganiser = results.some((r) => r.personId === ORGANISER_ID);
   const roundingExtra = results

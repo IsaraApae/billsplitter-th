@@ -251,7 +251,7 @@ describe("rounding always sums exactly to the grand total", () => {
   });
 });
 
-describe("round up (always, to the nearest whole unit)", () => {
+describe("round up (optional, to the nearest whole unit)", () => {
   const svc = { enabled: true, rateBp: 1000 };
   const vat = { enabled: true, rateBp: 700 };
   const withMe = [
@@ -265,8 +265,14 @@ describe("round up (always, to the nearest whole unit)", () => {
     item("beer", 9000, ["b", "c"], 2),
   ];
 
-  it("rounds everyone, including the organiser, up to the next ฿1", () => {
+  it("is off by default: everyone pays the exact share", () => {
     const r = calculate(base({ people: withMe, items, service: svc, vat }));
+    expect(r.people.map((p) => p.payable)).toEqual(totals(r));
+    expect(r.roundingExtra).toBe(0);
+  });
+
+  it("rounds everyone, including the organiser, up to the next ฿1", () => {
+    const r = calculate(base({ people: withMe, items, service: svc, vat, roundUp: true }));
     expect(totals(r)).toEqual([25894, 22363, 22363]); // exact shares unchanged
     expect(r.people.map((p) => p.payable)).toEqual([25900, 22400, 22400]);
     expect(r.total).toBe(70620); // the bill itself is unchanged
@@ -275,14 +281,14 @@ describe("round up (always, to the nearest whole unit)", () => {
   });
 
   it("leaves whole amounts alone and never rounds down", () => {
-    const r = calculate(base({ items: [item("x", 30000, ["a"]), item("y", 0, ["b"]), item("z", 12301, ["c"])] }));
+    const r = calculate(base({ items: [item("x", 30000, ["a"]), item("y", 0, ["b"]), item("z", 12301, ["c"])], roundUp: true }));
     expect(r.people.map((p) => p.payable)).toEqual([30000, 0, 12400]);
   });
 
   it("uses the currency's whole unit (no-op for zero-decimal currencies)", () => {
-    const usd = calculate({ ...base({ items: [item("x", 1001, ["a"])] }), currency: "USD" });
+    const usd = calculate({ ...base({ items: [item("x", 1001, ["a"])], roundUp: true }), currency: "USD" });
     expect(usd.people[0].payable).toBe(1100);
-    const jpy = calculate({ ...base({ items: [item("x", 1001, ["a"])] }), currency: "JPY" });
+    const jpy = calculate({ ...base({ items: [item("x", 1001, ["a"])], roundUp: true }), currency: "JPY" });
     expect(jpy.people[0].payable).toBe(1001);
   });
 
@@ -294,7 +300,7 @@ describe("round up (always, to the nearest whole unit)", () => {
       const its = Array.from({ length: 1 + Math.floor(rand() * 8) }, (_, i) =>
         item(`i${i}`, Math.floor(rand() * 50000), ps.filter(() => rand() < 0.6).map((p) => p.id).concat(ps[0].id)),
       );
-      const r = calculate({ mode: rand() < 0.3 ? "equal" : "itemized", people: ps, items: its, discount: noDiscount, service: svc, vat });
+      const r = calculate({ mode: rand() < 0.3 ? "equal" : "itemized", people: ps, items: its, discount: noDiscount, service: svc, vat, roundUp: true });
       const others = r.people.filter((p) => p.personId !== "me");
       // What the organiser collects is never less than the others' exact shares.
       expect(sum(others.map((p) => p.payable))).toBeGreaterThanOrEqual(sum(others.map((p) => p.total)));
