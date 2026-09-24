@@ -3,9 +3,10 @@ import { del, put } from "@vercel/blob";
 import { randomBytes } from "node:crypto";
 import { devImageDel, devImageGet, devImagePut } from "./redis";
 
-// Vercel Blob when BLOB_READ_WRITE_TOKEN is set; an in-memory store in local
-// dev so the feature can be tried without any setup; unavailable otherwise.
-const blobReady = !!process.env.BLOB_READ_WRITE_TOKEN;
+// Vercel Blob when configured — either a BLOB_READ_WRITE_TOKEN, or (newer
+// stores) BLOB_STORE_ID + Vercel's automatic OIDC token, which @vercel/blob
+// picks up by itself. An in-memory store in local dev; unavailable otherwise.
+const blobReady = !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 const devMode = !blobReady && process.env.NODE_ENV !== "production";
 
 export const qrStorageReady = blobReady || devMode;

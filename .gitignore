@@ -43,3 +43,5 @@ next-env.d.ts
 # local test photos (may contain personal data)
 /test-receipts/
 /public/_tmp-*
+.vercel
+.env*
