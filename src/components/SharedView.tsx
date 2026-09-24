@@ -37,7 +37,8 @@ export function SharedView({
   const [paid, setPaid] = useState<Set<string>>(() => new Set(initialPaid));
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const canEdit = useBrowserValue(() => !!getEditToken(id), false);
+  const editToken = useBrowserValue(() => getEditToken(id), null);
+  const canEdit = !!editToken;
   const url = `${useBrowserValue(() => window.location.origin, "")}/s/${id}`;
   const [payFor, setPayFor] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -98,6 +99,7 @@ export function SharedView({
 
   async function togglePaid(personId: string) {
     const next = !paid.has(personId);
+    if (!next && !canEdit) return; // only the organiser can undo a payment
     setError(null);
     const flip = (s: Set<string>, on: boolean) => {
       const n = new Set(s);
@@ -110,7 +112,7 @@ export function SharedView({
     try {
       const r = await fetch(`/api/splits/${id}/paid`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(editToken ? { "x-edit-token": editToken } : {}) },
         body: JSON.stringify({ personId, paid: next }),
       });
       const data = await r.json().catch(() => null);
@@ -244,9 +246,10 @@ export function SharedView({
                       type="checkbox"
                       className="peer sr-only"
                       checked={isPaid}
-                      disabled={busy}
+                      disabled={busy || (isPaid && !canEdit)}
                       onChange={() => togglePaid(p.personId)}
                       aria-label={`${p.name} paid`}
+                      title={isPaid && !canEdit ? "Only the organiser can undo a payment" : undefined}
                     />
                     <span
                       aria-hidden
@@ -289,7 +292,10 @@ export function SharedView({
             .
           </p>
         )}
-        <p className="px-1 text-[13px] text-ink-2">Tick the circle when someone has paid. Everyone with the link sees it.</p>
+        <p className="px-1 text-[13px] text-ink-2">
+          Tick the circle when someone has paid. Everyone with the link sees it.{" "}
+          {canEdit ? "As the organiser, you can also untick it." : "Only the organiser can undo a tick."}
+        </p>
       </section>
 
       <section className="space-y-3" aria-label="Bill breakdown">
