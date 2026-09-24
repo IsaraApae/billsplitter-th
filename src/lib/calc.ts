@@ -6,6 +6,7 @@
 // Every time an amount is divided, it goes through `allocate` (largest-remainder
 // method on integers), so the parts always sum exactly to the whole.
 
+import { currencyExponent } from "./money";
 import type { Discount, Item, Person, Rate, SplitMode } from "./types";
 
 export interface CalcInput {
@@ -15,12 +16,13 @@ export interface CalcInput {
   discount: Discount;
   service: Rate;
   vat: Rate;
-  /**
-   * Round each person's amount *up* to this step (minor units, e.g. 500 = ฿5).
-   * 0/undefined = exact. The organiser (id "me") is never rounded — they paid
-   * the bill, so the few extra baht everyone else pays go to them.
-   */
-  roundUp?: number;
+  /** Used to round everyone's amount up to one whole unit (฿1, $1…). */
+  currency?: string;
+}
+
+/** Smallest whole-unit step for a currency, in minor units (THB → 100 satang, JPY → 1). */
+export function wholeUnit(currency = "THB"): number {
+  return 10 ** currencyExponent(currency);
 }
 
 /** The person who paid the bill (the device owner in new splits). */
@@ -54,7 +56,7 @@ export interface PersonResult {
   vat: number;
   /** exact share of the bill */
   total: number;
-  /** what they're asked to pay: `total`, rounded up when rounding is on */
+  /** what they're asked to pay: `total` rounded up to a whole unit (never less) */
   payable: number;
 }
 
@@ -69,7 +71,10 @@ export interface CalcResult {
   people: PersonResult[];
   /** sum of everyone's `payable` */
   collected: number;
-  /** collected − total: the extra from rounding up (goes to the organiser) */
+  /**
+   * How much more the others pay than their exact shares because of rounding —
+   * this goes to the organiser, so the organiser never loses money.
+   */
   roundingExtra: number;
   unassignedItemIds: string[];
   /** true when the split can be finalised (people present, every item assigned) */
@@ -224,12 +229,16 @@ export function calculate(input: CalcInput): CalcResult {
     results.forEach((r) => (r.total = r.discounted + r.service + r.vat));
   }
 
-  const step = input.roundUp && input.roundUp > 0 ? Math.round(input.roundUp) : 0;
-  for (const r of results) {
-    r.payable = step && r.personId !== ORGANISER_ID ? Math.ceil(r.total / step) * step : r.total;
-  }
+  // Always round *up* to the smallest whole unit (฿1): the cheapest rounding,
+  // and because nobody rounds down, the organiser never collects less than
+  // the others' exact shares.
+  const step = wholeUnit(input.currency);
+  for (const r of results) r.payable = Math.ceil(r.total / step) * step;
   const collected = results.reduce((s, r) => s + r.payable, 0);
-  const assignedTotal = results.reduce((s, r) => s + r.total, 0);
+  const hasOrganiser = results.some((r) => r.personId === ORGANISER_ID);
+  const roundingExtra = results
+    .filter((r) => !hasOrganiser || r.personId !== ORGANISER_ID)
+    .reduce((s, r) => s + (r.payable - r.total), 0);
 
   return {
     lines,
@@ -241,7 +250,7 @@ export function calculate(input: CalcInput): CalcResult {
     total,
     people: results,
     collected,
-    roundingExtra: collected - assignedTotal,
+    roundingExtra,
     unassignedItemIds,
     complete: n > 0 && items.length > 0 && unassignedItemIds.length === 0,
   };

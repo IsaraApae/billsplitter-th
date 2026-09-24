@@ -14,7 +14,6 @@ export interface Profile {
   ownerId?: string; // server-side owner record for the uploaded QR
   ownerToken?: string; // secret proving this device owns it
   qrVersion?: number; // bumps when the uploaded QR changes
-  roundUp?: number; // last rounding step used (minor units), reused for new splits
 }
 
 const KEY = "bs:profile";
