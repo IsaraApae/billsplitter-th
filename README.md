@@ -39,6 +39,10 @@ Without Redis/Blob env vars, `npm run dev` uses in-memory stores so sharing and 
 
 ## Deploy / redeploy
 
-```bash
-npx vercel --prod
-```
+The code lives in a private GitHub repo (`IsaraApae/billsplitter-th`) connected to the Vercel project:
+
+- Push to `main` → production deploy (https://billsplitter-th.vercel.app).
+- Push any other branch → preview deploy with its own URL.
+
+Manual deploy (still works): `npx vercel deploy --prod`.
+Live check after a deploy: `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]`.
