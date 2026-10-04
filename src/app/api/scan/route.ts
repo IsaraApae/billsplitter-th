@@ -119,6 +119,25 @@ function body(mime: string, data: string, legacy: boolean) {
   });
 }
 
+/**
+ * Google's error status (e.g. UNAVAILABLE, RESOURCE_EXHAUSTED) and, for quota
+ * errors, which quota was hit (per-minute vs per-day), for the logs.
+ */
+function describeGoogleError(raw: string): Record<string, unknown> {
+  try {
+    const e = (JSON.parse(raw) as { error?: { status?: string; message?: string; details?: { violations?: { quotaId?: string; quotaMetric?: string }[]; retryDelay?: string }[] } }).error;
+    const details = e?.details ?? [];
+    return {
+      googleStatus: e?.status,
+      message: e?.message?.split("\n")[0]?.slice(0, 160),
+      quota: details.flatMap((d) => d.violations ?? []).map((v) => v.quotaId ?? v.quotaMetric).filter(Boolean),
+      retryDelay: details.find((d) => d.retryDelay)?.retryDelay,
+    };
+  } catch {
+    return { detail: raw.slice(0, 300) };
+  }
+}
+
 type Attempt =
   | { ok: true; res: Response; model: string; legacy: boolean }
   | { ok: false; reason: FallbackReason; status: number };
@@ -142,8 +161,7 @@ async function callModel(model: string, key: string, mime: string, data: string,
       res = await call(true);
     }
     if (res.ok) return { ok: true, res, model, legacy };
-    const detail = (await res.text().catch(() => "")).slice(0, 300);
-    log({ model, status: res.status, detail });
+    log({ model, status: res.status, ...describeGoogleError(await res.text().catch(() => "")) });
     if (res.status === 429) return { ok: false, reason: "quota", status: 429 };
     if (res.status === 503 || res.status === 500 || res.status === 504) return { ok: false, reason: "busy", status: res.status };
     return { ok: false, reason: "api_error", status: res.status };
