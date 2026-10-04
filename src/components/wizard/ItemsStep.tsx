@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Camera, Check, ImageIcon, PencilLine, Plus, RotateCcw, ScanLine, Sparkles, Trash2, X, ZoomIn } from "lucide-react";
+import { AlertTriangle, Camera, ImageIcon, PencilLine, Plus, RotateCcw, ScanLine, Sparkles, Trash2, X, ZoomIn } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CalcResult } from "@/lib/calc";
 import { lineTotal } from "@/lib/calc";
@@ -8,7 +8,7 @@ import { loadUpright, uploadJpeg } from "@/lib/client/image";
 import { askConfirm } from "@/lib/client/confirm";
 import { SCAN_EVENT, takePendingScan } from "@/lib/client/pendingScan";
 import { applyScan, totalMismatch, uid } from "@/lib/draft";
-import { CURRENCIES, formatMoney } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import type { DroppedLine } from "@/lib/scanFilter";
 import type { ScanResult } from "@/lib/scanResult";
 import type { SplitDoc } from "@/lib/types";
@@ -179,7 +179,6 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
             onChange={(e) => setDoc((d) => ({ ...d, title: e.target.value }))}
           />
         </div>
-        <CurrencyChips value={currency} locked={doc.items.length > 0} onChange={(c) => setDoc((d) => ({ ...d, currency: c }))} />
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
@@ -400,60 +399,6 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
 
       <Sheet open={zoom} onClose={() => setZoom(false)} title="Receipt">
         {receipt && <ZoomableImage src={receipt.url} />}
-      </Sheet>
-    </div>
-  );
-}
-
-const COMMON_CURRENCIES = ["THB", "USD", "EUR", "GBP", "JPY", "SGD", "MYR", "KRW"];
-
-/** Tap-to-choose currency chips (common ones inline, the rest in a sheet). */
-function CurrencyChips({ value, locked, onChange }: { value: string; locked: boolean; onChange: (c: string) => void }) {
-  const [more, setMore] = useState(false);
-  const shown = COMMON_CURRENCIES.includes(value) ? COMMON_CURRENCIES : [value, ...COMMON_CURRENCIES.slice(0, 7)];
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Currency"
-      title={locked ? "Clear items to change currency" : undefined}
-      className="-mx-4 overflow-x-auto px-4 py-1"
-    >
-      <div className="flex w-max gap-2">
-        {shown.map((c) => (
-          <button
-            key={c}
-            type="button"
-            role="radio"
-            aria-checked={value === c}
-            disabled={locked && value !== c}
-            onClick={() => onChange(c)}
-            className={cx(value === c ? "chip-on" : "chip", "disabled:opacity-40")}
-          >
-            {c}
-          </button>
-        ))}
-        <button type="button" className="chip disabled:opacity-40" disabled={locked} onClick={() => setMore(true)}>
-          More…
-        </button>
-      </div>
-      <Sheet open={more} onClose={() => setMore(false)} title="Currency">
-        <ul className="card rows overflow-hidden">
-          {CURRENCIES.map((c) => (
-            <li key={c}>
-              <button
-                type="button"
-                className="flex min-h-[52px] w-full items-center justify-between px-5 text-left"
-                onClick={() => {
-                  onChange(c);
-                  setMore(false);
-                }}
-              >
-                <span>{c}</span>
-                {value === c && <Check size={22} {...ICON} className="text-accent" aria-hidden />}
-              </button>
-            </li>
-          ))}
-        </ul>
       </Sheet>
     </div>
   );

@@ -1,7 +1,7 @@
 // Draft helpers used by the editor. Pure (ids come from crypto but no I/O).
 
 import { itemsSubtotal } from "./calc";
-import { currencyExponent, isCurrency, parseMoney } from "./money";
+import { currencyExponent, parseMoney } from "./money";
 import type { ScanResult } from "./scanResult";
 import { cleanScannedItems, type DroppedLine } from "./scanFilter";
 import type { Item, PaymentInfo, SplitDoc } from "./types";
@@ -65,11 +65,8 @@ export function applyScan(
   const notes: string[] = [];
   // Same clean-up whichever engine read the receipt.
   const { items: scannedItems, dropped } = cleanScannedItems(scan.items);
-  let currency = doc.currency;
-  if (doc.items.length === 0 && scan.currency && isCurrency(scan.currency) && scan.currency !== currency) {
-    currency = scan.currency;
-    notes.push(`Currency set to ${currency} from the receipt.`);
-  }
+  // The split keeps its own currency (THB for new splits); there's no picker.
+  const currency = doc.currency;
   const m = (v: number | null) => (v === null ? null : parseMoney(v, currency));
 
   const items: Item[] = scannedItems.map((s) => {
