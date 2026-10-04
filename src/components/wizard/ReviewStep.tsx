@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { CalcResult } from "@/lib/calc";
 import { getProfile, qrImageUrl } from "@/lib/client/profile";
+import { totalMismatch } from "@/lib/draft";
 import { wholeUnitName } from "@/lib/money";
 import { formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
@@ -59,7 +60,7 @@ export function ReviewStep({
 
       <Section title="Breakdown">
         <Breakdown doc={doc} calc={calc} />
-        {printedTotal !== null && printedTotal !== calc.total && (
+        {totalMismatch(calc.total, printedTotal, doc.currency) !== null && printedTotal !== null && (
           <Callout tone="warn">
             The receipt&apos;s printed total is <Money value={printedTotal} currency={doc.currency} /> but this split comes
             to <Money value={calc.total} currency={doc.currency} />. Check the items and the service charge / VAT settings.

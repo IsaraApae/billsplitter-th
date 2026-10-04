@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { isValidPromptPayId } from "./promptpay";
 import { addFriend, findByName, markUsed, sameAsLastTime, sortFriends, toPeople, type Friend } from "./friends";
 import { readJpegInfo, swapsAxes } from "./jpeg";
-import { filterOcrLines, isWellFormedThai, parseReceiptText, type OcrLine } from "./ocrParse";
+import { sanitizeScan, summariseFailure, type ScanAttempt } from "./scanResult";
 import { promptPayPayload } from "./promptpay";
 import { cleanScannedItems, isSummaryLine } from "./scanFilter";
+import { applyScan, newDoc, totalMismatch } from "./draft";
 
 /** Independent CRC-16/CCITT-FALSE reference to check the library's output. */
 function crc16(data: string): string {
@@ -19,15 +20,17 @@ function crc16(data: string): string {
 it("CRC reference matches the standard check value", () => expect(crc16("123456789")).toBe("29B1"));
 
 describe("cleanScannedItems", () => {
-  it("drops summary, payment and price-less lines but keeps real dishes", () => {
+  it("drops summary lines only on an exact keyword match", () => {
     const { items, dropped } = cleanScannedItems([
       { name: "Pad Thai", qty: 1, price: 120 },
       { name: "ข้าวผัดรวมมิตร", qty: 1, price: 80 }, // contains รวม but is a dish
       { name: "Tea (change to hot)", qty: 1, price: 40 },
+      { name: "Service Set A", qty: 1, price: 199 }, // starts with "service" but is food
+      { name: "Total Wipeout Burger", qty: 1, price: 259 },
       { name: "Subtotal", qty: 1, price: 240 },
       { name: "Service Charge 10%", qty: 1, price: 24 },
       { name: "VAT 7%", qty: 1, price: 18.48 },
-      { name: "TOTAL", qty: 1, price: 282.48 },
+      { name: "TOTAL:", qty: 1, price: 282.48 },
       { name: "Cash", qty: 1, price: 300 },
       { name: "Change", qty: 1, price: 17.52 },
       { name: "ยอดรวม", qty: 1, price: 282.48 },
@@ -36,80 +39,73 @@ describe("cleanScannedItems", () => {
       { name: "Free water", qty: 1, price: 0 },
       { name: "12345", qty: 1, price: 10 },
     ]);
-    expect(items.map((i) => i.name)).toEqual(["Pad Thai", "ข้าวผัดรวมมิตร", "Tea (change to hot)"]);
-    expect(dropped.map((d) => d.reason)).toContain("no_price");
-    expect(dropped.map((d) => d.reason)).toContain("no_text");
+    expect(items.map((i) => i.name)).toEqual([
+      "Pad Thai",
+      "ข้าวผัดรวมมิตร",
+      "Tea (change to hot)",
+      "Service Set A",
+      "Total Wipeout Burger",
+    ]);
     expect(dropped.filter((d) => d.reason === "summary_line")).toHaveLength(9);
+    expect(dropped.map((d) => d.reason)).toEqual(expect.arrayContaining(["no_price", "no_text"]));
   });
 
-  it("recognises summary lines in both languages", () => {
+  it("keeps negative lines (a discount on one item), even if named like a summary", () => {
+    const { items } = cleanScannedItems([
+      { name: "Tom Yum", qty: 1, price: 300 },
+      { name: "ส่วนลด", qty: 1, price: -30 },
+      { name: "Discount", qty: 1, price: -15 },
+    ]);
+    expect(items.map((i) => i.price)).toEqual([300, -30, -15]);
+  });
+
+  it("isSummaryLine ignores amounts, percentages and punctuation", () => {
     expect(isSummaryLine("Grand Total")).toBe(true);
     expect(isSummaryLine("ค่าบริการ 10%")).toBe(true);
+    expect(isSummaryLine("Service Charge (10%) :")).toBe(true);
     expect(isSummaryLine("Totally Tofu")).toBe(false);
-    expect(isSummaryLine("ส้มตำ")).toBe(false);
+    expect(isSummaryLine("Cash & Carry Combo")).toBe(false);
   });
 });
 
-describe("Tesseract confidence filter", () => {
-  const w = (text: string, confidence = 90) => ({ text, confidence });
-  const line = (words: { text: string; confidence: number }[], confidence = 90): OcrLine => ({
-    text: words.map((x) => x.text).join(" "),
-    confidence,
-    words,
-  });
-
-  it("flags malformed Thai noise and keeps real Thai", () => {
-    expect(isWellFormedThai("ต้มยำกุ้ง")).toBe(true);
-    expect(isWellFormedThai("ข้าวผัด")).toBe(true);
-    expect(isWellFormedThai("เบียร์")).toBe(true);
-    expect(isWellFormedThai("่้ิ")).toBe(false); // marks with no consonant
-    expect(isWellFormedThai("เ")).toBe(false); // leading vowel with nothing after
-    expect(isWellFormedThai("ก")).toBe(false); // lone character
-    expect(isWellFormedThai("Beer")).toBe(true);
-  });
-
-  it("drops low-confidence words/lines and lines without a price", () => {
-    const text = filterOcrLines([
-      line([w("Pad"), w("Thai"), w("120.00")]),
-      line([w("ต้มยำกุ้ง"), w("ฺ่ิ", 91), w("300.00")]), // noise word inside a real line
-      line([w("ํฺ๊", 40), w("ฏ", 35), w("11.00", 50)], 45), // noisy line
-      line([w("SOMTAM"), w("HOUSE")]), // no price
-      line([w("Subtotal"), w("420.00")]),
-      line([w("Beer", 30), w("90.00")], 70), // low-confidence word dropped
-    ]);
-    expect(text.split("\n")).toEqual(["Pad Thai 120.00", "ต้มยำกุ้ง 300.00", "Subtotal 420.00", "90.00"]);
-    const parsed = parseReceiptText(text);
-    expect(parsed.items.map((i) => i.name)).toEqual(["Pad Thai", "ต้มยำกุ้ง"]);
-    expect(parsed.subtotal).toBe(420);
-  });
-});
-
-describe("receipt parser details (from the Yoshinoya test receipt)", () => {
-  it("handles @unit prices, trailing '-' discounts, '*' flags, key: value lines and VAT-included notes", () => {
-    const r = parseReceiptText(
-      [
-        "STORE : 26029",
-        "1 Beef Bowl(L) E 189.00",
-        "2 Beef Bowl(R) E @159.00 318.00",
-        "3 Tokusei 3 E @79.00 237.00",
-        "UOB 15%/450 225.00-",
-        "Sub Total 1,500.00",
-        "Total: 1,275.00 *",
-        "Payment 1,275.00 *",
-        "Trace No: 039370",
-        "Points Balance: 1158 Pts",
-        "VAT TNCLUDED/Thank You",
-      ].join("\n"),
-    );
+describe("sanitizeScan", () => {
+  it("reads the camelCase contract, keeps negative item prices, and normalises the discount", () => {
+    const r = sanitizeScan({
+      items: [
+        { name: " Beef Bowl ", qty: 2, price: 318 },
+        { name: "Member discount", qty: 1, price: -20 },
+        { name: "", qty: 1, price: 0 },
+      ],
+      subtotal: 1500,
+      discount: -225,
+      serviceCharge: null,
+      vat: null,
+      vatIncluded: true,
+      total: "1,275.00",
+      currency: "THB",
+    });
     expect(r.items).toEqual([
-      { name: "Beef Bowl(L) E", qty: 1, price: 189 },
-      { name: "Beef Bowl(R) E", qty: 2, price: 318 },
-      { name: "Tokusei 3 E", qty: 3, price: 237 },
+      { name: "Beef Bowl", qty: 2, price: 318 },
+      { name: "Member discount", qty: 1, price: -20 },
     ]);
-    expect(r.discount).toBe(225);
-    expect(r.subtotal).toBe(1500);
-    expect(r.total).toBe(1275);
-    expect(r.vatIncluded).toBe(true);
+    expect([r.discount, r.vatIncluded, r.total, r.currency]).toEqual([225, true, 1275, "THB"]);
+  });
+
+  it("still accepts older snake_case fields", () => {
+    const r = sanitizeScan({ items: [], service_charge: 63, vat_included: true });
+    expect([r.serviceCharge, r.vatIncluded]).toEqual([63, true]);
+  });
+});
+
+describe("summariseFailure", () => {
+  const a = (outcome: ScanAttempt["outcome"]): ScanAttempt => ({ model: "m", status: 0, outcome, ms: 1 });
+  it("reports quota only when every model was out of quota, otherwise busy", () => {
+    expect(summariseFailure([a("quota"), a("quota"), a("quota")])).toBe("quota");
+    expect(summariseFailure([a("quota"), a("busy"), a("busy")])).toBe("busy");
+    expect(summariseFailure([a("timeout"), a("quota")])).toBe("quota");
+    expect(summariseFailure([a("busy"), a("api_error")])).toBe("api_error");
+    expect(summariseFailure([a("timeout")])).toBe("timeout");
+    expect(summariseFailure([])).toBe("network");
   });
 });
 
@@ -198,5 +194,30 @@ describe("friends", () => {
       ["me", "Me"],
       ["b", "Bee"],
     ]);
+  });
+});
+
+describe("applyScan + totalMismatch", () => {
+  const doc = () => ({ ...newDoc(), people: [{ id: "me", name: "Me" }] });
+  it("keeps a negative per-item discount line with its sign", () => {
+    const r = applyScan(doc(), {
+      items: [
+        { name: "Tom Yum", qty: 1, price: 300 },
+        { name: "ส่วนลด", qty: 1, price: -30 },
+      ],
+      subtotal: 270, serviceCharge: null, vat: null, vatIncluded: true, discount: null, total: 270, currency: "THB",
+    });
+    expect(r.doc.items.map((i) => [i.name, i.qty * i.price])).toEqual([
+      ["Tom Yum", 30000],
+      ["ส่วนลด", -3000],
+    ]);
+  });
+
+  it("flags a printed total that doesn't match beyond ฿1 of rounding", () => {
+    expect(totalMismatch(127500, 127500, "THB")).toBeNull();
+    expect(totalMismatch(127550, 127500, "THB")).toBeNull(); // 50 satang = rounding
+    expect(totalMismatch(131400, 127500, "THB")).toBe(3900);
+    expect(totalMismatch(100, null, "THB")).toBeNull();
+    expect(totalMismatch(1002, 1000, "JPY")).toBe(2);
   });
 });

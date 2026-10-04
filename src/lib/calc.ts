@@ -40,7 +40,8 @@ export function roundToWholeUnits(exact: number[], unit: number): number[] {
   const target = Math.ceil(exact.reduce((a, b) => a + b, 0) / unit);
   const floors = exact.map((v) => Math.floor(v / unit));
   let left = target - floors.reduce((a, b) => a + b, 0);
-  const order = exact.map((_, i) => i).sort((a, b) => (exact[b] % unit) - (exact[a] % unit) || a - b);
+  const rem = (v: number) => ((v % unit) + unit) % unit; // works for negative shares too
+  const order = exact.map((_, i) => i).sort((a, b) => rem(exact[b]) - rem(exact[a]) || a - b);
   const units = [...floors];
   for (let k = 0; left > 0; k++, left--) units[order[k]] += 1;
   return units.map((u) => u * unit);
@@ -121,6 +122,8 @@ export function applyBp(amount: number, bp: number): number {
 export function allocate(amount: number, weights: number[], offset = 0): number[] {
   const n = weights.length;
   if (n === 0) return [];
+  // Negative amounts (e.g. a discount line) split exactly like positive ones.
+  if (amount < 0) return allocate(-amount, weights, offset).map((x) => (x === 0 ? 0 : -x));
   const w = weights.some((x) => x > 0) ? weights.map((x) => Math.max(0, x)) : weights.map(() => 1);
   const total = BigInt(w.reduce((a, b) => a + b, 0));
   const amt = BigInt(amount);

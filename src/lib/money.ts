@@ -63,7 +63,14 @@ export function toMajorString(minor: number, currency: string): string {
  * Parse user/OCR text into minor units. Accepts "1,234.50", "1234.5", "฿ 99".
  * Returns null for anything that is not a non-negative number.
  */
-export function parseMoney(input: string | number, currency: string): number | null {
+export function parseMoney(input: string | number, currency: string, allowNegative = false): number | null {
+  if (allowNegative) {
+    const negative = typeof input === "number" ? input < 0 : /^\s*[-−]/.test(input);
+    if (negative) {
+      const abs = parseMoney(typeof input === "number" ? -input : input.replace(/^\s*[-−]/, ""), currency);
+      return abs === null ? null : -abs;
+    }
+  }
   const exp = currencyExponent(currency);
   if (typeof input === "number") {
     if (!Number.isFinite(input) || input < 0) return null;

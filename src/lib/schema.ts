@@ -31,7 +31,7 @@ export const splitDocSchema = z
           id,
           name,
           qty: z.number().int().min(1).max(999),
-          price: money,
+          price: z.number().int().min(-1_000_000_000_00).max(1_000_000_000_00), // negative = discount on one item
           assigned: z.array(id).max(50),
         }),
       )

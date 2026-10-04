@@ -1,7 +1,7 @@
 // Draft helpers used by the editor. Pure (ids come from crypto but no I/O).
 
 import { itemsSubtotal } from "./calc";
-import { isCurrency, parseMoney } from "./money";
+import { currencyExponent, isCurrency, parseMoney } from "./money";
 import type { ScanResult } from "./scanResult";
 import { cleanScannedItems, type DroppedLine } from "./scanFilter";
 import type { Item, PaymentInfo, SplitDoc } from "./types";
@@ -35,6 +35,17 @@ export function defaultTitle(date = new Date()): string {
   return `Bill · ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
+/**
+ * After a scan: does the split's total (items − discount + service + VAT, as
+ * calculated) match the receipt's printed total? Differences up to one whole
+ * unit (฿1) are rounding. Returns the gap when it's bigger, otherwise null.
+ */
+export function totalMismatch(calculatedTotal: number, printedTotal: number | null, currency: string): number | null {
+  if (printedTotal === null) return null;
+  const gap = calculatedTotal - printedTotal;
+  return Math.abs(gap) > 10 ** currencyExponent(currency) ? gap : null;
+}
+
 /** Nearest sensible percentage (bp) for a printed amount over a base. */
 function inferRateBp(amount: number, base: number): number | null {
   if (base <= 0 || amount <= 0) return null;
@@ -62,7 +73,9 @@ export function applyScan(
   const m = (v: number | null) => (v === null ? null : parseMoney(v, currency));
 
   const items: Item[] = scannedItems.map((s) => {
-    const line = parseMoney(s.price, currency) ?? 0;
+    // Negative lines are discounts on one item; keep the sign.
+    const abs = parseMoney(Math.abs(s.price), currency) ?? 0;
+    const line = s.price < 0 ? -abs : abs;
     if (s.qty > 1 && line % s.qty === 0) {
       return { id: uid(), name: s.name, qty: s.qty, price: line / s.qty, assigned: [] };
     }

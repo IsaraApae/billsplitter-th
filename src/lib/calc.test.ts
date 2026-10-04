@@ -325,3 +325,37 @@ describe("rounding to whole baht (optional)", () => {
     }
   });
 });
+
+describe("negative items (a discount printed under one item)", () => {
+  it("allocate splits negative amounts exactly", () => {
+    expect(allocate(-100, [1, 1, 1])).toEqual([-34, -33, -33]);
+    expect(sum(allocate(-10001, [3, 1]))).toBe(-10001);
+  });
+
+  it("reduces only the people who shared that item", () => {
+    const r = calculate(
+      base({
+        items: [item("padthai", 12000, ["a"]), item("tomyum", 30000, ["b", "c"]), item("tomyum discount", -3000, ["b", "c"])],
+      }),
+    );
+    expect(r.itemsSubtotal).toBe(39000);
+    expect(totals(r)).toEqual([12000, 13500, 13500]);
+    expect(sum(totals(r))).toBe(r.total);
+  });
+
+  it("works with service, VAT, a receipt-wide discount and rounding", () => {
+    const r = calculate({
+      ...base({
+        people: [{ id: "me", name: "Me" }, ...people.slice(1)],
+        items: [item("a", 15000, ["me"]), item("b", 20000, ["b", "c"]), item("b off", -2500, ["b", "c"])],
+        discount: { ...noDiscount, enabled: true, value: 1000 },
+        service: { enabled: true, rateBp: 1000 },
+        vat: { enabled: true, rateBp: 700 },
+      }),
+      roundUp: true,
+    });
+    expect(sum(totals(r))).toBe(r.total);
+    expect(sum(r.people.map((p) => p.payable))).toBe(r.total);
+    for (const p of r.people) expect(p.discount).toBeGreaterThanOrEqual(0);
+  });
+});
