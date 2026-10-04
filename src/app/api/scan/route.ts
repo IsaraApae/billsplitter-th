@@ -1,6 +1,7 @@
 import { extractJson, sanitizeScan, summariseFailure, type ScanAttempt } from "@/lib/scanResult";
 import { jsonError } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
+import { getModelCooldowns, setModelCooldown } from "@/lib/server/redis";
 
 // Time budget: ~20 s per Gemini call, ~55 s across all calls; the function
 // may run a little longer than that to finish responding.
@@ -34,7 +35,8 @@ ITEMS — every purchased line:
 - name: exactly as printed, character for character. Keep Thai names in Thai script. Never translate, transliterate, correct spelling or expand abbreviations.
 - qty: the printed quantity (1 if none).
 - price: the LINE price printed on that line (qty × unit price), not the unit price after "@".
-- A discount that applies to ONE item (printed under that item) is its own item with a NEGATIVE price, named as printed.
+- A discount that applies to ONE item (printed directly under that item, e.g. "ส่วนลด -20" under a dish) is its own item with a NEGATIVE price, named as printed.
+- A discount on the WHOLE bill is NOT an item: bank/card/member promotions and discount lines printed after the item list or near the subtotal (e.g. "UOB 15%/450  225.00-", "Member 10%", "ส่วนลดท้ายบิล") go in the discount field.
 - Skip lines without their own price (set components, modifiers, notes) and lines priced 0.00.
 - Never invent or guess text. If part of a name is unreadable, copy only the readable part; if a whole line is unreadable, skip it.
 - Read only the receipt paper; ignore bottles, packaging, menus, screens and other papers in the photo.
@@ -159,7 +161,10 @@ function body(model: string, mime: string, data: string, legacy: boolean) {
   });
 }
 
-type CallResult = { attempt: ScanAttempt; text?: string };
+type CallResult = { attempt: ScanAttempt; text?: string; cooldownSec?: number };
+
+/** "32656s" → 32656 */
+const seconds = (delay: unknown) => (typeof delay === "string" && /^\d+(\.\d+)?s$/.test(delay) ? parseFloat(delay) : undefined);
 
 /** One Gemini call. A 400 means our request shape was rejected: retried once in the legacy shape. */
 async function callModel(model: string, key: string, mime: string, data: string, timeoutMs: number): Promise<CallResult> {
@@ -185,8 +190,13 @@ async function callModel(model: string, key: string, mime: string, data: string,
       res = await call(true);
     }
     if (!res.ok) {
-      log({ model, status: res.status, ...describeGoogleError(await res.text().catch(() => "")) });
-      if (res.status === 429) return done(429, "quota");
+      const g = describeGoogleError(await res.text().catch(() => ""));
+      log({ model, status: res.status, ...g });
+      if (res.status === 429) {
+        // Out of quota: skip this model until Google says it resets (daily) or for a minute.
+        const daily = Array.isArray(g.quota) && g.quota.some((q) => /PerDay/i.test(String(q)));
+        return { ...done(429, "quota"), cooldownSec: seconds(g.retryDelay) ?? (daily ? 3600 : 60) };
+      }
       if (res.status === 500 || res.status === 503 || res.status === 504) return done(res.status, "busy");
       return done(res.status, "api_error"); // 400 etc.: bad image or blocked — another model won't help
     }
@@ -208,7 +218,7 @@ async function callModel(model: string, key: string, mime: string, data: string,
   } catch (e) {
     const aborted = e instanceof Error && (e.name === "AbortError" || e.name === "TimeoutError");
     log({ model, error: aborted ? "timeout" : String(e) });
-    return done(0, aborted ? "timeout" : "network");
+    return aborted ? { ...done(0, "timeout"), cooldownSec: 120 } : done(0, "network");
   } finally {
     clearTimeout(timer);
   }
@@ -244,13 +254,20 @@ export async function POST(req: Request) {
   let text: string | undefined;
   let model: string | undefined;
 
-  chain: for (const m of CHAIN) {
+  // Models that recently ran out of quota, timed out or kept returning 503 go
+  // last, so this scan doesn't wait on them again (they're still a last resort).
+  const cooling = await getModelCooldowns(CHAIN);
+  const order = [...CHAIN.filter((m) => !cooling.has(m)), ...CHAIN.filter((m) => cooling.has(m))];
+
+  chain: for (const m of order) {
     // Busy (500/503) gets one retry on the same model after 1–2 s; quota (429)
     // or a timeout moves straight to the next model; a 400 stops the chain.
     for (let attempt = 0; attempt < 2; attempt++) {
       if (left() < 5_000) break chain;
       const r = await callModel(m, key, file.type, data, Math.min(ATTEMPT_MS, left()));
       attempts.push(r.attempt);
+      const busyTwice = r.attempt.outcome === "busy" && attempt === 1;
+      if (r.cooldownSec || busyTwice) await setModelCooldown(m, r.cooldownSec ?? 120);
       if (r.attempt.outcome === "ok") {
         text = r.text;
         model = m;
@@ -265,7 +282,7 @@ export async function POST(req: Request) {
   const tried = attempts.map((a) => `${a.model}:${a.status || a.outcome}`);
   if (text === undefined || !model) {
     const reason = summariseFailure(attempts);
-    log({ engine: "none", reason, tried, ms: Date.now() - started });
+    log({ engine: "none", reason, tried, cooling: [...cooling], ms: Date.now() - started });
     return jsonError(reason === "quota" ? 429 : 502, reason === "quota" ? "quota" : "scan_failed", MESSAGES[reason], {
       reason,
       attempts,
@@ -274,7 +291,7 @@ export async function POST(req: Request) {
 
   try {
     const result = sanitizeScan(extractJson(text));
-    log({ engine: "gemini", model, tried, ms: Date.now() - started, items: result.items.length });
+    log({ engine: "gemini", model, tried, cooling: [...cooling], ms: Date.now() - started, items: result.items.length });
     return Response.json({ ...result, model, attempts });
   } catch {
     attempts[attempts.length - 1].outcome = "bad_output";

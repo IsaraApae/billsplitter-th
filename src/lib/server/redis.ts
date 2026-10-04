@@ -264,3 +264,35 @@ export async function setPaid(
   const ids = new Set(s.doc.people.map((p) => p.id));
   return (await getPaid(id)).filter((p) => ids.has(p));
 }
+
+// ---- Gemini model cooldowns (circuit breaker shared by all instances) -----
+
+const coolKey = (model: string) => `gemcool:${model}`;
+const memoryCool = new Map<string, number>(); // fallback when storage isn't configured
+
+/** Models currently cooling down (skip-first), with seconds left. */
+export async function getModelCooldowns(models: string[]): Promise<Set<string>> {
+  const cooling = new Set<string>();
+  const now = Date.now();
+  for (const m of models) if ((memoryCool.get(m) ?? 0) > now) cooling.add(m);
+  if (!kv) return cooling;
+  try {
+    const flags = await Promise.all(models.map((m) => kv.get<number>(coolKey(m))));
+    flags.forEach((until, i) => until && until > now && cooling.add(models[i]));
+  } catch {
+    /* storage hiccup: fall back to what this instance knows */
+  }
+  return cooling;
+}
+
+export async function setModelCooldown(model: string, seconds: number): Promise<void> {
+  const s = Math.max(10, Math.min(Math.round(seconds), 6 * 60 * 60));
+  const until = Date.now() + s * 1000;
+  memoryCool.set(model, until);
+  if (!kv) return;
+  try {
+    await kv.set(coolKey(model), until, { ex: s });
+  } catch {
+    /* best effort */
+  }
+}
