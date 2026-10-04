@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { formatMoney, parseMoney, percentToBp } from "./money";
-import { parseReceiptText } from "./ocrParse";
 
 describe("money", () => {
   it("parses user input into minor units", () => {
@@ -25,32 +24,10 @@ describe("money", () => {
   });
 });
 
-describe("OCR text parser", () => {
-  it("extracts items and printed totals from English and Thai lines", () => {
-    const text = [
-      "SOMTAM HOUSE",
-      "Table 5   Date 12/09/2026",
-      "Pad Thai Goong      120.00",
-      "2 x Singha Beer     180.00",
-      "ต้มยำกุ้ง            300.00",
-      "Sticky rice x3       30.00",
-      "Subtotal            630.00",
-      "Service Charge 10%   63.00",
-      "VAT 7%               48.51",
-      "Total               741.51",
-      "Cash               1000.00",
-      "Change              258.49",
-    ].join("\n");
-    const r = parseReceiptText(text);
-    expect(r.items).toEqual([
-      { name: "Pad Thai Goong", qty: 1, price: 120 },
-      { name: "Singha Beer", qty: 2, price: 180 },
-      { name: "ต้มยำกุ้ง", qty: 1, price: 300 },
-      { name: "Sticky rice", qty: 3, price: 30 },
-    ]);
-    expect(r.subtotal).toBe(630);
-    expect(r.serviceCharge).toBe(63);
-    expect(r.vat).toBe(48.51);
-    expect(r.total).toBe(741.51);
+describe("negative money input (discount lines)", () => {
+  it("parses a leading minus only when allowed", () => {
+    expect(parseMoney("-30", "THB", true)).toBe(-3000);
+    expect(parseMoney("−12.50", "THB", true)).toBe(-1250);
+    expect(parseMoney("-30", "THB")).toBeNull();
   });
 });

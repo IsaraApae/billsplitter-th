@@ -1,7 +1,6 @@
 "use client";
 
 import { readJpegInfo, swapsAxes } from "../jpeg";
-import { findPaperBox, prepareForOcr } from "../paper";
 
 const WORK_MAX = 3000; // working resolution (well under iOS canvas limits)
 
@@ -101,36 +100,4 @@ export async function uploadJpeg(upright: HTMLCanvasElement): Promise<Blob> {
 /** Generic compress (e.g. the PromptPay QR image). */
 export async function compressImage(file: Blob, maxSide = 1024, quality = 0.9): Promise<Blob> {
   return toJpeg(scaled(await loadUpright(file), maxSide), quality);
-}
-
-/**
- * Image for on-device OCR: cropped to the receipt paper (drops table,
- * bottles, packaging), scaled so text is ~30px tall, greyscale + stretched
- * contrast. Returns whether a crop was found.
- */
-export function ocrCanvas(upright: HTMLCanvasElement): { canvas: HTMLCanvasElement; cropped: boolean } {
-  const small = scaled(upright, 320);
-  const sctx = small.getContext("2d", { willReadFrequently: true })!;
-  const box = findPaperBox(sctx.getImageData(0, 0, small.width, small.height).data, small.width, small.height);
-  const k = upright.width / small.width;
-  const sx = box ? Math.round(box.x * k) : 0;
-  const sy = box ? Math.round(box.y * k) : 0;
-  const sw = box ? Math.min(upright.width - sx, Math.round(box.w * k)) : upright.width;
-  const sh = box ? Math.min(upright.height - sy, Math.round(box.h * k)) : upright.height;
-  const targetW = box ? 1400 : Math.min(2048, sw);
-  const s = Math.min(targetW / sw, 4000 / sh);
-  const { c, ctx } = canvas(Math.round(sw * s), Math.round(sh * s));
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(upright, sx, sy, sw, sh, 0, 0, c.width, c.height);
-
-  // Greyscale → flatten shadows → contrast stretch. Done by hand because
-  // canvas filters aren't available in every Safari version.
-  const img = ctx.getImageData(0, 0, c.width, c.height);
-  const d = img.data;
-  const gray = new Uint8ClampedArray(c.width * c.height);
-  for (let p = 0, i = 0; p < gray.length; p++, i += 4) gray[p] = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
-  prepareForOcr(gray, c.width, c.height);
-  for (let p = 0, i = 0; p < gray.length; p++, i += 4) d[i] = d[i + 1] = d[i + 2] = gray[p];
-  ctx.putImageData(img, 0, 0);
-  return { canvas: c, cropped: !!box };
 }

@@ -138,6 +138,7 @@ export function MoneyInput({
   className,
   ariaLabel,
   placeholder = "0.00",
+  allowNegative = false,
 }: {
   value: number;
   currency: string;
@@ -145,16 +146,18 @@ export function MoneyInput({
   className?: string;
   ariaLabel: string;
   placeholder?: string;
+  /** e.g. a discount line on one item */
+  allowNegative?: boolean;
 }) {
-  const fmt = (v: number) => (v ? toMajorString(v, currency) : "");
+  const fmt = (v: number) => (v ? (v < 0 ? "-" : "") + toMajorString(Math.abs(v), currency) : "");
   const [text, setText] = useState(fmt(value));
   // Re-sync when the value changes from outside, but not while the user types an equivalent value.
   const [seen, setSeen] = useState(`${value}|${currency}`);
   if (seen !== `${value}|${currency}`) {
     setSeen(`${value}|${currency}`);
-    if ((parseMoney(text, currency) ?? 0) !== value) setText(fmt(value));
+    if ((parseMoney(text, currency, allowNegative) ?? 0) !== value) setText(fmt(value));
   }
-  const invalid = text.trim() !== "" && parseMoney(text, currency) === null;
+  const invalid = text.trim() !== "" && parseMoney(text, currency, allowNegative) === null;
   return (
     <div className={cx("relative", className)}>
       <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-3">
@@ -169,7 +172,7 @@ export function MoneyInput({
         value={text}
         onChange={(e) => {
           setText(e.target.value);
-          const v = parseMoney(e.target.value, currency);
+          const v = parseMoney(e.target.value, currency, allowNegative);
           if (v !== null) onChange(v);
           else if (e.target.value.trim() === "") onChange(0);
         }}
