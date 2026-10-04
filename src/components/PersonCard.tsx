@@ -4,8 +4,9 @@ import { ChevronDown } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ORGANISER_ID, type PersonResult } from "@/lib/calc";
 import type { Person, SplitMode } from "@/lib/types";
-import { Avatar, Money, cx } from "./ui";
+import { Avatar, ICON, Money, cx } from "./ui";
 
+/** One person as a row inside a list card (wrap rows in `<ul className="card rows">`). */
 export function PersonCard({
   person,
   profile,
@@ -29,14 +30,8 @@ export function PersonCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <li
-      className={cx(
-        "card overflow-hidden transition-opacity duration-300",
-        highlight === "unpaid" && "shadow-[inset_4px_0_0_var(--warn)]",
-        highlight === "paid" && "opacity-70",
-      )}
-    >
-      <div className="flex items-center gap-2 p-2.5 pl-3">
+    <li className={cx(highlight === "paid" && "opacity-70")}>
+      <div className="flex min-h-[60px] items-center gap-2 py-2 pr-3 pl-4">
         {leading}
         <button
           type="button"
@@ -51,19 +46,13 @@ export function PersonCard({
             </span>
             {badge}
           </span>
-          <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" />
-          {!action && (
-            <ChevronDown
-              size={18}
-              aria-hidden
-              className={cx("shrink-0 text-ink-3 transition-transform duration-300", open && "rotate-180")}
-            />
-          )}
+          <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" tone={person.payable < 0 ? "negative" : undefined} />
+          {!action && <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />}
         </button>
         {action}
       </div>
       {open && (
-        <div className="border-t border-line px-4 py-3 text-[14px]">
+        <div className="px-5 pb-4 text-[15px]">
           {mode === "itemized" ? (
             <ul className="space-y-1.5">
               {person.items.map((it) => (
@@ -72,16 +61,16 @@ export function PersonCard({
                     {it.name}
                     {it.sharedBy > 1 && <span className="text-ink-2"> ÷{it.sharedBy}</span>}
                   </span>
-                  <Money value={it.amount} currency={currency} />
+                  <Money value={it.amount} currency={currency} tone={it.amount < 0 ? "negative" : undefined} />
                 </li>
               ))}
             </ul>
           ) : (
             <p className="text-ink-2">Equal share of the whole bill ({person.items.length} items).</p>
           )}
-          <dl className="mt-2.5 space-y-1 border-t border-dashed border-line pt-2.5 text-ink-2">
+          <dl className="mt-3 space-y-1 border-t border-dashed border-[var(--line)] pt-3 text-ink-2">
             <Row k="Items" v={<Money value={person.subtotal} currency={currency} />} />
-            {person.discount > 0 && <Row k="Discount" v={<>−<Money value={person.discount} currency={currency} /></>} />}
+            {person.discount > 0 && <Row k="Discount" v={<Money value={person.discount} currency={currency} tone="negative" />} />}
             {person.service > 0 && <Row k="Service charge" v={<Money value={person.service} currency={currency} />} />}
             {person.vat > 0 && <Row k="VAT" v={<Money value={person.vat} currency={currency} />} />}
             {person.payable !== person.total ? (
@@ -90,10 +79,13 @@ export function PersonCard({
                 <Row
                   k={person.payable > person.total ? "Rounded up" : "Rounded down"}
                   v={
-                    <>
-                      {person.payable > person.total ? "+" : "−"}
-                      <Money value={Math.abs(person.payable - person.total)} currency={currency} />
-                    </>
+                    person.payable > person.total ? (
+                      <>
+                        +<Money value={person.payable - person.total} currency={currency} />
+                      </>
+                    ) : (
+                      <Money value={person.total - person.payable} currency={currency} tone="negative" />
+                    )
                   }
                 />
                 <Row k={person.personId === ORGANISER_ID ? "Your share" : "To pay"} v={<Money value={person.payable} currency={currency} />} strong />

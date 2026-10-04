@@ -1,16 +1,18 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { calculate } from "@/lib/calc";
 import { rememberPeople } from "@/lib/client/friendsStore";
+import { askConfirm } from "@/lib/client/confirm";
+import { hasPendingScan, SCAN_EVENT } from "@/lib/client/pendingScan";
 import { getProfile, paymentFromProfile } from "@/lib/client/profile";
 import { getEditToken, load, remove, save, setEditToken, upsertHistory } from "@/lib/client/storage";
 import { defaultTitle, newDoc } from "@/lib/draft";
 import { toPeople } from "@/lib/friends";
 import type { Person, SplitDoc } from "@/lib/types";
 import { CrewSheet } from "../CrewSheet";
-import { Callout, Money, cx } from "../ui";
+import { Callout, ICON, Money, cx } from "../ui";
 import { ExtrasStep } from "./ExtrasStep";
 import { ItemsStep } from "./ItemsStep";
 import { PeopleStep } from "./PeopleStep";
@@ -77,6 +79,16 @@ export function Wizard() {
     if (state) save(DRAFT_KEY, state);
   }, [state]);
 
+  // A photo picked with the navigation's Scan button: open the Items step
+  // (a fresh split if the current one was already shared) so it can be read.
+  useEffect(() => {
+    const open = () =>
+      setState((s) => (!s ? s : s.step === 4 ? freshState() : s.step === 0 ? s : { ...s, step: 0 }));
+    if (hasPendingScan()) open();
+    window.addEventListener(SCAN_EVENT, open);
+    return () => window.removeEventListener(SCAN_EVENT, open);
+  }, []);
+
   const calc = useMemo(() => (state ? calculate(state.doc) : null), [state]);
 
   if (!state || !calc || loadingEdit) {
@@ -101,8 +113,13 @@ export function Wizard() {
       return { ...d, people, items: d.items.map((it) => ({ ...it, assigned: it.assigned.filter((a) => ids.has(a)) })) };
     });
 
-  function startNew() {
-    if (doc.items.length && step !== 4 && !confirm("Discard this draft and start a new split?")) return;
+  async function startNew() {
+    if (
+      doc.items.length &&
+      step !== 4 &&
+      !(await askConfirm({ title: "Discard this draft?", message: "Start a new split instead.", confirmLabel: "Discard", destructive: true }))
+    )
+      return;
     remove(DRAFT_KEY);
     setError(null);
     setState(freshState());
@@ -164,9 +181,10 @@ export function Wizard() {
   ][step];
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-4 pb-44">
+    <div className="mx-auto max-w-2xl px-4 pb-[260px] md:pb-44">
+      {/* Step tabs: segmented control on a glass track */}
       <nav aria-label="Steps" className="mb-6">
-        <ol className="glass-lite grid grid-cols-5 gap-1 rounded-full p-1">
+        <ol className="glass grid grid-cols-5 gap-1 rounded-full p-1">
           {STEPS.map((label, i) => {
             const reachable = i < 4 || (state.editingId !== null && step === 4);
             const current = i === step;
@@ -178,8 +196,12 @@ export function Wizard() {
                   onClick={() => go(i)}
                   aria-current={current ? "step" : undefined}
                   className={cx(
-                    "flex min-h-10 w-full items-center justify-center rounded-full text-[13px] font-semibold transition-[background-color,color] duration-300 disabled:cursor-default",
-                    current ? "bg-accent text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.3)]" : i < step ? "text-accent" : "text-ink-2",
+                    "press flex min-h-10 w-full items-center justify-center rounded-full text-[13px] disabled:cursor-default",
+                    current
+                      ? "bg-[var(--glass-strong)] font-semibold text-ink shadow-[0_3px_10px_-2px_rgb(0_0_0/0.15),inset_0_0.5px_0_var(--glass-highlight)]"
+                      : i < step
+                        ? "font-medium text-accent"
+                        : "font-medium text-ink-2",
                   )}
                 >
                   {label}
@@ -196,7 +218,7 @@ export function Wizard() {
         </div>
       )}
 
-      <div key={step} className="rise">
+      <div key={step}>
         {step === 0 && <ItemsStep doc={doc} setDoc={setDoc} calc={calc} />}
         {step === 1 && <PeopleStep doc={doc} setDoc={setDoc} calc={calc} onPickFriends={() => setCrewOpen(true)} />}
         {step === 2 && <ExtrasStep doc={doc} setDoc={setDoc} calc={calc} />}
@@ -205,8 +227,8 @@ export function Wizard() {
       </div>
 
       {step < 4 && doc.items.length > 0 && (
-        <div className="mt-10 text-center">
-          <button type="button" className="btn-ghost text-sm" onClick={startNew}>
+        <div className="mt-8 text-center">
+          <button type="button" className="btn-ghost text-[15px]" onClick={startNew}>
             Discard draft & start over
           </button>
         </div>
@@ -222,42 +244,43 @@ export function Wizard() {
         }}
       />
 
-      {/* Floating, thumb-friendly glass action bar */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="glass pointer-events-auto mx-auto max-w-2xl rounded-[28px] p-2.5">
+      {/* Floating glass action bar: above the navigation on phones, at the bottom on desktop. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(12px,env(safe-area-inset-bottom))+72px)] z-40 px-4 md:bottom-4">
+        <div className="glass pointer-events-auto mx-auto max-w-2xl rounded-[30px] p-2">
           {error && (
             <div className="mb-2">
               <Callout tone="error">{error}</Callout>
             </div>
           )}
-          <div className="mb-2 flex items-baseline justify-between px-2">
-            <span className="text-[13px] font-medium">
-              {!canNext && nextHint ? <span className="text-warn">{nextHint}</span> : <span className="text-ink-2">Grand total</span>}
-            </span>
-            <Money value={calc.total} currency={doc.currency} className="text-[22px] font-bold tracking-tight" />
-          </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             {step > 0 && step < 4 && (
-              <button type="button" className="btn-secondary h-13 w-14 px-0" aria-label="Back" onClick={() => go(step - 1)}>
-                <ChevronLeft size={22} />
+              <button type="button" className="press glass-flat grid size-11 shrink-0 place-items-center rounded-full text-ink" aria-label="Back" onClick={() => go(step - 1)}>
+                <ChevronLeft size={22} {...ICON} />
               </button>
             )}
+            <div className="min-w-0 flex-1 px-2 leading-tight">
+              <span className="block truncate text-[13px] text-ink-2">
+                {!canNext && nextHint ? <span className="text-warn">{nextHint}</span> : "Grand total"}
+              </span>
+              <Money value={calc.total} currency={doc.currency} className="text-[20px] font-bold tracking-tight" />
+            </div>
             {step < 3 && (
-              <button type="button" className="btn-primary h-13 flex-1 text-[17px]" disabled={!canNext} onClick={() => go(step + 1)}>
-                Next: {STEPS[step + 1]}
+              <button type="button" className="btn-primary h-11 shrink-0 px-5" disabled={!canNext} onClick={() => go(step + 1)}>
+                Next
+                <ChevronRight size={20} {...ICON} aria-hidden />
               </button>
             )}
             {step === 3 && (
-              <button type="button" className="btn-primary h-13 flex-1 text-[17px]" disabled={!canNext || busy} onClick={finish}>
+              <button type="button" className="btn-primary h-11 shrink-0 px-5" disabled={!canNext || busy} onClick={finish}>
                 {busy ? "Saving…" : state.editingId ? "Save & share" : "Finish & share"}
               </button>
             )}
             {step === 4 && (
               <>
-                <button type="button" className="btn-secondary h-13 flex-1" onClick={() => go(0)}>
+                <button type="button" className="btn-secondary h-11 shrink-0 px-4" onClick={() => go(0)}>
                   Edit
                 </button>
-                <button type="button" className="btn-primary h-13 flex-1" onClick={startNew}>
+                <button type="button" className="btn-secondary h-11 shrink-0 px-4" onClick={startNew}>
                   New split
                 </button>
               </>

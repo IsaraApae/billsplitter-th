@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { qrImageUrl } from "@/lib/client/profile";
 import { formatMoney } from "@/lib/money";
 import { promptPayPayload } from "@/lib/promptpay";
-import { Callout, Money } from "./ui";
+import { Callout, ICON, Money } from "./ui";
 
 export type PayQrSource =
   | { mode: "generate"; promptpay: string }
@@ -110,7 +110,7 @@ export function PayQr({ source, amount, name }: { source: PayQrSource; amount: n
 
   return (
     <div className="space-y-4">
-      <div className="mx-auto w-full max-w-[340px] overflow-hidden rounded-3xl bg-white text-[#0b1220] shadow-[0_20px_40px_-20px_rgb(0_0_0/0.35)]">
+      <div className="mx-auto w-full max-w-[340px] overflow-hidden rounded-[26px] bg-white text-[#0b1220] shadow-[var(--card-shadow)]">
         <div className="bg-[#1a3a6b] py-2.5 text-center text-[17px] font-bold tracking-wide text-white">PromptPay</div>
         <div className="p-5">
           {broken ? (
@@ -124,10 +124,10 @@ export function PayQr({ source, amount, name }: { source: PayQrSource; amount: n
               onError={() => setBroken(true)}
             />
           ) : (
-            <div className="aspect-square w-full animate-pulse rounded-xl bg-slate-100 motion-reduce:animate-none" />
+            <div className="aspect-square w-full rounded-2xl bg-[#f2f2f7]" />
           )}
           <div className="mt-3 text-center">
-            <p className="text-[14px] font-medium text-[#394457]">{name}</p>
+            <p className="text-[15px] font-medium text-[#394457]">{name}</p>
             <Money value={amount} currency="THB" className="text-[34px] font-bold tracking-tight" />
           </div>
         </div>
@@ -135,8 +135,8 @@ export function PayQr({ source, amount, name }: { source: PayQrSource; amount: n
       {!withAmount && (
         <Callout tone="info">This QR doesn&apos;t include the amount — type {formatMoney(amount, "THB")} in your bank app.</Callout>
       )}
-      <button type="button" className="btn-primary h-13 w-full text-[17px]" disabled={!src || broken || saving} onClick={saveQr}>
-        <Download size={20} aria-hidden /> {saving ? "Preparing…" : "Save QR"}
+      <button type="button" className="btn-primary h-13 w-full" disabled={!src || broken || saving} onClick={saveQr}>
+        <Download size={22} {...ICON} aria-hidden /> {saving ? "Preparing…" : "Save QR"}
       </button>
       <p className="text-center text-[13px] text-ink-2">
         {msg ?? "Save it to Photos, then open it from your banking app's “Scan QR”."}

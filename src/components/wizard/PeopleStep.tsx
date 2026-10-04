@@ -6,7 +6,7 @@ import type { CalcResult } from "@/lib/calc";
 import { ensureFriend } from "@/lib/client/friendsStore";
 import { ME_ID } from "@/lib/friends";
 import type { SplitDoc } from "@/lib/types";
-import { Avatar, Callout, Money, Section, Segmented, cx } from "../ui";
+import { Avatar, Callout, ICON, Money, Section, Segmented, cx } from "../ui";
 import type { SetDoc } from "./Wizard";
 
 export function PeopleStep({
@@ -78,13 +78,13 @@ export function PeopleStep({
   const visibleItems = doc.items.filter((it) => !onlyUnassigned || unassigned.has(it.id));
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <div>
         <h1 className="large-title">Who&apos;s splitting?</h1>
-        <p className="mt-1 text-[15px] text-ink-2">Tap a name to rename it for this split.</p>
+        <p className="mt-1 text-ink-2">Tap a name to rename it for this split.</p>
       </div>
 
-      <div className="card space-y-4 p-4">
+      <div className="card space-y-4 p-5">
         <ul className="flex flex-wrap gap-2" aria-label="People">
           {doc.people.map((p) => (
             <li key={p.id}>
@@ -100,7 +100,7 @@ export function PeopleStep({
                   onKeyDown={(e) => e.key === "Enter" && setEditing(null)}
                 />
               ) : (
-                <span className="inline-flex h-11 items-center rounded-full bg-field pl-1.5 shadow-[inset_0_0_0_1px_var(--field-border)]">
+                <span className="glass-flat inline-flex h-11 items-center rounded-full pl-1.5">
                   <button
                     type="button"
                     className="flex h-full max-w-44 items-center gap-2 pr-1 font-semibold"
@@ -113,11 +113,11 @@ export function PeopleStep({
                   </button>
                   <button
                     type="button"
-                    className="icon-btn size-10 text-ink-3 hover:text-danger"
+                    className="icon-plain size-10"
                     aria-label={`Remove ${p.name}`}
                     onClick={() => removePerson(p.id)}
                   >
-                    <X size={16} />
+                    <X size={18} {...ICON} />
                   </button>
                 </span>
               )}
@@ -140,12 +140,12 @@ export function PeopleStep({
             enterKeyHint="done"
             onChange={(e) => setName(e.target.value)}
           />
-          <button type="submit" className="btn-primary w-12 shrink-0 px-0" disabled={!name.trim()} aria-label="Add person">
-            <UserPlus size={20} />
+          <button type="submit" className="btn-secondary w-12 shrink-0 px-0" disabled={!name.trim()} aria-label="Add person">
+            <UserPlus size={22} {...ICON} />
           </button>
         </form>
         <button type="button" className="btn-secondary h-12 w-full" onClick={onPickFriends}>
-          <UsersRound size={18} aria-hidden /> Pick from Friends
+          <UsersRound size={22} {...ICON} aria-hidden /> Pick from Friends
         </button>
       </div>
 
@@ -162,8 +162,8 @@ export function PeopleStep({
       </Section>
 
       {doc.mode === "equal" && doc.people.length > 0 && (
-        <div className="glass rounded-3xl p-6 text-center">
-          <p className="text-[15px] font-medium text-ink-2">Each of {doc.people.length} pays about</p>
+        <div className="card p-6 text-center">
+          <p className="text-[15px] text-ink-2">Each of {doc.people.length} pays about</p>
           <Money
             value={Math.max(...calc.people.map((p) => p.payable))}
             currency={currency}
@@ -181,8 +181,8 @@ export function PeopleStep({
               <button
                 type="button"
                 className={cx(
-                  "chip min-h-9 px-3 text-[13px] font-bold",
-                  onlyUnassigned ? "bg-warn text-white dark:text-black" : "bg-warn-soft text-warn",
+                  "press min-h-8 rounded-full px-3 text-[13px] font-semibold",
+                  onlyUnassigned ? "bg-ink text-[var(--bg)]" : "bg-warn-soft text-ink",
                 )}
                 aria-pressed={onlyUnassigned}
                 onClick={() => setOnlyUnassigned((v) => !v)}
@@ -195,34 +195,31 @@ export function PeopleStep({
           {doc.people.length === 0 ? (
             <Callout tone="info">Add people above, then tap names on each item.</Callout>
           ) : unassigned.size === 0 ? (
-            <Callout tone="success" icon={<Check size={18} />}>
+            <Callout tone="success">
               Every item is assigned.
             </Callout>
           ) : null}
           {onlyUnassigned && unassigned.size === 0 && (
-            <button type="button" className="btn-ghost text-sm" onClick={() => setOnlyUnassigned(false)}>
+            <button type="button" className="btn-ghost text-[15px]" onClick={() => setOnlyUnassigned(false)}>
               Show all items
             </button>
           )}
-          <ul className="space-y-2.5">
+          <ul className="card rows overflow-hidden">
             {visibleItems.map((it) => {
               const line = calc.lines.find((l) => l.itemId === it.id);
               const missing = unassigned.has(it.id);
               const k = it.assigned.filter((a) => doc.people.some((p) => p.id === a)).length;
               const allOn = doc.people.length > 0 && k === doc.people.length;
               return (
-                <li
-                  key={it.id}
-                  className={cx("card p-3.5", missing && "shadow-[inset_0_0_0_2px_var(--warn)] ring-0")}
-                >
+                <li key={it.id} className={cx("px-5 py-4", missing && "bg-warn-soft")}>
                   <div className="mb-3 flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">
                         {it.qty > 1 && <span className="text-ink-2">{it.qty}× </span>}
                         {it.name || "Unnamed item"}
                       </p>
-                      <p className="text-[13px] font-medium text-ink-2">
-                        <Money value={line?.lineTotal ?? 0} currency={currency} />
+                      <p className="text-[13px] text-ink-2">
+                        <Money value={line?.lineTotal ?? 0} currency={currency} tone={(line?.lineTotal ?? 0) < 0 ? "negative" : undefined} />
                         {k > 1 && (
                           <>
                             {" "}
@@ -231,23 +228,12 @@ export function PeopleStep({
                         )}
                       </p>
                     </div>
-                    {missing && (
-                      <span className="shrink-0 rounded-full bg-warn-soft px-2.5 py-1 text-[12px] font-bold text-warn">
-                        Unassigned
-                      </span>
-                    )}
+                    {missing && <span className="shrink-0 pt-0.5 text-[13px] font-semibold text-warn">Unassigned</span>}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      aria-pressed={allOn}
-                      onClick={() => setAll(it.id, !allOn)}
-                      className={cx(
-                        "chip px-4 text-[14px] font-semibold",
-                        allOn ? "bg-ink text-[var(--bg)]" : "text-ink-2 shadow-[inset_0_0_0_1.5px_var(--field-border)]",
-                      )}
-                    >
-                      {allOn ? "✓ Everyone" : "Select all"}
+                    <button type="button" aria-pressed={allOn} onClick={() => setAll(it.id, !allOn)} className={allOn ? "chip-on" : "chip"}>
+                      {allOn && <Check size={18} {...ICON} aria-hidden />}
+                      {allOn ? "Everyone" : "Select all"}
                     </button>
                     {doc.people.map((p) => {
                       const on = it.assigned.includes(p.id);
@@ -257,10 +243,7 @@ export function PeopleStep({
                           type="button"
                           aria-pressed={on}
                           onClick={() => toggle(it.id, p.id)}
-                          className={cx(
-                            "chip max-w-44 pl-1.5 text-[14px]",
-                            on ? "bg-accent text-accent-ink" : "bg-field text-ink shadow-[inset_0_0_0_1px_var(--field-border)]",
-                          )}
+                          className={cx(on ? "chip-accent" : "chip", "max-w-44 pl-1.5")}
                         >
                           <Avatar person={p} size={30} />
                           <span className="truncate">{p.name || "Unnamed"}</span>

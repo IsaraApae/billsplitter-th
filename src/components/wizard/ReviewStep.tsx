@@ -11,7 +11,7 @@ import { formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
 import { PersonCard } from "../PersonCard";
-import { Callout, Money, Section } from "../ui";
+import { Callout, ICON, Money, Section } from "../ui";
 import type { SetDoc } from "./Wizard";
 
 export function ReviewStep({
@@ -29,11 +29,11 @@ export function ReviewStep({
   const printedTotal = doc.receipt.total;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <div>
         <h1 className="large-title">Review</h1>
         <input
-          className="input mt-4 text-[17px] font-semibold"
+          className="input mt-3.5 font-semibold"
           placeholder="Title, e.g. Friday dinner"
           aria-label="Split title"
           maxLength={80}
@@ -70,19 +70,19 @@ export function ReviewStep({
 
       {doc.people.length > 0 && (
         <Section title={`Per person · ${doc.people.length}`}>
-          <ul className="space-y-2.5">
+          <ul className="card rows overflow-hidden">
             {calc.people.map((p, i) => (
               <PersonCard key={p.personId} person={p} profile={doc.people[i]} currency={doc.currency} mode={doc.mode} />
             ))}
           </ul>
-          <p className="px-1 text-[13px] text-ink-2">
+          <p className="px-5 text-[13px] text-ink-2">
             {doc.roundUp ? (
               <>
                 Friends pay whole {wholeUnitName(doc.currency)} amounts; together
                 they never pay less than their exact shares, so you never lose money
                 {calc.roundingExtra > 0 && (
                   <>
-                    {" "}— your share is <Money value={calc.roundingExtra} currency={doc.currency} /> lower
+                    {" "}— your share is <Money value={calc.roundingExtra} currency={doc.currency} className="text-positive" /> lower
                   </>
                 )}
                 .
@@ -98,13 +98,13 @@ export function ReviewStep({
       )}
 
       <Section title="How you get paid">
-        <Link href="/me" className="card flex min-h-16 items-center gap-3 p-3 pl-4">
+        <Link href="/me" className="card flex min-h-[68px] items-center gap-3 py-3 pr-4 pl-5">
           {profile.qrMode === "upload" && profile.ownerId ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={qrImageUrl(profile.ownerId, profile.qrVersion)} alt="" className="size-12 rounded-lg bg-white object-contain p-1" />
+            <img src={qrImageUrl(profile.ownerId, profile.qrVersion)} alt="" className="size-12 rounded-[14px] bg-white object-contain p-1" />
           ) : (
-            <span className="grid size-12 place-items-center rounded-lg bg-accent-soft text-accent-strong">
-              <QrCode size={24} aria-hidden />
+            <span className="grid size-12 place-items-center rounded-full bg-accent-soft text-accent-strong">
+              <QrCode size={22} {...ICON} aria-hidden />
             </span>
           )}
           <span className="min-w-0 flex-1">
@@ -123,7 +123,7 @@ export function ReviewStep({
                 : profile.note || "Add your QR or bank details in Me"}
             </span>
           </span>
-          <ChevronRight size={18} className="text-ink-3" aria-hidden />
+          <ChevronRight size={20} {...ICON} className="text-ink-3" aria-hidden />
         </Link>
       </Section>
     </div>

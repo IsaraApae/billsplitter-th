@@ -2,13 +2,14 @@
 
 import { Camera, ImageIcon, RefreshCw, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
+import { askConfirm } from "@/lib/client/confirm";
 import { compressImage } from "@/lib/client/image";
 import { getProfile, qrImageUrl, saveProfile, type Profile } from "@/lib/client/profile";
 import { formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
 import { PERSON_COLORS, type QrMode } from "@/lib/types";
 import { PayQr } from "./PayQr";
 import { ThemePicker } from "./ThemeToggle";
-import { Avatar, COLOR_HEX, Callout, Section, Segmented, cx } from "./ui";
+import { Avatar, COLOR_HEX, Callout, ICON, Section, Segmented, cx } from "./ui";
 
 export const EMOJIS = ["😀", "😎", "🤓", "🥳", "🐱", "🐶", "🐼", "🦊", "🍜", "🍣", "🍕", "☕", "🍺", "🌶️", "⚽", "🎮"];
 
@@ -54,7 +55,13 @@ export function MeSettings() {
   }
 
   async function removeQr() {
-    if (!confirm("Remove your QR? It disappears from all your shared splits.")) return;
+    const ok = await askConfirm({
+      title: "Remove your QR?",
+      message: "It disappears from all your shared splits.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     try {
       const res = await fetch("/api/qr", { method: "DELETE", headers: ownerHeaders() });
@@ -73,15 +80,15 @@ export function MeSettings() {
   const ppValid = isValidPromptPayId(p.promptpay);
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <h1 className="large-title">Me</h1>
 
       <Section title="Your name">
-        <div className="card space-y-4 p-4">
+        <div className="card space-y-4 p-5">
           <div className="flex items-center gap-3">
             <Avatar person={{ name: p.name || "Me", emoji: p.emoji, color: p.color ?? "emerald" }} size={52} />
             <input
-              className="input text-[17px] font-semibold"
+              className="input font-semibold"
               placeholder="Me"
               aria-label="Your name"
               maxLength={40}
@@ -100,9 +107,10 @@ export function MeSettings() {
       </Section>
 
       <Section title="PromptPay QR">
-        <div className="card space-y-4 p-4">
+        <div className="card space-y-4 p-5">
           <Segmented<QrMode>
             label="QR type"
+            flat
             value={p.qrMode}
             onChange={(qrMode) => update({ qrMode })}
             options={[
@@ -120,28 +128,28 @@ export function MeSettings() {
                   <img
                     src={qrImageUrl(p.ownerId!, p.qrVersion)}
                     alt="Your PromptPay QR"
-                    className="size-32 rounded-2xl bg-white object-contain p-2 shadow-[inset_0_0_0_1px_var(--line)]"
+                    className="size-32 rounded-2xl bg-white object-contain p-2 shadow-[var(--card-shadow)]"
                   />
                   <div className="flex flex-1 flex-col gap-2">
                     <button type="button" className="btn-secondary h-11" disabled={uploading} onClick={() => galleryRef.current?.click()}>
-                      <RefreshCw size={16} aria-hidden /> Replace
+                      <RefreshCw size={20} {...ICON} aria-hidden /> Replace
                     </button>
-                    <button type="button" className="btn-ghost h-11 text-danger" disabled={uploading} onClick={removeQr}>
-                      <Trash2 size={16} aria-hidden /> Remove
+                    <button type="button" className="btn-secondary h-11" disabled={uploading} onClick={removeQr}>
+                      <Trash2 size={20} {...ICON} aria-hidden /> Remove
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" className="btn-primary h-13" disabled={uploading} onClick={() => cameraRef.current?.click()}>
-                    <Camera size={18} aria-hidden /> Camera
+                    <Camera size={22} {...ICON} aria-hidden /> Camera
                   </button>
                   <button type="button" className="btn-secondary h-13" disabled={uploading} onClick={() => galleryRef.current?.click()}>
-                    <ImageIcon size={18} aria-hidden /> Gallery
+                    <ImageIcon size={22} {...ICON} aria-hidden /> Gallery
                   </button>
                 </div>
               )}
-              {uploading && <p className="text-[14px] text-ink-2" aria-live="polite">Uploading…</p>}
+              {uploading && <p className="text-[15px] text-ink-2" aria-live="polite">Uploading…</p>}
               <p className="text-[13px] text-ink-2">
                 Save the QR from your banking app (e.g. “My QR”) and upload it once. Every split shows your current QR —
                 replacing it updates old links too. Payers type the amount themselves.
@@ -173,7 +181,7 @@ export function MeSettings() {
           {p.qrMode === "generate" && (
             <div className="space-y-3">
               <label className="block space-y-1.5">
-                <span className="label px-1">PromptPay number or ID</span>
+                <span className="label">PromptPay number or ID</span>
                 <input
                   className="input tnum"
                   inputMode="numeric"
@@ -201,9 +209,9 @@ export function MeSettings() {
           )}
 
           <label className="block space-y-1.5">
-            <span className="label px-1">Bank details / note (optional)</span>
+            <span className="label">Bank details / note (optional)</span>
             <textarea
-              className="input min-h-20 py-3"
+              className="input min-h-20 rounded-[20px] py-3"
               maxLength={300}
               placeholder="e.g. KBank 123-4-56789-0"
               value={p.note}
@@ -218,7 +226,7 @@ export function MeSettings() {
         <ThemePicker />
       </Section>
 
-      <p className="px-1 text-[13px] text-ink-2">Everything on this page is saved on this device only.</p>
+      <p className="px-5 text-[13px] text-ink-2">Everything on this page is saved on this device only.</p>
     </div>
   );
 }
@@ -242,7 +250,7 @@ export function EmojiColorPicker({
           role="radio"
           aria-checked={!emoji}
           onClick={() => onEmoji(undefined)}
-          className={cx("chip size-11 shrink-0 justify-center px-0 text-[13px] font-bold", !emoji ? "bg-accent-soft text-accent-strong" : "text-ink-2")}
+          className={cx(!emoji ? "chip-accent" : "chip", "size-11 shrink-0 justify-center px-0 text-[13px] font-semibold")}
         >
           Aa
         </button>
@@ -254,7 +262,7 @@ export function EmojiColorPicker({
             aria-checked={emoji === e}
             aria-label={`Emoji ${e}`}
             onClick={() => onEmoji(e)}
-            className={cx("chip size-11 shrink-0 justify-center px-0 text-[22px]", emoji === e && "bg-accent-soft shadow-[inset_0_0_0_2px_var(--accent)]")}
+            className={cx(emoji === e ? "chip-accent" : "chip", "size-11 shrink-0 justify-center px-0 text-[22px]")}
           >
             {e}
           </button>
@@ -272,7 +280,7 @@ export function EmojiColorPicker({
             className="grid size-11 place-items-center rounded-full"
           >
             <span
-              className={cx("size-8 rounded-full transition-transform duration-300 ease-spring", color === c && "scale-110 ring-4 ring-[var(--field-border)]")}
+              className={cx("size-8 rounded-full", color === c && "outline-2 outline-offset-2 outline-ink")}
               style={{ background: COLOR_HEX[c] }}
             />
           </button>

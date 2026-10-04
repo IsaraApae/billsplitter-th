@@ -1,16 +1,18 @@
 "use client";
 
-import { AlertTriangle, Camera, CheckCircle2, ImageIcon, PencilLine, Plus, RotateCcw, Sparkles, Trash2, X, ZoomIn } from "lucide-react";
+import { AlertTriangle, Camera, Check, ImageIcon, PencilLine, Plus, RotateCcw, ScanLine, Sparkles, Trash2, X, ZoomIn } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CalcResult } from "@/lib/calc";
 import { lineTotal } from "@/lib/calc";
 import { loadUpright, uploadJpeg } from "@/lib/client/image";
+import { askConfirm } from "@/lib/client/confirm";
+import { SCAN_EVENT, takePendingScan } from "@/lib/client/pendingScan";
 import { applyScan, totalMismatch, uid } from "@/lib/draft";
 import { CURRENCIES, formatMoney } from "@/lib/money";
 import type { DroppedLine } from "@/lib/scanFilter";
 import type { ScanResult } from "@/lib/scanResult";
 import type { SplitDoc } from "@/lib/types";
-import { Callout, Money, MoneyInput, QtyStepper, Section, Sheet, cx } from "../ui";
+import { Callout, ICON, Money, MoneyInput, QtyStepper, Section, Sheet, cx } from "../ui";
 import type { SetDoc } from "./Wizard";
 
 /** A little longer than the server's 55 s budget across all Gemini attempts. */
@@ -151,40 +153,41 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
   const totalGap = doc.items.length ? totalMismatch(calc.total, doc.receipt.total, currency) : null;
   const info = receipt?.info;
 
+  // A photo picked with the navigation's Scan button.
+  useEffect(() => {
+    const pick = () => {
+      const f = takePendingScan();
+      if (f) void handleFile(f);
+    };
+    pick();
+    window.addEventListener(SCAN_EVENT, pick);
+    return () => window.removeEventListener(SCAN_EVENT, pick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="space-y-7">
-      <div>
+    <div className="space-y-6">
+      <div className="space-y-3.5">
         <h1 className="large-title">New split</h1>
-        <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+        <div className="card px-5 py-4">
           <input
-            className="input text-[17px] font-semibold"
+            className="w-full bg-transparent text-center text-[26px] font-semibold tracking-tight text-ink outline-none placeholder:font-normal placeholder:text-ink-3"
             placeholder="Title, e.g. Friday dinner"
             aria-label="Split title"
             maxLength={80}
             value={doc.title}
             onChange={(e) => setDoc((d) => ({ ...d, title: e.target.value }))}
           />
-          <select
-            aria-label="Currency"
-            className="input w-[5.5rem] px-3"
-            value={currency}
-            disabled={doc.items.length > 0}
-            title={doc.items.length > 0 ? "Clear items to change currency" : undefined}
-            onChange={(e) => setDoc((d) => ({ ...d, currency: e.target.value }))}
-          >
-            {CURRENCIES.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
         </div>
+        <CurrencyChips value={currency} locked={doc.items.length > 0} onChange={(c) => setDoc((d) => ({ ...d, currency: c }))} />
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
-        <button type="button" className="btn-primary h-14 text-[16px]" disabled={busy} onClick={() => cameraRef.current?.click()}>
-          <Camera size={20} aria-hidden /> Scan receipt
+        <button type="button" className="btn glass h-[52px] gap-2 px-3 whitespace-nowrap text-ink" disabled={busy} onClick={() => cameraRef.current?.click()}>
+          <Camera size={22} {...ICON} aria-hidden /> Scan receipt
         </button>
-        <button type="button" className="btn-secondary h-14 text-[16px]" disabled={busy} onClick={() => galleryRef.current?.click()}>
-          <ImageIcon size={20} aria-hidden /> From photos
+        <button type="button" className="btn glass h-[52px] gap-2 px-3 whitespace-nowrap text-ink" disabled={busy} onClick={() => galleryRef.current?.click()}>
+          <ImageIcon size={22} {...ICON} aria-hidden /> From photos
         </button>
         <input
           ref={cameraRef}
@@ -210,9 +213,9 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
       </div>
 
       {busy && (
-        <div className="card flex items-center gap-3 p-4" aria-live="polite">
-          <span className="size-5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent motion-reduce:animate-none" />
-          <span className="text-[15px] font-medium">
+        <div className="card flex items-center gap-3 p-5" aria-live="polite">
+          <ScanLine size={22} {...ICON} className="shrink-0 text-accent" aria-hidden />
+          <span className="text-[17px]">
             {scan.status === "preparing" && "Preparing photo…"}
             {scan.status === "scanning" && (
               <>
@@ -225,18 +228,18 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
       )}
       {error && <Callout tone="error">{error}</Callout>}
       {scan.status === "failed" && (
-        <div className="card space-y-3 p-4" role="alert">
+        <div className="card space-y-4 p-5" role="alert">
           <div className="flex gap-3">
-            <AlertTriangle size={20} className="mt-0.5 shrink-0 text-danger" aria-hidden />
+            <AlertTriangle size={22} {...ICON} className="mt-0.5 shrink-0 text-danger" aria-hidden />
             <div>
               <p className="font-semibold">{(REASONS[scan.reason] ?? REASONS.api_error).title}</p>
-              <p className="text-[14px] text-ink-2">{(REASONS[scan.reason] ?? REASONS.api_error).hint}</p>
+              <p className="text-[15px] text-ink-2">{(REASONS[scan.reason] ?? REASONS.api_error).hint}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {receipt && scan.reason !== "not_configured" && (
               <button type="button" className="btn-primary h-12 px-3 whitespace-nowrap" onClick={() => runScan(receipt.upload, receipt.url)}>
-                <RotateCcw size={18} aria-hidden /> Try again
+                <RotateCcw size={20} {...ICON} aria-hidden /> Try again
               </button>
             )}
             <button
@@ -247,31 +250,31 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
                 addItem();
               }}
             >
-              <PencilLine size={18} aria-hidden /> Add by hand
+              <PencilLine size={20} {...ICON} aria-hidden /> Add by hand
             </button>
           </div>
         </div>
       )}
 
       {receipt && (
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           <button
             type="button"
             onClick={() => setZoom(true)}
-            className="card group relative block w-full overflow-hidden p-0 text-left"
+            className="card relative block w-full overflow-hidden p-0 text-left"
             aria-label="Zoom receipt photo"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={receipt.url} alt="Scanned receipt" className="h-48 w-full object-cover object-center" />
-            <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/60 to-transparent px-4 pt-8 pb-3 text-[13px] font-semibold text-white">
+            <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/65 to-transparent px-5 pt-10 pb-4 text-[15px] font-semibold text-white">
               Tap to compare with your items
-              <ZoomIn size={18} aria-hidden />
+              <ZoomIn size={22} {...ICON} aria-hidden />
             </span>
           </button>
           {info && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 px-1">
               <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-accent-soft px-3 text-[13px] font-semibold text-accent-strong">
-                <Sparkles size={14} aria-hidden /> Scanned with Gemini
+                <Sparkles size={16} {...ICON} aria-hidden /> Scanned with Gemini
               </span>
               {info.model && <span className="text-[13px] text-ink-2">{info.model}</span>}
             </div>
@@ -295,7 +298,7 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
             </Callout>
           )}
           {info && info.dropped.length > 0 && (
-            <details className="px-1 text-[13px] text-ink-2">
+            <details className="px-5 text-[13px] text-ink-2">
               <summary className="min-h-8 cursor-pointer">Ignored {info.dropped.length} non-item line(s)</summary>
               <p className="mt-1">{info.dropped.map((d) => d.name || "(blank)").join(" · ")}</p>
             </details>
@@ -309,8 +312,11 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
           doc.items.length > 0 && (
             <button
               type="button"
-              className="btn-ghost px-3 text-sm text-danger"
-              onClick={() => confirm("Remove all items?") && setDoc((d) => ({ ...d, items: [], receipt: { subtotal: null, total: null } }))}
+              className="press min-h-8 rounded-full px-2 text-[13px] font-semibold text-ink-2"
+              onClick={async () => {
+                if (await askConfirm({ title: "Remove all items?", confirmLabel: "Remove all", destructive: true }))
+                  setDoc((d) => ({ ...d, items: [], receipt: { subtotal: null, total: null } }));
+              }}
             >
               Clear all
             </button>
@@ -318,10 +324,10 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
         }
       >
         {mismatch && (
-          <div className="sticky top-[76px] z-20">
-            <div className="glass flex items-start gap-3 rounded-2xl p-3.5 text-warn" role="status">
-              <AlertTriangle size={20} className="mt-0.5 shrink-0" aria-hidden />
-              <p className="text-[14px] leading-snug font-medium">
+          <div className="sticky top-3 z-20">
+            <div className="glass flex items-start gap-3 rounded-[22px] p-4" role="status">
+              <AlertTriangle size={20} {...ICON} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+              <p className="text-[15px] leading-snug">
                 Items add up to <b className="tnum">{formatMoney(sub, currency)}</b> but the receipt says{" "}
                 <b className="tnum">{formatMoney(printed!, currency)}</b> ({sub > printed! ? "+" : "−"}
                 {formatMoney(Math.abs(sub - printed!), currency)}). Compare with the photo.
@@ -330,74 +336,65 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
           </div>
         )}
         {totalGap !== null && doc.receipt.total !== null && (
-          <Callout tone="warn" icon={<AlertTriangle size={18} />}>
+          <Callout tone="warn">
             Items − discount + service + VAT come to <b className="tnum">{formatMoney(calc.total, currency)}</b>, but the
             receipt&apos;s total is <b className="tnum">{formatMoney(doc.receipt.total, currency)}</b> (
             {totalGap > 0 ? "+" : "−"}
             {formatMoney(Math.abs(totalGap), currency)}). Please review the items and the service charge / VAT in Extras.
           </Callout>
         )}
-        {printed !== null && !mismatch && doc.items.length > 0 && (
-          <Callout tone="success" icon={<CheckCircle2 size={18} />}>
-            Items match the receipt subtotal.
-          </Callout>
-        )}
+        {printed !== null && !mismatch && doc.items.length > 0 && <Callout tone="success">Items match the receipt subtotal.</Callout>}
         {doc.items.length === 0 && !busy && (
-          <p className="card p-5 text-[15px] text-ink-2">
-            Scan a receipt or add items by hand. Thai and English receipts both work.
-          </p>
+          <p className="card p-5 text-[15px] text-ink-2">Scan a receipt or add items by hand. Thai and English receipts both work.</p>
         )}
-        <ul className="space-y-2.5">
-          {doc.items.map((it, i) => (
-            <li key={it.id} className="card space-y-2.5 p-3">
-              <div className="flex gap-2">
-                <input
-                  className="input font-semibold"
-                  placeholder={`Item ${i + 1}`}
-                  aria-label={`Item ${i + 1} name`}
-                  maxLength={80}
-                  value={it.name}
-                  autoFocus={focusId === it.id}
-                  onChange={(e) => updateItem(it.id, { name: e.target.value })}
-                />
-                <button
-                  type="button"
-                  aria-label={`Delete ${it.name || `item ${i + 1}`}`}
-                  className="icon-btn hover:bg-danger-soft hover:text-danger"
-                  onClick={() => removeItem(it.id)}
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <QtyStepper value={it.qty} onChange={(qty) => updateItem(it.id, { qty })} />
-                <X size={14} className="shrink-0 text-ink-3" aria-hidden />
-                <MoneyInput
-                  allowNegative
-                  className="min-w-0 flex-1"
-                  value={it.price}
-                  currency={currency}
-                  ariaLabel={`Item ${i + 1} unit price`}
-                  onChange={(price) => updateItem(it.id, { price })}
-                />
-              </div>
-              {it.qty > 1 && (
-                <p className="text-right text-[13px] font-medium text-ink-2">
-                  = <Money value={lineTotal(it)} currency={currency} />
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-        <button type="button" className="btn-secondary h-12 w-full" onClick={addItem}>
-          <Plus size={18} aria-hidden /> Add item
+        {doc.items.length > 0 && (
+          <ul className="card rows overflow-hidden">
+            {doc.items.map((it, i) => (
+              <li key={it.id} className="space-y-3 px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    className="input font-semibold"
+                    placeholder={`Item ${i + 1}`}
+                    aria-label={`Item ${i + 1} name`}
+                    maxLength={80}
+                    value={it.name}
+                    autoFocus={focusId === it.id}
+                    onChange={(e) => updateItem(it.id, { name: e.target.value })}
+                  />
+                  <button type="button" aria-label={`Delete ${it.name || `item ${i + 1}`}`} className="icon-plain -mr-2" onClick={() => removeItem(it.id)}>
+                    <Trash2 size={22} {...ICON} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <QtyStepper value={it.qty} onChange={(qty) => updateItem(it.id, { qty })} />
+                  <X size={16} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
+                  <MoneyInput
+                    allowNegative
+                    className="min-w-0 flex-1"
+                    value={it.price}
+                    currency={currency}
+                    ariaLabel={`Item ${i + 1} unit price`}
+                    onChange={(price) => updateItem(it.id, { price })}
+                  />
+                </div>
+                {it.qty > 1 && (
+                  <p className="text-right text-[15px] text-ink-2">
+                    = <Money value={lineTotal(it)} currency={currency} tone={lineTotal(it) < 0 ? "negative" : undefined} />
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <button type="button" className="btn glass h-12 w-full text-ink" onClick={addItem}>
+          <Plus size={22} {...ICON} aria-hidden /> Add item
         </button>
       </Section>
 
       {doc.items.length > 0 && (
-        <div className="flex items-baseline justify-between px-1">
-          <span className="font-semibold text-ink-2">Items subtotal</span>
-          <Money value={sub} currency={currency} className="text-xl font-bold" />
+        <div className="card flex min-h-[52px] items-center justify-between px-5 py-3">
+          <span className="text-ink-2">Items subtotal</span>
+          <Money value={sub} currency={currency} className="text-[20px] font-bold" tone={sub < 0 ? "negative" : undefined} />
         </div>
       )}
 
@@ -408,12 +405,66 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
   );
 }
 
+const COMMON_CURRENCIES = ["THB", "USD", "EUR", "GBP", "JPY", "SGD", "MYR", "KRW"];
+
+/** Tap-to-choose currency chips (common ones inline, the rest in a sheet). */
+function CurrencyChips({ value, locked, onChange }: { value: string; locked: boolean; onChange: (c: string) => void }) {
+  const [more, setMore] = useState(false);
+  const shown = COMMON_CURRENCIES.includes(value) ? COMMON_CURRENCIES : [value, ...COMMON_CURRENCIES.slice(0, 7)];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Currency"
+      title={locked ? "Clear items to change currency" : undefined}
+      className="-mx-4 overflow-x-auto px-4 py-1"
+    >
+      <div className="flex w-max gap-2">
+        {shown.map((c) => (
+          <button
+            key={c}
+            type="button"
+            role="radio"
+            aria-checked={value === c}
+            disabled={locked && value !== c}
+            onClick={() => onChange(c)}
+            className={cx(value === c ? "chip-on" : "chip", "disabled:opacity-40")}
+          >
+            {c}
+          </button>
+        ))}
+        <button type="button" className="chip disabled:opacity-40" disabled={locked} onClick={() => setMore(true)}>
+          More…
+        </button>
+      </div>
+      <Sheet open={more} onClose={() => setMore(false)} title="Currency">
+        <ul className="card rows overflow-hidden">
+          {CURRENCIES.map((c) => (
+            <li key={c}>
+              <button
+                type="button"
+                className="flex min-h-[52px] w-full items-center justify-between px-5 text-left"
+                onClick={() => {
+                  onChange(c);
+                  setMore(false);
+                }}
+              >
+                <span>{c}</span>
+                {value === c && <Check size={22} {...ICON} className="text-accent" aria-hidden />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
+    </div>
+  );
+}
+
 /** Pinch/scroll to pan; buttons to zoom (works the same on iOS and Android). */
 function ZoomableImage({ src }: { src: string }) {
   const [scale, setScale] = useState(1);
   return (
     <div className="space-y-3">
-      <div className="max-h-[68dvh] overflow-auto rounded-2xl bg-white [touch-action:pan-x_pan-y_pinch-zoom]">
+      <div className="max-h-[68dvh] overflow-auto rounded-[22px] bg-white [touch-action:pan-x_pan-y_pinch-zoom]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="Receipt photo" style={{ width: `${scale * 100}%`, maxWidth: "none" }} className="block" />
       </div>
@@ -424,7 +475,7 @@ function ZoomableImage({ src }: { src: string }) {
             type="button"
             aria-pressed={scale === s}
             onClick={() => setScale(s)}
-            className={cx("chip justify-center px-5", scale === s ? "bg-accent text-accent-ink" : "glass-lite text-ink")}
+            className={cx(scale === s ? "chip-on" : "chip", "justify-center px-5")}
           >
             {s}×
           </button>

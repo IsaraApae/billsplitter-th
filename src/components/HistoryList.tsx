@@ -1,10 +1,11 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronRight, ReceiptText, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { deleteHistory, getHistory, patchHistory, type HistoryEntry } from "@/lib/client/storage";
-import { Money, cx } from "./ui";
+import { askConfirm } from "@/lib/client/confirm";
+import { ICON, Money, cx } from "./ui";
 
 export function HistoryList() {
   const [entries, setEntries] = useState<HistoryEntry[]>(getHistory);
@@ -33,60 +34,74 @@ export function HistoryList() {
 
   if (entries.length === 0) {
     return (
-      <div className="glass rounded-[28px] p-8 text-center">
+      <div className="card p-8 text-center">
+        <div className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-accent-soft text-accent">
+          <ReceiptText size={28} {...ICON} aria-hidden />
+        </div>
         <p className="text-ink-2">No splits yet. Splits you share are listed here, on this device only.</p>
-        <Link href="/" className="btn-primary mt-5 h-12">
+        <Link href="/" className="btn-primary mt-5 h-12 px-6">
           Start a split
         </Link>
       </div>
     );
   }
 
-  function remove(id: string) {
-    if (!confirm("Remove this split from your history? The shared link keeps working until it expires.")) return;
+  async function remove(id: string) {
+    const ok = await askConfirm({
+      title: "Remove from history?",
+      message: "The shared link keeps working until it expires.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
     deleteHistory(id);
     setEntries((es) => es.filter((e) => e.id !== id));
   }
 
   return (
-    <ul className="space-y-2.5">
+    <ul className="card rows overflow-hidden">
       {entries.map((h) => {
         const done = h.people > 0 && h.paid >= h.people;
         const expired = gone.has(h.id);
         return (
-          <li key={h.id} className={cx("card flex items-center gap-1 p-2 pl-4", expired && "opacity-60")}>
-            <Link href={`/s/${h.id}`} className="min-h-12 min-w-0 flex-1 py-1.5">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate font-semibold">{h.title}</span>
-                <Money value={h.total} currency={h.currency} className="shrink-0 text-[17px] font-bold" />
-              </div>
-              <div className="mt-1 flex items-center gap-2 text-[13px] text-ink-2">
-                <span>
-                  {new Date(h.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+          <li key={h.id} className={cx("flex min-h-[72px] items-center gap-1 pr-2", expired && "opacity-60")}>
+            <Link href={`/s/${h.id}`} className="flex min-h-[72px] min-w-0 flex-1 items-center gap-3 py-3 pl-5">
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="truncate font-semibold">{h.title}</span>
+                  <Money value={h.total} currency={h.currency} className="shrink-0 font-semibold" />
                 </span>
-                <span aria-hidden>·</span>
-                {expired ? (
-                  <span>Expired</span>
-                ) : (
-                  <span className={cx("font-semibold", done ? "text-accent" : "text-warn")}>
-                    {done ? "✓ All paid" : `${h.paid}/${h.people} paid`}
+                <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-ink-2">
+                  <span>
+                    {new Date(h.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
-                )}
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--hover)]">
-                <div
-                  className="h-full rounded-full bg-accent"
-                  style={{ width: `${h.people ? Math.min(100, (h.paid / h.people) * 100) : 0}%` }}
-                />
-              </div>
+                  <span aria-hidden>·</span>
+                  {expired ? (
+                    <span>Expired</span>
+                  ) : done ? (
+                    <span className="inline-flex items-center gap-1 font-semibold text-accent">
+                      <CheckCircle2 size={14} {...ICON} aria-hidden /> All paid
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-warn">{`${h.paid}/${h.people} paid`}</span>
+                  )}
+                </span>
+                <span className="mt-2 block h-1 overflow-hidden rounded-full bg-[var(--field)]">
+                  <span
+                    className="block h-full rounded-full bg-accent"
+                    style={{ width: `${h.people ? Math.min(100, (h.paid / h.people) * 100) : 0}%` }}
+                  />
+                </span>
+              </span>
+              <ChevronRight size={20} {...ICON} aria-hidden className="shrink-0 text-ink-3" />
             </Link>
             <button
               type="button"
-              className="icon-btn hover:bg-danger-soft hover:text-danger"
+              className="icon-plain size-11"
               aria-label={`Remove ${h.title} from history`}
               onClick={() => remove(h.id)}
             >
-              <Trash2 size={18} />
+              <Trash2 size={20} {...ICON} />
             </button>
           </li>
         );

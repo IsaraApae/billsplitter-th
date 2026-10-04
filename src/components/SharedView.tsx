@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, Pencil, QrCode } from "lucide-react";
+import { Check, ChevronDown, Copy, PartyPopper, Pencil, QrCode } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,7 +15,7 @@ import { Breakdown } from "./Breakdown";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { ShareButtons } from "./ShareButtons";
-import { Callout, Money, Sheet, cx } from "./ui";
+import { Callout, ICON, Money, Section, Sheet, cx } from "./ui";
 
 const POLL_MS = 10_000;
 
@@ -148,32 +148,32 @@ export function SharedView({
   });
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 px-4 pt-5 pb-16">
-      <header className="glass rounded-[28px] px-6 pt-6 pb-5 text-center">
-        <p className="text-[13px] font-medium text-ink-2">{date}</p>
+    <main className="mx-auto max-w-2xl space-y-6 px-4 pb-32 md:pb-16">
+      <header className="card px-6 pt-6 pb-5 text-center">
+        <p className="text-[13px] text-ink-2">{date}</p>
         <h1 className="mt-1 text-[28px] leading-tight font-bold tracking-tight break-words">{doc.title}</h1>
         <Money value={calc.total} currency={doc.currency} className="mt-3 block text-[48px] leading-none font-bold tracking-tight" />
-        <p className="mt-2 text-[14px] text-ink-2">
+        <p className="mt-2 text-[15px] text-ink-2">
           {total} {total === 1 ? "person" : "people"} · {doc.mode === "equal" ? "split equally" : "split by item"}
         </p>
 
         <div className="mt-5 text-left" aria-label="Payment progress">
           <div className="mb-2 flex items-baseline justify-between gap-2">
-            <span className="font-semibold">{allPaid ? "🎉 Everyone has paid" : `${paidCount} of ${total} paid`}</span>
+            <span className="flex items-center gap-1.5 font-semibold">
+              {allPaid && <PartyPopper size={20} {...ICON} className="text-accent" aria-hidden />}
+              {allPaid ? "Everyone has paid" : `${paidCount} of ${total} paid`}
+            </span>
             {!allPaid && (
-              <span className="text-[14px] font-semibold text-warn">
-                <Money value={outstanding} currency={doc.currency} /> to go
+              <span className="text-[15px] text-ink-2">
+                <Money value={outstanding} currency={doc.currency} className="font-semibold text-ink" /> to go
               </span>
             )}
           </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-[var(--hover)] shadow-[inset_0_0_0_1px_var(--line)]">
-            <div
-              className="h-full rounded-full bg-accent transition-[width] duration-700 ease-spring motion-reduce:transition-none"
-              style={{ width: `${total ? (paidCount / total) * 100 : 0}%` }}
-            />
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--field)]">
+            <div className="h-full rounded-full bg-accent" style={{ width: `${total ? (paidCount / total) * 100 : 0}%` }} />
           </div>
           {!allPaid && (
-            <p className="mt-2 text-[14px] text-ink-2">
+            <p className="mt-2 text-[15px] text-ink-2">
               Waiting on:{" "}
               <b className="text-ink">
                 {doc.people
@@ -189,46 +189,42 @@ export function SharedView({
       {error && <Callout tone="error">{error}</Callout>}
 
       {(qr || pp || doc.payment.note) && (
-        <section className="card space-y-3 p-4" aria-label="How to pay">
-          <h2 className="px-1 font-bold">How to pay</h2>
-          {qr && (
-            <div className="flex items-start gap-2 px-1 text-[14px] text-ink-2">
-              <QrCode size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden />
-              <p>
-                Tap <b className="text-ink">Pay</b> next to your name for a PromptPay QR
-                {qr.mode === "generate" && " with your exact amount"}.
-              </p>
-            </div>
-          )}
-          {pp && (
-            <div className="flex min-h-11 items-center justify-between gap-2 px-1">
-              <span>
-                <span className="text-[14px] text-ink-2">PromptPay </span>
-                <span className="tnum font-semibold">{formatPromptPayId(pp)}</span>
-              </span>
-              <button type="button" className="btn-secondary min-h-10 px-4 text-[14px]" onClick={() => copy(pp, "pp")}>
-                {copied === "pp" ? <Check size={16} /> : <Copy size={16} />} {copied === "pp" ? "Copied" : "Copy"}
-              </button>
-            </div>
-          )}
-          {doc.payment.note && (
-            <div className="flex items-start justify-between gap-2 px-1">
-              <p className="pt-2 text-[15px] break-words whitespace-pre-wrap">{doc.payment.note}</p>
-              <button
-                type="button"
-                className="btn-secondary min-h-10 shrink-0 px-4 text-[14px]"
-                onClick={() => copy(doc.payment.note, "note")}
-              >
-                {copied === "note" ? <Check size={16} /> : <Copy size={16} />} {copied === "note" ? "Copied" : "Copy"}
-              </button>
-            </div>
-          )}
-        </section>
+        <Section title="How to pay">
+          <div className="card rows" aria-label="How to pay">
+            {qr && (
+              <div className="flex items-start gap-3 px-5 py-4 text-[15px] text-ink-2">
+                <QrCode size={22} {...ICON} className="mt-px shrink-0 text-accent" aria-hidden />
+                <p>
+                  Tap <b className="text-ink">Pay</b> next to your name for a PromptPay QR
+                  {qr.mode === "generate" && " with your exact amount"}.
+                </p>
+              </div>
+            )}
+            {pp && (
+              <div className="flex min-h-[60px] items-center justify-between gap-2 py-2 pr-3 pl-5">
+                <span>
+                  <span className="text-ink-2">PromptPay </span>
+                  <span className="tnum font-semibold">{formatPromptPayId(pp)}</span>
+                </span>
+                <button type="button" className="btn-secondary min-h-10 px-4 text-[15px]" onClick={() => copy(pp, "pp")}>
+                  {copied === "pp" ? <Check size={18} {...ICON} /> : <Copy size={18} {...ICON} />} {copied === "pp" ? "Copied" : "Copy"}
+                </button>
+              </div>
+            )}
+            {doc.payment.note && (
+              <div className="flex items-start justify-between gap-2 py-3 pr-3 pl-5">
+                <p className="pt-2 break-words whitespace-pre-wrap">{doc.payment.note}</p>
+                <button type="button" className="btn-secondary min-h-10 shrink-0 px-4 text-[15px]" onClick={() => copy(doc.payment.note, "note")}>
+                  {copied === "note" ? <Check size={18} {...ICON} /> : <Copy size={18} {...ICON} />} {copied === "note" ? "Copied" : "Copy"}
+                </button>
+              </div>
+            )}
+          </div>
+        </Section>
       )}
 
-      <section aria-label="People" className="space-y-3">
-        <h2 className="px-1 text-[20px] font-bold">Who owes what</h2>
-        <ul className="space-y-2.5">
+      <Section title="Who owes what">
+        <ul className="card rows overflow-hidden" aria-label="People">
           {calc.people.map((p, i) => {
             const isPaid = paid.has(p.personId);
             const busy = pending.has(p.personId);
@@ -254,12 +250,12 @@ export function SharedView({
                       <span
                         aria-hidden
                         className={cx(
-                          "grid size-8 place-items-center rounded-full transition-[background-color,transform] duration-300 ease-spring peer-focus-visible:ring-4 peer-focus-visible:ring-accent/30 peer-active:scale-90",
-                          isPaid ? "bg-accent text-accent-ink" : "shadow-[inset_0_0_0_2px_var(--field-border)]",
+                          "press grid size-8 place-items-center rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-accent",
+                          isPaid ? "bg-accent text-accent-ink" : "bg-[var(--field)]",
                           busy && "opacity-50",
                         )}
                       >
-                        {isPaid && <Check size={18} strokeWidth={3} />}
+                        {isPaid && <Check size={18} {...ICON} />}
                       </span>
                     </label>
                   ) : (
@@ -267,7 +263,7 @@ export function SharedView({
                     <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
                       {isPaid ? (
                         <span className="grid size-8 place-items-center rounded-full bg-accent text-accent-ink">
-                          <Check size={18} strokeWidth={3} />
+                          <Check size={18} {...ICON} />
                         </span>
                       ) : (
                         <span className="size-2.5 rounded-full bg-warn" />
@@ -276,13 +272,13 @@ export function SharedView({
                   )
                 }
                 badge={
-                  <span className={cx("text-[12px] font-bold", isPaid ? "text-accent" : "text-warn")}>
+                  <span className={cx("text-[13px] font-semibold", isPaid ? "text-accent" : "text-warn")}>
                     {p.personId === ME_ID ? (isPaid ? "Paid" : "Organiser") : isPaid ? "Paid" : "Unpaid"}
                   </span>
                 }
                 action={
                   qr && !isPaid && p.payable > 0 && doc.currency === "THB" && p.personId !== ME_ID ? (
-                    <button type="button" className="btn-primary min-h-10 px-4 text-[14px]" onClick={() => setPayFor(p.personId)}>
+                    <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPayFor(p.personId)}>
                       Pay
                     </button>
                   ) : null
@@ -292,7 +288,7 @@ export function SharedView({
           })}
         </ul>
         {calc.people.some((p) => p.payable !== p.total) && (
-          <p className="px-1 text-[13px] text-ink-2">
+          <p className="px-5 text-[13px] text-ink-2">
             Amounts are rounded to whole {wholeUnitName(doc.currency)}{" "}
             (some up, some down, within {formatStep(wholeUnit(doc.currency), doc.currency)} of each exact share)
             {calc.roundingExtra > 0 && (
@@ -304,42 +300,39 @@ export function SharedView({
             .
           </p>
         )}
-        <p className="px-1 text-[13px] text-ink-2">
+        <p className="px-5 text-[13px] text-ink-2">
           {canEdit
             ? "Tick the circle when someone has paid you. Everyone with the link sees it."
             : "The organiser ticks people off as they receive payments."}
         </p>
-      </section>
+      </Section>
 
-      <section className="space-y-3" aria-label="Bill breakdown">
-        <h2 className="px-1 text-[20px] font-bold">Bill</h2>
+      <Section title="Bill">
         <details className="card group">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 font-semibold">
+          <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between px-5 font-semibold">
             All items ({doc.items.length})
-            <span aria-hidden className="text-ink-3 transition-transform group-open:rotate-180">
-              ▾
-            </span>
+            <ChevronDown size={20} {...ICON} aria-hidden className="text-ink-3 group-open:rotate-180" />
           </summary>
-          <ul className="space-y-1.5 border-t border-line px-4 py-3 text-[14px]">
+          <ul className="space-y-1.5 px-5 pb-4 text-[15px]">
             {calc.lines.map((l, i) => (
               <li key={l.itemId} className="flex justify-between gap-3">
                 <span className="min-w-0 truncate">
                   {doc.items[i].qty > 1 && <span className="text-ink-2">{doc.items[i].qty}× </span>}
                   {l.name}
                 </span>
-                <Money value={l.lineTotal} currency={doc.currency} />
+                <Money value={l.lineTotal} currency={doc.currency} tone={l.lineTotal < 0 ? "negative" : undefined} />
               </li>
             ))}
           </ul>
         </details>
         <Breakdown doc={doc} calc={calc} />
-      </section>
+      </Section>
 
-      <section className="space-y-2">
+      <section className="space-y-2.5">
         <ShareButtons url={url} title={doc.title} text={`${doc.title} — see what you owe`} />
         {canEdit && (
           <Link href={`/?edit=${id}`} className="btn-secondary h-12 w-full">
-            <Pencil size={16} aria-hidden /> Edit this split
+            <Pencil size={20} {...ICON} aria-hidden /> Edit this split
           </Link>
         )}
         <Link href="/" className="btn-ghost w-full">

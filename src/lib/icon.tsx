@@ -11,7 +11,7 @@ export function iconResponse(px: number) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#059669",
+          background: "#047857",
           color: "white",
           fontSize: px * 0.62,
           fontWeight: 700,
