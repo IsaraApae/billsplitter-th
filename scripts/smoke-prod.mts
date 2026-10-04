@@ -79,7 +79,7 @@ if (receipt) {
   const t0 = Date.now();
   r = await fetch(`${base}/api/scan`, { method: "POST", body: f });
   const s = await r.json();
-  ok(`scan (${((Date.now() - t0) / 1000).toFixed(1)}s)`, r.ok, r.ok ? `engine=${s.engine} model=${s.model}` : s);
+  ok(`scan (${((Date.now() - t0) / 1000).toFixed(1)}s)`, r.ok, r.ok ? `model=${s.model} attempts=${(s.attempts ?? []).length}` : s);
   if (r.ok) {
     const sum = s.items.reduce((a: number, i: { price: number }) => a + i.price, 0);
     for (const i of s.items) console.log(`    ${i.qty} × ${i.name} = ${i.price}`);
