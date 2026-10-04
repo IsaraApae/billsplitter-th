@@ -3,8 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), var(--font-thai), "Segoe UI", Roboto,
-    sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Thonburi", "Noto Sans Thai", system-ui, sans-serif;
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
@@ -12,6 +11,7 @@
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-accent-strong: var(--accent-strong);
+  --color-positive: var(--positive);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
   --color-danger: var(--danger);
@@ -20,87 +20,98 @@
   --color-info-soft: var(--info-soft);
   --color-field: var(--field);
   --color-line: var(--line);
-  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --color-card: var(--card);
+  /* One easing for every motion in the app. */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ---------- Tokens -------------------------------------------------------
-   Text colours are chosen for ≥ 4.5:1 contrast on the glass fills below
-   (worst case: glass over the brightest background blob). */
+/* ---------- Tokens --------------------------------------------------------
+   Two layers: content cards (opaque-ish, never blurred) and a control layer of
+   frosted glass (navigation, toolbars, buttons, chips, sheets).
+   All text tokens meet 4.5:1 on cards and on glass over the glow wash. */
 :root {
   color-scheme: light;
-  --bg: #eef2f7;
-  --blob-1: rgb(56 189 248 / 0.38);
-  --blob-2: rgb(167 139 250 / 0.36);
-  --blob-3: rgb(52 211 153 / 0.32);
-  --blob-4: rgb(251 113 133 / 0.26);
+  --bg: #f5f3f7;
+  /* The soft green wash the glass blurs (emerald, teal, mint, lime). */
+  --blob-1: rgb(52 211 153 / 0.22);
+  --blob-2: rgb(20 184 166 / 0.16);
+  --blob-3: rgb(94 234 212 / 0.18);
+  --blob-4: rgb(163 230 53 / 0.12);
 
-  --ink: #0b1220;
-  --ink-2: #394457;
-  --ink-3: #556072;
+  --ink: #1c1c1e;
+  --ink-2: #636366;
+  --ink-3: #5e5e63; /* 4.5:1 even as placeholder on a field */
   --accent: #047857;
   --accent-ink: #ffffff;
   --accent-soft: rgb(4 120 87 / 0.12);
-  --accent-strong: #065f46; /* text on accent-soft */
-  --accent-glow: rgb(4 120 87 / 0.45);
-  --warn: #92400e;
-  --warn-soft: rgb(245 158 11 / 0.16);
-  --danger: #b91c1c;
-  --danger-soft: rgb(239 68 68 / 0.12);
-  --info: #075985;
-  --info-soft: rgb(14 165 233 / 0.12);
+  --accent-strong: #065f46; /* accent text on accent-soft */
+  --positive: #35805a;
+  --danger: #c24a44; /* the only red: negative amounts and errors */
+  --danger-soft: rgb(194 74 68 / 0.1);
+  --warn: #8a5a12;
+  --warn-soft: rgb(232 172 114 / 0.2);
+  --info: #3a6a94;
+  --info-soft: rgb(134 178 222 / 0.2);
 
-  --glass: rgb(255 255 255 / 0.62);
-  --glass-strong: rgb(255 255 255 / 0.8);
-  --glass-lite: rgb(255 255 255 / 0.72);
-  --glass-blur: blur(24px) saturate(180%);
-  --glass-sheen: rgb(255 255 255 / 0.55);
+  --card: rgb(255 255 255 / 0.75);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.03), 0 8px 24px -14px rgb(0 0 0 / 0.14);
+  --line: rgb(60 60 67 / 0.22);
+  --field: rgb(118 118 128 / 0.12);
+  --hover: rgb(118 118 128 / 0.1);
+
+  /* Glass material (controls). */
+  --glass: rgb(255 255 255 / 0.55);
+  --glass-strong: rgb(255 255 255 / 0.85); /* selected segment */
+  --glass-blur: blur(22px) saturate(190%);
   --glass-border: rgb(255 255 255 / 0.7);
-  --glass-highlight: rgb(255 255 255 / 0.95);
-  --glass-hairline: rgb(15 23 42 / 0.07);
-  --glass-shadow: 0 12px 32px -14px rgb(15 23 42 / 0.22), 0 2px 6px -2px rgb(15 23 42 / 0.08);
-  --glass-solid: #f8fafc;
-  --field: rgb(255 255 255 / 0.72);
-  --field-border: rgb(15 23 42 / 0.12);
-  --line: rgb(15 23 42 / 0.08);
-  --hover: rgb(15 23 42 / 0.05);
+  --glass-highlight: rgb(255 255 255 / 0.9);
+  --glass-highlight-bottom: rgb(255 255 255 / 0.35);
+  --glass-shadow: 0 10px 30px -6px rgb(0 0 0 / 0.15), 0 2px 6px rgb(0 0 0 / 0.06);
+  /* Large panels (sheets, dialogs). */
+  --panel: rgb(245 243 247 / 0.8);
+  --panel-blur: blur(40px) saturate(200%);
+  --glass-solid: #ffffff;
+  --scrim: rgb(0 0 0 / 0.28);
 }
 
 .dark {
   color-scheme: dark;
-  --bg: #06080f;
-  --blob-1: rgb(14 165 233 / 0.28);
-  --blob-2: rgb(139 92 246 / 0.3);
-  --blob-3: rgb(16 185 129 / 0.22);
-  --blob-4: rgb(244 63 94 / 0.18);
+  --bg: #000000;
+  --blob-1: rgb(52 211 153 / 0.32);
+  --blob-2: rgb(20 184 166 / 0.24);
+  --blob-3: rgb(94 234 212 / 0.2);
+  --blob-4: rgb(163 230 53 / 0.18);
 
-  --ink: #f4f6fb;
-  --ink-2: #c9d0dc;
-  --ink-3: #a3acbb;
+  --ink: #f2f2f7;
+  --ink-2: #a1a1a8;
+  --ink-3: #98989e;
   --accent: #34d399;
   --accent-ink: #032419;
   --accent-soft: rgb(52 211 153 / 0.16);
   --accent-strong: #6ee7b7;
-  --accent-glow: rgb(52 211 153 / 0.35);
-  --warn: #fbbf24;
-  --warn-soft: rgb(251 191 36 / 0.14);
-  --danger: #fca5a5;
-  --danger-soft: rgb(248 113 113 / 0.14);
-  --info: #7dd3fc;
-  --info-soft: rgb(56 189 248 / 0.14);
+  --positive: #8fd3a0;
+  --danger: #f0958e;
+  --danger-soft: rgb(240 149 142 / 0.14);
+  --warn: #e8ac72;
+  --warn-soft: rgb(232 172 114 / 0.14);
+  --info: #86b2de;
+  --info-soft: rgb(134 178 222 / 0.14);
 
-  --glass: rgb(30 36 52 / 0.56);
-  --glass-strong: rgb(28 33 48 / 0.78);
-  --glass-lite: rgb(26 31 45 / 0.8);
-  --glass-sheen: rgb(255 255 255 / 0.07);
-  --glass-border: rgb(255 255 255 / 0.1);
-  --glass-highlight: rgb(255 255 255 / 0.16);
-  --glass-hairline: rgb(0 0 0 / 0.45);
-  --glass-shadow: 0 14px 36px -14px rgb(0 0 0 / 0.7), 0 2px 6px -2px rgb(0 0 0 / 0.4);
-  --glass-solid: #161b27;
-  --field: rgb(8 11 18 / 0.5);
-  --field-border: rgb(255 255 255 / 0.12);
-  --line: rgb(255 255 255 / 0.08);
-  --hover: rgb(255 255 255 / 0.06);
+  --card: rgb(28 28 30 / 0.75);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -14px rgb(0 0 0 / 0.6);
+  --line: rgb(84 84 88 / 0.6);
+  --field: rgb(118 118 128 / 0.24);
+  --hover: rgb(118 118 128 / 0.18);
+
+  --glass: rgb(58 58 60 / 0.5);
+  --glass-strong: rgb(99 99 102 / 0.6);
+  --glass-border: rgb(255 255 255 / 0.14);
+  --glass-highlight: rgb(255 255 255 / 0.18);
+  --glass-highlight-bottom: rgb(255 255 255 / 0.06);
+  --glass-shadow: 0 10px 30px -6px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
+  --panel: rgb(0 0 0 / 0.8);
+  --glass-solid: #2c2c2e;
+  --scrim: rgb(0 0 0 / 0.5);
 }
 
 /* Solid fallbacks: no backdrop-filter support, reduced transparency, or more contrast. */
@@ -108,47 +119,94 @@
   :root,
   .dark {
     --glass: var(--glass-solid);
-    --glass-strong: var(--glass-solid);
+    --panel: var(--glass-solid);
   }
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   :root,
   .dark {
     --glass: var(--glass-solid);
-    --glass-strong: var(--glass-solid);
-    --glass-lite: var(--glass-solid);
+    --panel: var(--glass-solid);
+    --card: var(--glass-solid);
     --glass-blur: none;
-    --glass-sheen: transparent;
+    --panel-blur: none;
   }
-  .app-bg {
+  .app-bg,
+  .edge-blur {
     display: none;
   }
 }
 
-html,
-body {
+/* ---------- Base ------------------------------------------------------------ */
+/* Only the root gets the solid colour: an opaque <body> would paint over the
+   fixed glow layer (z-index -1) below it. */
+html {
   background: var(--bg);
 }
 
 body {
   color: var(--ink);
+  font-size: 17px;
+  line-height: 1.45;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
 
-/* Soft colourful backdrop for the glass (gradients only — no blur filters). */
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+input,
+textarea {
+  caret-color: var(--accent);
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Sheets take focus themselves on open; no ring around the whole panel. */
+dialog:focus-visible {
+  outline: none;
+}
+
+/* Fixed soft wash of four large green glows behind everything. */
 .app-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(42% 32% at 12% 6%, var(--blob-1), transparent 70%),
-    radial-gradient(38% 30% at 92% 18%, var(--blob-2), transparent 70%),
-    radial-gradient(46% 34% at 80% 88%, var(--blob-3), transparent 72%),
-    radial-gradient(40% 30% at 8% 78%, var(--blob-4), transparent 70%),
+    radial-gradient(48% 38% at 10% 4%, var(--blob-1), transparent 72%),
+    radial-gradient(44% 36% at 95% 22%, var(--blob-2), transparent 72%),
+    radial-gradient(52% 40% at 82% 92%, var(--blob-3), transparent 74%),
+    radial-gradient(46% 36% at 6% 76%, var(--blob-4), transparent 72%),
     var(--bg);
+}
+
+/* Progressive blur where content slides under floating chrome: a blurred strip
+   whose mask fades it out, instead of a solid bar. */
+.edge-blur {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.edge-blur-bottom {
+  bottom: 0;
+  height: calc(var(--edge-bottom, 112px) + env(safe-area-inset-bottom));
+  -webkit-mask-image: linear-gradient(to top, #000 45%, transparent);
+  mask-image: linear-gradient(to top, #000 45%, transparent);
+}
+.edge-blur-top {
+  top: 0;
+  height: 96px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent);
+  mask-image: linear-gradient(to bottom, #000 40%, transparent);
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -162,140 +220,176 @@ input[type="number"]::-webkit-outer-spin-button {
   font-feature-settings: "tnum" 1;
 }
 
-/* ---------- Glass surfaces ---------------------------------------------- */
+/* Half-pixel hairline between rows, inset from both sides of the card. */
+.rows > * + * {
+  position: relative;
+}
+.rows > * + *::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: var(--line);
+  transform: scaleY(0.5);
+  transform-origin: top;
+}
 
-/* Blurred glass — use sparingly: header, action bar, sheets, hero cards. */
+/* ---------- Materials ------------------------------------------------------- */
+
+/* Frosted glass for floating controls (nav, toolbars, step tabs). */
 @utility glass {
   background-color: var(--glass);
-  background-image: linear-gradient(180deg, var(--glass-sheen) 0%, transparent 42%);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border);
   box-shadow:
-    inset 0 1px 0 0 var(--glass-highlight),
-    inset 0 0 0 1px var(--glass-border),
-    0 0 0 0.5px var(--glass-hairline),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-highlight-bottom),
     var(--glass-shadow);
 }
-@utility glass-strong {
-  background-color: var(--glass-strong);
-  background-image: linear-gradient(180deg, var(--glass-sheen) 0%, transparent 30%);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+/* Same look without the blur, for controls sitting on a card (blurring a flat
+   card adds nothing and stacks blurs). */
+@utility glass-flat {
+  background-color: var(--glass);
+  border: 0.5px solid var(--glass-border);
   box-shadow:
-    inset 0 1px 0 0 var(--glass-highlight),
-    inset 0 0 0 1px var(--glass-border),
-    var(--glass-shadow);
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 -1px 0 var(--glass-highlight-bottom),
+    0 4px 12px -6px rgb(0 0 0 / 0.12);
 }
-/* Unblurred glass for list rows and repeated cards (cheap to scroll). */
-@utility glass-lite {
-  background-color: var(--glass-lite);
-  background-image: linear-gradient(180deg, var(--glass-sheen) 0%, transparent 36%);
+/* Large panels: sheets and dialogs. */
+@utility panel {
+  background-color: var(--panel);
+  -webkit-backdrop-filter: var(--panel-blur);
+  backdrop-filter: var(--panel-blur);
+  border: 0.5px solid var(--glass-border);
   box-shadow:
-    inset 0 1px 0 0 var(--glass-highlight),
-    inset 0 0 0 1px var(--glass-border),
-    0 0 0 0.5px var(--glass-hairline),
-    0 6px 18px -12px rgb(15 23 42 / 0.25);
+    inset 0 1px 0 var(--glass-highlight),
+    0 24px 60px -12px rgb(0 0 0 / 0.35);
+}
+/* Content layer: slightly see-through, never glass. */
+@utility card {
+  background-color: var(--card);
+  border-radius: 26px;
+  box-shadow: var(--card-shadow);
 }
 
-@utility card {
-  @apply glass-lite rounded-3xl;
-}
-@utility input {
-  @apply min-h-12 w-full rounded-2xl border border-[var(--field-border)] bg-field px-4 text-base text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-ink-3 focus:border-accent focus:ring-4 focus:ring-accent/20;
+/* ---------- Controls (all capsules or circles) ------------------------------ */
+@utility press {
+  transition: transform 0.2s var(--ease-spring);
+  &:active {
+    transform: scale(0.94);
+  }
 }
 @utility btn {
-  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-semibold select-none transition-[transform,background-color,box-shadow,opacity,filter] duration-300 ease-spring active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 motion-reduce:transition-none motion-reduce:active:scale-100;
+  @apply press inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[17px] font-semibold select-none disabled:pointer-events-none disabled:opacity-40;
 }
 @utility btn-primary {
-  @apply btn bg-accent text-accent-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_10px_24px_-10px_var(--accent-glow)] hover:brightness-110;
+  @apply btn bg-accent text-accent-ink shadow-[0_8px_20px_-8px_rgb(4_120_87/0.45)];
 }
 @utility btn-secondary {
-  @apply btn glass-lite text-ink hover:brightness-[1.03];
+  @apply btn glass-flat text-ink;
 }
 @utility btn-ghost {
-  @apply btn text-ink-2 hover:bg-[var(--hover)];
+  @apply btn text-accent hover:bg-[var(--hover)];
 }
+/* 44px glass circle with a 22px line icon (floating toolbars). */
 @utility icon-btn {
-  @apply inline-grid size-11 shrink-0 place-items-center rounded-full text-ink-2 transition-[transform,background-color] duration-300 ease-spring hover:bg-[var(--hover)] active:scale-90 motion-reduce:transition-none;
+  @apply press glass inline-grid size-11 shrink-0 place-items-center rounded-full text-ink;
 }
-@utility label {
-  @apply text-[13px] font-medium text-ink-2;
+/* 44px plain circle for actions inside a card row. */
+@utility icon-plain {
+  @apply press inline-grid size-11 shrink-0 place-items-center rounded-full text-ink-2 hover:bg-[var(--hover)];
 }
 @utility chip {
-  @apply inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium transition-[transform,background-color,box-shadow] duration-300 ease-spring active:scale-95 motion-reduce:transition-none;
+  @apply press glass-flat inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium text-ink;
+}
+/* Selected chip: solid text colour with inverted text. */
+@utility chip-on {
+  @apply press inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-4 text-[15px] font-semibold text-[var(--bg)];
+}
+/* Selected chip, accent-tinted (assigning people). */
+@utility chip-accent {
+  @apply press inline-flex min-h-11 items-center gap-2 rounded-full bg-accent-soft px-4 text-[15px] font-semibold text-accent-strong shadow-[inset_0_0_0_1px_rgb(4_120_87/0.25)];
+}
+@utility input {
+  @apply min-h-12 w-full rounded-full bg-field px-5 text-[17px] text-ink outline-none placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent;
+}
+@utility label {
+  @apply text-[13px] text-ink-2;
 }
 @utility large-title {
-  @apply text-[32px] leading-[1.1] font-bold tracking-[-0.02em] text-ink;
+  @apply text-[32px] leading-[1.15] font-bold tracking-[-0.02em] text-ink;
 }
 
-/* ---------- Bottom sheet (native <dialog>) ------------------------------ */
+/* ---------- Sheets and dialogs (native <dialog>) ----------------------------- */
 dialog.sheet {
-  margin: auto auto 0;
-  width: 100%;
+  /* Inset 8px from the screen edges so the corners sit concentric with the device. */
+  margin: auto 8px max(8px, env(safe-area-inset-bottom));
+  width: calc(100% - 16px);
   max-width: 640px;
   max-height: min(90dvh, 900px);
   padding: 0;
-  border: 0;
+  border-radius: 36px;
   color: var(--ink);
-  border-radius: 28px 28px 0 0;
   transform: translateY(0);
   transition:
-    transform 0.5s var(--ease-spring),
-    display 0.5s allow-discrete,
-    overlay 0.5s allow-discrete;
+    transform 0.45s var(--ease-spring),
+    display 0.45s allow-discrete,
+    overlay 0.45s allow-discrete;
 }
 dialog.sheet:not([open]) {
-  transform: translateY(100%);
+  transform: translateY(110%);
 }
 @starting-style {
   dialog.sheet[open] {
-    transform: translateY(100%);
+    transform: translateY(110%);
   }
 }
-dialog.sheet::backdrop {
-  background: rgb(2 6 23 / 0);
-  transition:
-    background-color 0.35s ease,
-    display 0.5s allow-discrete,
-    overlay 0.5s allow-discrete;
-}
-dialog.sheet[open]::backdrop {
-  background: rgb(2 6 23 / 0.38);
-}
-@starting-style {
-  dialog.sheet[open]::backdrop {
-    background: rgb(2 6 23 / 0);
-  }
-}
-@media (min-width: 640px) {
+@media (min-width: 656px) {
   dialog.sheet {
-    margin-bottom: 24px;
-    border-radius: 28px;
+    margin: auto auto 24px;
   }
 }
 
-/* Entrance for step content */
-@keyframes rise {
-  from {
+dialog.alert {
+  margin: auto;
+  width: min(320px, calc(100% - 48px));
+  padding: 0;
+  border-radius: 34px;
+  color: var(--ink);
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 0.35s var(--ease-spring),
+    transform 0.35s var(--ease-spring),
+    display 0.35s allow-discrete,
+    overlay 0.35s allow-discrete;
+}
+dialog.alert:not([open]) {
+  opacity: 0;
+  transform: scale(0.88);
+}
+@starting-style {
+  dialog.alert[open] {
     opacity: 0;
-    transform: translateY(10px);
+    transform: scale(0.88);
   }
 }
-.rise {
-  animation: rise 0.45s var(--ease-spring) both;
+
+dialog.sheet::backdrop,
+dialog.alert::backdrop {
+  background: var(--scrim);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  dialog.sheet,
-  dialog.sheet::backdrop {
-    transition: none;
-  }
-  .rise {
-    animation: none;
-  }
   *,
   *::before,
   *::after {
+    transition: none !important;
+    animation: none !important;
     scroll-behavior: auto !important;
   }
 }

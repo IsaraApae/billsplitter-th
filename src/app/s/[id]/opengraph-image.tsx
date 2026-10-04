@@ -36,7 +36,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
           flexDirection: "column",
           justifyContent: "space-between",
           padding: 72,
-          background: "linear-gradient(135deg, #064e3b 0%, #059669 100%)",
+          background: "linear-gradient(135deg, #064e3b 0%, #047857 100%)",
           color: "white",
           fontFamily: "Noto",
         }}
@@ -48,7 +48,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
               height: 64,
               borderRadius: 16,
               background: "white",
-              color: "#059669",
+              color: "#047857",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

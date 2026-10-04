@@ -1,13 +1,14 @@
 "use client";
 
-import { Pencil, Plus, Trash2, UsersRound } from "lucide-react";
+import { Check, ChevronRight, Plus, Trash2, UsersRound } from "lucide-react";
 import { useState } from "react";
+import { askConfirm } from "@/lib/client/confirm";
 import { getFriends, getGroups, saveFriends, saveGroups } from "@/lib/client/friendsStore";
 import { uid } from "@/lib/draft";
 import { addFriend, findByName, sortFriends, type Friend, type FriendGroup } from "@/lib/friends";
 import { PERSON_COLORS, type PersonColor } from "@/lib/types";
 import { EmojiColorPicker } from "./MeSettings";
-import { Avatar, Callout, Section, Sheet, cx } from "./ui";
+import { Avatar, Callout, ICON, Section, Sheet, cx } from "./ui";
 
 type Editing = { kind: "friend"; friend: Friend | null } | { kind: "group"; group: FriendGroup | null } | null;
 
@@ -26,8 +27,14 @@ export function FriendsManager() {
     saveGroups(g);
   };
 
-  function deleteFriend(f: Friend) {
-    if (!confirm(`Delete ${f.name} from Friends? Existing splits aren't affected.`)) return;
+  async function deleteFriend(f: Friend) {
+    const ok = await askConfirm({
+      title: `Delete ${f.name}?`,
+      message: "Existing splits aren't affected.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     commitFriends(friends.filter((x) => x.id !== f.id));
     commitGroups(groups.map((g) => ({ ...g, memberIds: g.memberIds.filter((id) => id !== f.id) })));
     setEditing(null);
@@ -36,11 +43,16 @@ export function FriendsManager() {
   const list = sortFriends(friends, query);
 
   return (
-    <div className="space-y-7">
-      <div className="flex items-end justify-between gap-2">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="large-title">Friends</h1>
-        <button type="button" className="btn-primary h-11" onClick={() => setEditing({ kind: "friend", friend: null })}>
-          <Plus size={18} aria-hidden /> Add
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Add friend"
+          onClick={() => setEditing({ kind: "friend", friend: null })}
+        >
+          <Plus size={22} {...ICON} />
         </button>
       </div>
 
@@ -48,14 +60,14 @@ export function FriendsManager() {
         title="Groups"
         action={
           friends.length > 1 && (
-            <button type="button" className="btn-ghost px-3 text-[14px]" onClick={() => setEditing({ kind: "group", group: null })}>
-              <Plus size={16} aria-hidden /> New group
+            <button type="button" className="btn-ghost min-h-8 px-0 text-[15px]" onClick={() => setEditing({ kind: "group", group: null })}>
+              <Plus size={18} {...ICON} aria-hidden /> New group
             </button>
           )
         }
       >
         {groups.length === 0 ? (
-          <p className="px-1 text-[14px] text-ink-2">
+          <p className="px-5 text-[15px] text-ink-2">
             Groups like “Office lunch” tick several friends at once when you start a split.
           </p>
         ) : (
@@ -64,10 +76,10 @@ export function FriendsManager() {
               <li key={g.id}>
                 <button
                   type="button"
-                  className="chip glass-lite text-ink"
+                  className="chip"
                   onClick={() => setEditing({ kind: "group", group: g })}
                 >
-                  <UsersRound size={16} aria-hidden /> {g.name}
+                  <UsersRound size={18} {...ICON} aria-hidden /> {g.name}
                   <span className="text-[13px] text-ink-2">{g.memberIds.length}</span>
                 </button>
               </li>
@@ -92,12 +104,12 @@ export function FriendsManager() {
             with you?” when you start a split.
           </div>
         ) : (
-          <ul className="card divide-y divide-[var(--line)] overflow-hidden">
+          <ul className="card rows overflow-hidden">
             {list.map((f) => (
               <li key={f.id}>
                 <button
                   type="button"
-                  className="flex min-h-15 w-full items-center gap-3 px-4 py-2 text-left hover:bg-[var(--hover)]"
+                  className="flex min-h-[60px] w-full items-center gap-3 py-2 pr-4 pl-5 text-left hover:bg-[var(--hover)]"
                   onClick={() => setEditing({ kind: "friend", friend: f })}
                 >
                   <Avatar person={f} size={40} />
@@ -107,7 +119,7 @@ export function FriendsManager() {
                       {f.lastUsed ? `Last split ${new Date(f.lastUsed).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "Not used yet"}
                     </span>
                   </span>
-                  <Pencil size={16} className="text-ink-3" aria-hidden />
+                  <ChevronRight size={20} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
                 </button>
               </li>
             ))}
@@ -119,6 +131,8 @@ export function FriendsManager() {
         open={editing?.kind === "friend"}
         onClose={() => setEditing(null)}
         title={editing?.kind === "friend" && editing.friend ? "Edit friend" : "New friend"}
+        confirmForm="friend-form"
+        confirmLabel="Save"
       >
         {editing?.kind === "friend" && (
           <FriendForm
@@ -138,6 +152,8 @@ export function FriendsManager() {
         open={editing?.kind === "group"}
         onClose={() => setEditing(null)}
         title={editing?.kind === "group" && editing.group ? "Edit group" : "New group"}
+        confirmForm="group-form"
+        confirmLabel="Save group"
       >
         {editing?.kind === "group" && (
           <GroupForm
@@ -181,6 +197,7 @@ function FriendForm({
 
   return (
     <form
+      id="friend-form"
       className="space-y-5"
       onSubmit={(e) => {
         e.preventDefault();
@@ -192,7 +209,8 @@ function FriendForm({
         <Avatar person={{ name: name || "?", emoji, color }} size={52} />
         <input
           autoFocus={!friend}
-          className="input text-[17px] font-semibold"
+          required
+          className="input font-semibold"
           placeholder="Name"
           aria-label="Name"
           maxLength={40}
@@ -202,16 +220,11 @@ function FriendForm({
       </div>
       {duplicate && <Callout tone="warn">You already have a friend called {dup!.name}.</Callout>}
       <EmojiColorPicker emoji={emoji} color={color} onEmoji={setEmoji} onColor={setColor} />
-      <div className="flex gap-2">
-        {onDelete && (
-          <button type="button" className="btn-secondary h-13 w-14 px-0 text-danger" aria-label="Delete friend" onClick={onDelete}>
-            <Trash2 size={18} />
-          </button>
-        )}
-        <button type="submit" className="btn-primary h-13 flex-1 text-[17px]" disabled={!name.trim() || duplicate}>
-          Save
+      {onDelete && (
+        <button type="button" className="btn-secondary h-12 w-full" onClick={onDelete}>
+          <Trash2 size={20} {...ICON} aria-hidden /> Delete friend
         </button>
-      </div>
+      )}
     </form>
   );
 }
@@ -231,6 +244,7 @@ function GroupForm({
   const [members, setMembers] = useState<Set<string>>(new Set(group?.memberIds ?? []));
   return (
     <form
+      id="group-form"
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
@@ -240,19 +254,20 @@ function GroupForm({
     >
       <input
         autoFocus={!group}
-        className="input text-[17px] font-semibold"
+        required
+        className="input font-semibold"
         placeholder="Group name, e.g. Office lunch"
         aria-label="Group name"
         maxLength={40}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
-      <ul className="space-y-1">
+      <ul className="card rows overflow-hidden">
         {sortFriends(friends).map((f) => {
           const on = members.has(f.id);
           return (
             <li key={f.id}>
-              <label className="flex min-h-13 cursor-pointer items-center gap-3 rounded-2xl px-2 hover:bg-[var(--hover)]">
+              <label className="flex min-h-[56px] cursor-pointer items-center gap-3 pr-4 pl-5 hover:bg-[var(--hover)]">
                 <Avatar person={f} size={34} />
                 <span className="flex-1 truncate font-medium">{f.name}</span>
                 <input
@@ -271,27 +286,23 @@ function GroupForm({
                 <span
                   aria-hidden
                   className={cx(
-                    "grid size-7 place-items-center rounded-full text-[15px] font-bold peer-focus-visible:ring-4 peer-focus-visible:ring-accent/30",
-                    on ? "bg-accent text-accent-ink" : "shadow-[inset_0_0_0_2px_var(--field-border)]",
+                    "grid size-7 place-items-center rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-accent",
+                    on ? "bg-accent text-accent-ink" : "bg-[var(--field)]",
                   )}
                 >
-                  {on && "✓"}
+                  {on && <Check size={16} {...ICON} />}
                 </span>
               </label>
             </li>
           );
         })}
       </ul>
-      <div className="flex gap-2">
-        {onDelete && (
-          <button type="button" className="btn-secondary h-13 w-14 px-0 text-danger" aria-label="Delete group" onClick={onDelete}>
-            <Trash2 size={18} />
-          </button>
-        )}
-        <button type="submit" className="btn-primary h-13 flex-1 text-[17px]" disabled={!name.trim() || members.size === 0}>
-          Save group
+      {members.size === 0 && <p className="px-5 text-[13px] text-ink-2">Tick at least one friend.</p>}
+      {onDelete && (
+        <button type="button" className="btn-secondary h-12 w-full" onClick={onDelete}>
+          <Trash2 size={20} {...ICON} aria-hidden /> Delete group
         </button>
-      </div>
+      )}
     </form>
   );
 }

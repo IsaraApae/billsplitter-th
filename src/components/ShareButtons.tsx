@@ -3,6 +3,7 @@
 import { Check, Copy, Share } from "lucide-react";
 import { useState } from "react";
 import { useBrowserValue } from "@/lib/client/hooks";
+import { ICON } from "./ui";
 
 export function ShareButtons({ url, title, text }: { url: string; title: string; text: string }) {
   const canShare = useBrowserValue(() => typeof navigator.share === "function", false);
@@ -45,16 +46,16 @@ export function ShareButtons({ url, title, text }: { url: string; title: string;
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
         {canShare && (
-          <button type="button" className="btn-primary h-13 text-[16px]" onClick={share}>
-            <Share size={18} aria-hidden /> Share
+          <button type="button" className="btn-primary h-12" onClick={share}>
+            <Share size={20} {...ICON} aria-hidden /> Share
           </button>
         )}
         <button
           type="button"
-          className={canShare ? "btn-secondary h-13 text-[16px]" : "btn-primary col-span-2 h-13 text-[16px]"}
+          className={canShare ? "btn-secondary h-12" : "btn-primary col-span-2 h-12"}
           onClick={copy}
         >
-          {copied ? <Check size={18} aria-hidden /> : <Copy size={18} aria-hidden />}
+          {copied ? <Check size={20} {...ICON} aria-hidden /> : <Copy size={20} {...ICON} aria-hidden />}
           {copied ? "Copied" : "Copy link"}
         </button>
       </div>

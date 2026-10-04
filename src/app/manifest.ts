@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Scan a receipt, split it, share a link and track who has paid.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f6f7f9",
-    theme_color: "#059669",
+    background_color: "#f5f3f7",
+    theme_color: "#047857",
     icons: [
       { src: "/icons/192", sizes: "192x192", type: "image/png" },
       { src: "/icons/512", sizes: "512x512", type: "image/png" },
