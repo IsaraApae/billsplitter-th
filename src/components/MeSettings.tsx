@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { askConfirm } from "@/lib/client/confirm";
 import { compressImage } from "@/lib/client/image";
 import { getProfile, qrImageUrl, saveProfile, type Profile } from "@/lib/client/profile";
-import { formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
+import { formatPromptPayId, isValidPromptPayId, normalizePromptPayInput } from "@/lib/promptpay";
 import { PERSON_COLORS, type QrMode } from "@/lib/types";
 import { PayQr } from "./PayQr";
 import { ThemePicker } from "./ThemeToggle";
@@ -189,12 +189,14 @@ export function MeSettings() {
                   placeholder="08x-xxx-xxxx or 13-digit ID"
                   value={p.promptpay}
                   aria-invalid={p.promptpay !== "" && !ppValid}
-                  onChange={(e) => update({ promptpay: e.target.value.replace(/\D/g, "").slice(0, 15) })}
+                  onChange={(e) => update({ promptpay: normalizePromptPayInput(e.target.value) })}
                 />
               </label>
               {p.promptpay && !ppValid ? (
                 <p className="px-1 text-[13px] font-medium text-danger">
-                  Use a 10-digit mobile number, 13-digit ID or 15-digit e-wallet ID.
+                  Use the mobile number, 13-digit ID or 15-digit e-wallet ID registered with PromptPay. Bank account
+                  numbers can&apos;t be used here — choose <b>My QR</b> and upload the QR from your banking app, or put
+                  the account number in the note below.
                 </p>
               ) : ppValid ? (
                 <>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { PaymentInfo, PersonColor, QrMode } from "../types";
+import { normalizePromptPayInput } from "../promptpay";
 import { load, save } from "./storage";
 
 /** The device owner's settings ("Me" page). */
@@ -22,7 +23,8 @@ const EVENT = "bs-profile";
 export function getProfile(): Profile {
   // Stored data may predate newer fields, so fill in defaults.
   const p = load<Partial<Profile> | null>(KEY, null);
-  if (p) return { qrMode: "none", promptpay: "", note: "", name: "", ...p };
+  // Numbers saved before input was normalised may be "+66…" or Thai digits.
+  if (p) return { qrMode: "none", note: "", name: "", ...p, promptpay: normalizePromptPayInput(p.promptpay ?? "") };
   // Migrate the payment info older versions remembered per device.
   const old = load<{ promptpay?: string; note?: string }>("bs:payment", {});
   return {
