@@ -1,12 +1,13 @@
 "use client";
 
 import { Check, ChevronRight, Plus, Trash2, UsersRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { askConfirm } from "@/lib/client/confirm";
 import { getFriends, getGroups, saveFriends, saveGroups } from "@/lib/client/friendsStore";
-import { uid } from "@/lib/draft";
-import { addFriend, findByName, sortFriends, type Friend, type FriendGroup } from "@/lib/friends";
-import { PERSON_COLORS, type PersonColor } from "@/lib/types";
+import { getHistory, patchHistory, type HistoryEntry } from "@/lib/client/storage";
+import { billDate, uid } from "@/lib/draft";
+import { addFriend, findByName, lastSplitDates, sortFriends, type Friend, type FriendGroup } from "@/lib/friends";
+import { PERSON_COLORS, type PersonColor, type SplitDoc } from "@/lib/types";
 import { EmojiColorPicker } from "./MeSettings";
 import { Avatar, Callout, ICON, Section, Sheet, cx } from "./ui";
 
@@ -17,6 +18,35 @@ export function FriendsManager() {
   const [groups, setGroups] = useState<FriendGroup[]>(getGroups);
   const [editing, setEditing] = useState<Editing>(null);
   const [query, setQuery] = useState("");
+
+  const [history, setHistory] = useState<HistoryEntry[]>(getHistory);
+
+  // Older history entries don't record who was in them: look that up once
+  // from the saved split (and its bill date, which may have been edited).
+  useEffect(() => {
+    const missing = getHistory()
+      .filter((h) => !h.personIds)
+      .slice(0, 30);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const h of missing) {
+        try {
+          const r = await fetch(`/api/splits/${h.id}`, { cache: "no-store" });
+          if (!r.ok) continue;
+          const data: { doc?: SplitDoc } = await r.json();
+          if (!data.doc) continue;
+          patchHistory(h.id, { personIds: data.doc.people.map((p) => p.id), createdAt: billDate(data.doc).toISOString() });
+        } catch {
+          /* offline — try again next visit */
+        }
+      }
+      if (!cancelled) setHistory(getHistory());
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const commitFriends = (f: Friend[]) => {
     setFriends(f);
@@ -40,7 +70,12 @@ export function FriendsManager() {
     setEditing(null);
   }
 
-  const list = sortFriends(friends, query);
+  // "Last split" = the newest bill date among saved splits this friend is in.
+  const lastSplit = lastSplitDates(history);
+  const list = sortFriends(
+    friends.map((f) => ({ ...f, lastUsed: lastSplit.get(f.id) ?? f.lastUsed })),
+    query,
+  );
 
   return (
     <div className="space-y-6">
@@ -110,7 +145,7 @@ export function FriendsManager() {
                 <button
                   type="button"
                   className="flex min-h-[60px] w-full items-center gap-3 py-2 pr-4 pl-5 text-left hover:bg-[var(--hover)]"
-                  onClick={() => setEditing({ kind: "friend", friend: f })}
+                  onClick={() => setEditing({ kind: "friend", friend: friends.find((x) => x.id === f.id) ?? f })}
                 >
                   <Avatar person={f} size={40} />
                   <span className="min-w-0 flex-1">

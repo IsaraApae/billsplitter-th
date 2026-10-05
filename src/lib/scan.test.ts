@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isValidPromptPayId } from "./promptpay";
-import { addFriend, findByName, markUsed, sameAsLastTime, sortFriends, toPeople, type Friend } from "./friends";
+import { addFriend, findByName, lastSplitDates, markUsed, sameAsLastTime, sortFriends, toPeople, type Friend } from "./friends";
 import { readJpegInfo, swapsAxes } from "./jpeg";
 import { receiptDate, sanitizeScan, summariseFailure, type ScanAttempt } from "./scanResult";
 import { promptPayPayload } from "./promptpay";
@@ -251,5 +251,18 @@ describe("receipt date", () => {
     expect(first.notes.join(" ")).toContain("28 Sept 2026");
     const second = applyScan(first.doc, { ...scan, date: "2026-10-01" });
     expect(second.doc.date).toBe("2026-09-28");
+  });
+});
+
+describe("friends' last split date", () => {
+  it("is the newest bill date among the splits they're in", () => {
+    const last = lastSplitDates([
+      { createdAt: new Date(2026, 9, 1).toISOString(), personIds: ["me", "mint"] },
+      { createdAt: new Date(2026, 8, 23).toISOString(), personIds: ["me", "mint", "ploy"] },
+      { createdAt: new Date(2026, 9, 4).toISOString() }, // older entry: people unknown
+    ]);
+    expect(new Date(last.get("mint")!).getDate()).toBe(1);
+    expect(new Date(last.get("ploy")!).getDate()).toBe(23);
+    expect(last.has("boss")).toBe(false);
   });
 });

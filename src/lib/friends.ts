@@ -58,6 +58,20 @@ export function markUsed(friends: Friend[], ids: string[], now: number): Friend[
   return friends.map((f) => (set.has(f.id) ? { ...f, lastUsed: now } : f));
 }
 
+/**
+ * Each person's newest bill date (epoch ms) across the given splits, so a
+ * friend's "Last split" follows the bills' dates, not when they were saved.
+ */
+export function lastSplitDates(splits: { createdAt: string; personIds?: string[] }[]): Map<string, number> {
+  const last = new Map<string, number>();
+  for (const s of splits) {
+    const t = Date.parse(s.createdAt);
+    if (!Number.isFinite(t)) continue;
+    for (const id of s.personIds ?? []) if (t > (last.get(id) ?? 0)) last.set(id, t);
+  }
+  return last;
+}
+
 /** Friend ids from the last split that still exist. */
 export function sameAsLastTime(friends: Friend[], lastIds: string[]): string[] {
   const exists = new Set(friends.map((f) => f.id));
