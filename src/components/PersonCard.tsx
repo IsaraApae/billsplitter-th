@@ -29,6 +29,8 @@ export function PersonCard({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // What they owe before rounding: their share less anything they paid upfront.
+  const exact = person.total - person.prepaid;
   return (
     <li className={cx(highlight === "paid" && "opacity-70")}>
       <div className="flex min-h-[60px] items-center gap-2 py-2 pr-3 pl-4">
@@ -46,7 +48,15 @@ export function PersonCard({
             </span>
             {badge}
           </span>
-          <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" tone={person.payable < 0 ? "negative" : undefined} />
+          {person.payable < 0 ? (
+            // Paid more than their share upfront: the organiser pays them back.
+            <span className="text-right leading-tight">
+              <span className="block text-[11px] text-ink-2">gets back</span>
+              <Money value={-person.payable} currency={currency} className="text-[19px] font-bold tracking-tight text-positive" />
+            </span>
+          ) : (
+            <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" />
+          )}
           {!action && <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />}
         </button>
         {action}
@@ -73,23 +83,31 @@ export function PersonCard({
             {person.discount > 0 && <Row k="Discount" v={<Money value={person.discount} currency={currency} tone="negative" />} />}
             {person.service > 0 && <Row k="Service charge" v={<Money value={person.service} currency={currency} />} />}
             {person.vat > 0 && <Row k="VAT" v={<Money value={person.vat} currency={currency} />} />}
-            {person.payable !== person.total ? (
+            {person.prepaid > 0 && (
               <>
-                <Row k="Exact share" v={<Money value={person.total} currency={currency} />} />
+                <Row k="Share" v={<Money value={person.total} currency={currency} />} />
+                <Row k="Paid upfront" v={<Money value={person.prepaid} currency={currency} tone="negative" />} />
+              </>
+            )}
+            {person.payable !== person.total - person.prepaid ? (
+              <>
+                <Row k="Exact amount" v={<Money value={exact} currency={currency} />} />
                 <Row
-                  k={person.payable > person.total ? "Rounded up" : "Rounded down"}
+                  k={person.payable > exact ? "Rounded up" : "Rounded down"}
                   v={
-                    person.payable > person.total ? (
+                    person.payable > exact ? (
                       <>
-                        +<Money value={person.payable - person.total} currency={currency} />
+                        +<Money value={person.payable - exact} currency={currency} />
                       </>
                     ) : (
-                      <Money value={person.total - person.payable} currency={currency} tone="negative" />
+                      <Money value={exact - person.payable} currency={currency} tone="negative" />
                     )
                   }
                 />
-                <Row k={person.personId === ORGANISER_ID ? "Your share" : "To pay"} v={<Money value={person.payable} currency={currency} />} strong />
+                <FinalRow person={person} currency={currency} />
               </>
+            ) : person.prepaid > 0 ? (
+              <FinalRow person={person} currency={currency} />
             ) : (
               <Row k="Total" v={<Money value={person.total} currency={currency} />} strong />
             )}
@@ -98,6 +116,12 @@ export function PersonCard({
       )}
     </li>
   );
+}
+
+/** The last line: what they pay (or get back), or the organiser's own share. */
+function FinalRow({ person, currency }: { person: PersonResult; currency: string }) {
+  const k = person.personId === ORGANISER_ID ? "Your share" : person.payable < 0 ? "Gets back" : "To pay";
+  return <Row k={k} v={<Money value={Math.abs(person.payable)} currency={currency} />} strong />;
 }
 
 function Row({ k, v, strong }: { k: string; v: ReactNode; strong?: boolean }) {

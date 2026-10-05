@@ -7,7 +7,7 @@
 // method on integers), so the parts always sum exactly to the whole.
 
 import { currencyExponent } from "./money";
-import type { Discount, Item, Person, Rate, SplitMode } from "./types";
+import type { Discount, Item, Person, Prepaid, Rate, SplitMode } from "./types";
 
 export interface CalcInput {
   mode: SplitMode;
@@ -20,6 +20,8 @@ export interface CalcInput {
   currency?: string;
   /** Round payers to whole units without the organiser losing money. Off unless true. */
   roundUp?: boolean;
+  /** Friends who paid part of the bill themselves (ignored for the organiser). */
+  prepaid?: Prepaid[];
 }
 
 /** Smallest whole-unit step for a currency, in minor units (THB → 100 satang, JPY → 1). */
@@ -78,12 +80,13 @@ export interface PersonResult {
   vat: number;
   /** exact share of the bill */
   total: number;
+  /** what they paid towards the bill themselves (friends only; needs an organiser) */
+  prepaid: number;
   /**
-   * What they're asked to pay. Equals `total` unless rounding is on: then
-   * payers pay whole units (some up, some down) and the organiser's amount is
-   * what's left of the bill (never more than their exact share), shown to
-   * the nearest whole unit. Everyone's amounts then add up to the bill
-   * rounded to the nearest whole unit.
+   * What they're asked to pay: `total − prepaid`, negative when the organiser
+   * owes them money back. With rounding on, payers pay whole units (some up,
+   * some down) and the organiser's amount is what's left of the bill (never
+   * more than their exact share), shown to the nearest whole unit.
    */
   payable: number;
 }
@@ -202,6 +205,7 @@ export function calculate(input: CalcInput): CalcResult {
     service: 0,
     vat: 0,
     total: 0,
+    prepaid: 0,
     payable: 0,
   }));
 
@@ -259,23 +263,33 @@ export function calculate(input: CalcInput): CalcResult {
     results.forEach((r) => (r.total = r.discounted + r.service + r.vat));
   }
 
-  for (const r of results) r.payable = r.total;
   const organiser = results.find((r) => r.personId === ORGANISER_ID);
   const payers = results.filter((r) => r !== organiser);
+  // Money settles through the organiser, so upfront payments need one.
+  if (organiser) {
+    for (const p of input.prepaid ?? []) {
+      const r = payers.find((x) => x.personId === p.personId);
+      if (r && p.amount > 0) r.prepaid += p.amount;
+    }
+  }
+  const prepaidTotal = payers.reduce((s, r) => s + r.prepaid, 0);
+  for (const r of results) r.payable = r.total - r.prepaid;
   if (input.roundUp && payers.length > 0) {
     const unit = wholeUnit(input.currency);
     const whole = roundToWholeUnits(
-      payers.map((r) => r.total),
+      payers.map((r) => r.total - r.prepaid),
       unit,
     );
     payers.forEach((r, i) => (r.payable = whole[i]));
-    // The organiser paid the bill: what's left after the friends pay is never
-    // more than their exact share (they never lose money). It's shown to the
-    // nearest whole unit, so everyone's amounts add up to the rounded bill.
-    if (organiser) organiser.payable = Math.round((total - payers.reduce((s, r) => s + r.payable, 0)) / unit) * unit;
+    // The organiser paid the rest of the bill: what's left after the friends
+    // pay is never more than their exact share (they never lose money). It's
+    // shown to the nearest whole unit, so everyone's amounts add up.
+    if (organiser)
+      organiser.payable =
+        Math.round((total - prepaidTotal - payers.reduce((s, r) => s + r.payable, 0)) / unit) * unit;
   }
   const collected = results.reduce((s, r) => s + r.payable, 0);
-  const roundingExtra = payers.reduce((s, r) => s + (r.payable - r.total), 0);
+  const roundingExtra = payers.reduce((s, r) => s + (r.payable - (r.total - r.prepaid)), 0);
 
   return {
     lines,

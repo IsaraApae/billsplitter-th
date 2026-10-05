@@ -7,12 +7,14 @@ import { lineTotal } from "@/lib/calc";
 import { loadUpright, uploadJpeg } from "@/lib/client/image";
 import { askConfirm } from "@/lib/client/confirm";
 import { SCAN_EVENT, takePendingScan } from "@/lib/client/pendingScan";
+import { photoSrc, uploadReceiptPhoto } from "@/lib/client/photo";
 import { applyScan, billDay, totalMismatch, uid } from "@/lib/draft";
 import { formatMoney } from "@/lib/money";
 import type { DroppedLine } from "@/lib/scanFilter";
 import type { ScanResult } from "@/lib/scanResult";
 import type { SplitDoc } from "@/lib/types";
 import { DateField } from "../DateField";
+import { ZoomableImage } from "../ZoomableImage";
 import { Callout, ICON, Money, MoneyInput, QtyStepper, Section, Sheet, cx } from "../ui";
 import type { SetDoc } from "./Wizard";
 
@@ -44,8 +46,9 @@ const REASONS: Record<string, { title: string; hint: string }> = {
   rate_limited: { title: "Too many scans in a minute", hint: "Wait a few seconds, then try again." },
 };
 
-// Kept at module level so the photo survives moving between steps.
-let lastReceipt: { url: string; upload: Blob; info: ScanInfo | null } | null = null;
+// Kept at module level so the photo survives moving between steps. `docKey`
+// (the split's createdAt) stops it showing up in a different split.
+let lastReceipt: { url: string; upload: Blob; info: ScanInfo | null; docKey: string } | null = null;
 
 export function ItemsStep({
   doc,
@@ -59,7 +62,7 @@ export function ItemsStep({
   editing?: boolean;
 }) {
   const [scan, setScan] = useState<ScanState>({ status: "idle" });
-  const [receipt, setReceipt] = useState(lastReceipt);
+  const [receipt, setReceipt] = useState(() => (lastReceipt?.docKey === doc.createdAt ? lastReceipt : null));
   const [zoom, setZoom] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -99,7 +102,9 @@ export function ItemsStep({
     }
     if (receipt) URL.revokeObjectURL(receipt.url);
     const url = URL.createObjectURL(upload);
-    setReceipt({ url, upload, info: null });
+    setReceipt({ url, upload, info: null, docKey: doc.createdAt });
+    // Keep a copy for the shared page (in the background; scanning doesn't wait).
+    void uploadReceiptPhoto(upload).then((photo) => photo && setDoc((d) => ({ ...d, photo })));
     await runScan(upload, url);
   }
 
@@ -138,7 +143,7 @@ export function ItemsStep({
     const notes: ScanInfo["notes"] = [];
     if (r.added === 0) notes.push({ tone: "warn", text: "No items found. Try a sharper, well-lit photo, or add items by hand." });
     r.notes.forEach((text) => notes.push({ tone: "info", text }));
-    setReceipt({ url, upload, info: { model: result.model, notes, dropped: r.dropped } });
+    setReceipt({ url, upload, info: { model: result.model, notes, dropped: r.dropped }, docKey: doc.createdAt });
   }
 
   const updateItem = (id: string, patch: Partial<SplitDoc["items"][number]>) =>
@@ -163,6 +168,8 @@ export function ItemsStep({
   // Items − discount + service + VAT should come to the printed total (±฿1 rounding).
   const totalGap = doc.items.length ? totalMismatch(calc.total, doc.receipt.total, currency) : null;
   const info = receipt?.info;
+  // This device's copy while it's here; otherwise the stored one (e.g. after a reload or when editing).
+  const shownPhoto = receipt?.url ?? (doc.photo ? photoSrc(doc.photo) : null);
 
   // A photo picked with the navigation's Scan button.
   useEffect(() => {
@@ -272,7 +279,7 @@ export function ItemsStep({
         </div>
       )}
 
-      {receipt && (
+      {shownPhoto && (
         <div className="space-y-3.5">
           <button
             type="button"
@@ -281,12 +288,27 @@ export function ItemsStep({
             aria-label="Zoom receipt photo"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={receipt.url} alt="Scanned receipt" className="h-48 w-full object-cover object-center" />
+            <img src={shownPhoto} alt="Scanned receipt" className="h-48 w-full object-cover object-center" />
             <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/65 to-transparent px-5 pt-10 pb-4 text-[15px] font-semibold text-white">
               Tap to compare with your items
               <ZoomIn size={22} {...ICON} aria-hidden />
             </span>
           </button>
+          {doc.photo && (
+            <div className="flex items-center justify-between gap-2 pl-5">
+              <span className="text-[13px] text-ink-2">Friends see this photo on the shared page.</span>
+              <button
+                type="button"
+                className="btn-ghost min-h-11 px-3 text-[15px]"
+                onClick={() => {
+                  setDoc((d) => ({ ...d, photo: undefined }));
+                  setReceipt(null);
+                }}
+              >
+                Remove photo
+              </button>
+            </div>
+          )}
           {info && (
             <div className="flex flex-wrap items-center gap-2 px-1">
               <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-accent-soft px-3 text-[13px] font-semibold text-accent-strong">
@@ -415,34 +437,8 @@ export function ItemsStep({
       )}
 
       <Sheet open={zoom} onClose={() => setZoom(false)} title="Receipt">
-        {receipt && <ZoomableImage src={receipt.url} />}
+        {shownPhoto && <ZoomableImage src={shownPhoto} />}
       </Sheet>
-    </div>
-  );
-}
-
-/** Pinch/scroll to pan; buttons to zoom (works the same on iOS and Android). */
-function ZoomableImage({ src }: { src: string }) {
-  const [scale, setScale] = useState(1);
-  return (
-    <div className="space-y-3">
-      <div className="max-h-[68dvh] overflow-auto rounded-[22px] bg-white [touch-action:pan-x_pan-y_pinch-zoom]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="Receipt photo" style={{ width: `${scale * 100}%`, maxWidth: "none" }} className="block" />
-      </div>
-      <div className="flex justify-center gap-2" role="group" aria-label="Zoom">
-        {[1, 2, 3].map((s) => (
-          <button
-            key={s}
-            type="button"
-            aria-pressed={scale === s}
-            onClick={() => setScale(s)}
-            className={cx(scale === s ? "chip-on" : "chip", "justify-center px-5")}
-          >
-            {s}×
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

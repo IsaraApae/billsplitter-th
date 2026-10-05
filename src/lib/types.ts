@@ -30,6 +30,12 @@ export interface Discount {
   itemIds: string[];
 }
 
+/** Part of the bill a friend paid themselves (e.g. the drinks), in minor units. */
+export interface Prepaid {
+  personId: string;
+  amount: number;
+}
+
 export interface Rate {
   enabled: boolean;
   rateBp: number;
@@ -74,4 +80,8 @@ export interface SplitDoc {
   receipt: ReceiptTotals;
   /** Round each share up to the nearest whole unit (฿1). Absent = off. */
   roundUp?: boolean;
+  /** Friends who paid part of the bill themselves; the organiser paid the rest. */
+  prepaid?: Prepaid[];
+  /** Stored receipt photo (see /api/receipt), shown on the shared page. */
+  photo?: string;
 }

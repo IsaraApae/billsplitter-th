@@ -7,6 +7,7 @@ import { wholeUnitName } from "@/lib/money";
 import type { Discount, SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
 import { ICON, Money, MoneyInput, PercentInput, Section, Segmented, Sheet, Toggle, cx } from "../ui";
+import { PrepaidSection } from "./PrepaidSection";
 import type { SetDoc } from "./Wizard";
 
 export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc; calc: CalcResult }) {
@@ -120,6 +121,8 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
           Each person&apos;s share of service charge and VAT is proportional to what they ordered after discount.
         </p>
       </Section>
+
+      <PrepaidSection doc={doc} setDoc={setDoc} calc={calc} />
 
       <Section title="Rounding">
         <div className="card px-5 py-3">

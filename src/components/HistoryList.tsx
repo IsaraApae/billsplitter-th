@@ -1,7 +1,8 @@
 "use client";
 
-import { CheckCircle2, ChevronRight, ReceiptText, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronRight, ReceiptText, Trash2, X } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   byBillDate,
@@ -12,14 +13,24 @@ import {
   type HistoryEntry,
 } from "@/lib/client/storage";
 import { askConfirm } from "@/lib/client/confirm";
+import { getFriends } from "@/lib/client/friendsStore";
+import { ME_ID } from "@/lib/friends";
+import { formatMoney } from "@/lib/money";
 import type { SplitDoc } from "@/lib/types";
 import { Avatar, ICON, Money, cx } from "./ui";
 
 export function HistoryList() {
   const [entries, setEntries] = useState<HistoryEntry[]>(() => byBillDate(getHistory()));
   const [gone, setGone] = useState<Set<string>>(new Set());
-  // Tapping a person in a row shows only the splits they're in.
-  const [person, setPerson] = useState<Member | null>(null);
+  // Tapping a person in a row (or a friend on the Friends page, via
+  // ?person=<id>) shows only the splits they're in.
+  const personParam = useSearchParams().get("person");
+  const [person, setPerson] = useState<Member | null>(() => {
+    if (!personParam) return null;
+    const inSplit = entries.flatMap((h) => h.members ?? []).find((m) => m.id === personParam);
+    const friend = getFriends().find((f) => f.id === personParam);
+    return inSplit ?? (friend ? { id: friend.id, name: friend.name, emoji: friend.emoji, color: friend.color } : null);
+  });
 
   useEffect(() => {
     // Refresh paid progress for the most recent splits. Older entries don't
@@ -28,7 +39,8 @@ export function HistoryList() {
       .slice(0, 20)
       .forEach(async (h) => {
         try {
-          const full = !h.members;
+          // Entries saved before people/amounts were kept load the whole split once.
+          const full = !h.members || h.members.some((m) => m.amount === undefined);
           const r = await fetch(full ? `/api/splits/${h.id}` : `/api/splits/${h.id}/paid`, { cache: "no-store" });
           if (r.status === 404) {
             setGone((g) => new Set(g).add(h.id));
@@ -39,14 +51,11 @@ export function HistoryList() {
           if (full) {
             const data: { doc: SplitDoc; paid: string[] } = await r.json();
             const ids = new Set(data.doc.people.map((p) => p.id));
-            patch = {
-              ...historyFromDoc(data.doc),
-              people: ids.size,
-              paid: data.paid.filter((p) => ids.has(p)).length,
-            };
+            const paidIds = data.paid.filter((p) => ids.has(p));
+            patch = { ...historyFromDoc(data.doc), people: ids.size, paid: paidIds.length, paidIds };
           } else {
             const data: { paid: string[]; people: number } = await r.json();
-            patch = { paid: data.paid.length, people: data.people };
+            patch = { paid: data.paid.length, people: data.people, paidIds: data.paid };
           }
           patchHistory(h.id, patch);
           setEntries((es) => byBillDate(es.map((e) => (e.id === h.id ? { ...e, ...patch } : e))));
@@ -83,9 +92,11 @@ export function HistoryList() {
   }
 
   const shown = person ? entries.filter((h) => h.members?.some((m) => samePerson(m, person))) : entries;
+  const balance = person && person.id !== ME_ID ? balanceWith(person, shown) : null;
 
-  function filterBy(m: Member) {
-    setPerson((cur) => (cur && samePerson(cur, m) ? null : m));
+  function filterBy(m: Member | null) {
+    setPerson((cur) => (!m || (cur && samePerson(cur, m)) ? null : m));
+    if (personParam) window.history.replaceState(null, "", "/history"); // a reload shouldn't bring it back
     window.scrollTo({ top: 0 });
   }
 
@@ -98,9 +109,22 @@ export function HistoryList() {
             <p className="truncate font-semibold">Splits with {person.name}</p>
             <p className="text-[13px] text-ink-2">
               {shown.length} {shown.length === 1 ? "split" : "splits"}
+              {balance && balance.owesYou.length > 0 && (
+                <>
+                  {" · owes you "}
+                  <b className="tnum text-ink">{balance.owesYou.join(" + ")}</b>
+                </>
+              )}
+              {balance && balance.youOwe.length > 0 && (
+                <>
+                  {" · you owe them "}
+                  <b className="tnum text-ink">{balance.youOwe.join(" + ")}</b>
+                </>
+              )}
+              {balance?.known && balance.owesYou.length + balance.youOwe.length === 0 && " · all settled"}
             </p>
           </div>
-          <button type="button" className="icon-btn" aria-label="Show all splits" onClick={() => setPerson(null)}>
+          <button type="button" className="icon-btn" aria-label="Show all splits" onClick={() => filterBy(null)}>
             <X size={22} {...ICON} />
           </button>
         </div>
@@ -165,6 +189,12 @@ export function HistoryList() {
                           >
                             <Avatar person={m} size={24} />
                             <span className="truncate">{m.name}</span>
+                            {on && m.id !== ME_ID && m.amount !== undefined && (
+                              <>
+                                <span className="tnum">{formatMoney(Math.abs(m.amount), h.currency)}</span>
+                                {h.paidIds?.includes(m.id) && <Check size={14} {...ICON} aria-label="paid" />}
+                              </>
+                            )}
                           </button>
                         );
                       })}
@@ -198,6 +228,29 @@ export function HistoryList() {
 }
 
 type Member = NonNullable<HistoryEntry["members"]>[number];
+
+/**
+ * What a friend still owes you across these splits (unpaid amounts), and
+ * what you owe them back (they paid upfront), formatted per currency.
+ */
+function balanceWith(
+  person: Member,
+  entries: HistoryEntry[],
+): { owesYou: string[]; youOwe: string[]; known: boolean } {
+  const owes = new Map<string, number>();
+  const owed = new Map<string, number>();
+  let known = true;
+  for (const h of entries) {
+    const m = h.members?.find((x) => samePerson(x, person));
+    if (!m || m.amount === undefined || !h.paidIds) known = false;
+    if (!m || m.amount === undefined || h.paidIds?.includes(m.id)) continue;
+    const into = m.amount > 0 ? owes : owed;
+    into.set(h.currency, (into.get(h.currency) ?? 0) + Math.abs(m.amount));
+  }
+  const fmt = (map: Map<string, number>) =>
+    [...map].filter(([, v]) => v > 0).map(([currency, v]) => formatMoney(v, currency));
+  return { owesYou: fmt(owes), youOwe: fmt(owed), known };
+}
 
 /** Same person across splits: same id, or (for names typed into one split) same name. */
 function samePerson(a: Member, b: Member): boolean {

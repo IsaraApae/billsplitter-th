@@ -7,6 +7,9 @@ const name = z.string().trim().min(1).max(80);
 const money = z.number().int().min(0).max(1_000_000_000_00);
 const bp = z.number().int().min(0).max(10000);
 
+/** A stored receipt photo: a Vercel Blob URL under receipts/, or a local-dev key. */
+export const RECEIPT_PHOTO_RE = /^(https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/receipts\/[\w.-]+|dev:r-[0-9a-f]{16})$/i;
+
 export const splitDocSchema = z
   .object({
     v: z.literal(1),
@@ -55,6 +58,8 @@ export const splitDocSchema = z
     }),
     receipt: z.object({ subtotal: money.nullable(), total: money.nullable() }),
     roundUp: z.boolean().optional(),
+    prepaid: z.array(z.object({ personId: id, amount: money })).max(50).optional(),
+    photo: z.string().max(300).regex(RECEIPT_PHOTO_RE).optional(),
   })
   .superRefine((doc, ctx) => {
     const ids = new Set(doc.people.map((p) => p.id));
@@ -81,5 +86,6 @@ export function parseSplitDoc(input: unknown): { ok: true; doc: SplitDoc } | { o
   const itemIds = new Set(doc.items.map((i) => i.id));
   doc.items = doc.items.map((it) => ({ ...it, assigned: [...new Set(it.assigned)].filter((a) => ids.has(a)) }));
   doc.discount.itemIds = doc.discount.itemIds.filter((i) => itemIds.has(i));
+  if (doc.prepaid) doc.prepaid = doc.prepaid.filter((p) => ids.has(p.personId) && p.amount > 0);
   return { ok: true, doc };
 }

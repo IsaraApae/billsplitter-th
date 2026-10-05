@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { backupSummary, makeBackup, mergeBackup, parseBackup } from "./backup";
 import { billDate, billDay, newDoc } from "./draft";
 import { formatMoney, parseMoney, percentToBp } from "./money";
 import { parseSplitDoc } from "./schema";
@@ -88,5 +89,46 @@ describe("bill date", () => {
     const ok = parseSplitDoc({ ...valid, date: "2026-09-28" });
     expect(ok.ok ? ok.doc.date : ok.error).toBe("2026-09-28");
     expect(parseSplitDoc({ ...valid, date: "28/09/2026" }).ok).toBe(false);
+  });
+});
+
+describe("backup", () => {
+  const h = (id: string) => ({ id, title: id, createdAt: "2026-10-01T00:00:00.000Z", total: 1, currency: "THB", people: 1, paid: 0 });
+  const backup = makeBackup(
+    {
+      "bs:profile": { name: "Isara", qrMode: "upload", promptpay: "", note: "", ownerId: "o1", ownerToken: "t1", qrVersion: 3 },
+      "bs:friends": [{ id: "f1", name: "Mint" }, { id: "f2", name: "Ploy" }],
+      "bs:history": [h("s1"), h("s2")],
+      "bs:tokens": { s1: "x1", s2: "x2" },
+    },
+    new Date(2026, 9, 5),
+  );
+
+  it("round-trips through a file and rejects other files", () => {
+    expect(parseBackup(JSON.stringify(backup))?.data["bs:tokens"]).toEqual({ s1: "x1", s2: "x2" });
+    expect(parseBackup("{}")).toBeNull();
+    expect(parseBackup("not json")).toBeNull();
+    expect(backupSummary(backup)).toEqual({ splits: 2, friends: 2 });
+  });
+
+  it("on a new phone, restores everything", () => {
+    const m = mergeBackup({}, backup.data);
+    expect(m["bs:profile"]).toEqual(backup.data["bs:profile"]);
+    expect((m["bs:history"] as { id: string }[]).map((x) => x.id)).toEqual(["s1", "s2"]);
+  });
+
+  it("adds without removing, and keeps this phone's Me settings", () => {
+    const m = mergeBackup(
+      {
+        "bs:profile": { name: "Isara (new phone)", qrMode: "none", promptpay: "", note: "" },
+        "bs:history": [h("s2"), h("s3")],
+        "bs:tokens": { s3: "x3" },
+      },
+      backup.data,
+    );
+    expect((m["bs:history"] as { id: string }[]).map((x) => x.id)).toEqual(["s2", "s3", "s1"]);
+    expect(m["bs:tokens"]).toEqual({ s1: "x1", s2: "x2", s3: "x3" });
+    // The name stays; the uploaded QR from the old phone is adopted.
+    expect(m["bs:profile"]).toMatchObject({ name: "Isara (new phone)", ownerId: "o1", ownerToken: "t1", qrMode: "upload" });
   });
 });
