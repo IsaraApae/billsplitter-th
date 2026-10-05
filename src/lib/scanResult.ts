@@ -19,6 +19,8 @@ export interface ScanResult {
   discount: number | null;
   total: number | null;
   currency: string | null;
+  /** date printed on the receipt, YYYY-MM-DD (Gregorian); null if none or implausible */
+  date?: string | null;
   /** model that produced the result */
   model?: string;
   /** every Gemini call made for this scan, in order */
@@ -49,7 +51,27 @@ export function extractJson(text: string): unknown {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-export function sanitizeScan(raw: unknown): ScanResult {
+/**
+ * A receipt date as YYYY-MM-DD, or null. Converts a Buddhist-era year
+ * (2569 → 2026) and rejects impossible dates, dates in the future and dates
+ * more than five years old (a misread is likelier than a bill that old).
+ */
+export function receiptDate(v: unknown, now = new Date()): string | null {
+  if (typeof v !== "string") return null;
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(v.trim());
+  if (!m) return null;
+  const [mo, d] = [Number(m[2]), Number(m[3])];
+  const y = Number(m[1]) >= 2400 ? Number(m[1]) - 543 : Number(m[1]);
+  const date = new Date(y, mo - 1, d);
+  if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+  // One day of slack: the server's "today" (UTC) can be behind Thailand's.
+  const latest = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const oldest = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+  if (date > latest || date < oldest) return null;
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const rawItems = Array.isArray(o.items) ? o.items : [];
   const items = rawItems
@@ -74,6 +96,7 @@ export function sanitizeScan(raw: unknown): ScanResult {
     discount: discount === null ? null : Math.abs(discount),
     total: num(o.total),
     currency,
+    date: receiptDate(o.date, now),
   };
 }
 

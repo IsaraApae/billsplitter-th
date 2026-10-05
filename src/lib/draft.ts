@@ -85,6 +85,10 @@ export function applyScan(
   const { items: scannedItems, dropped } = cleanScannedItems(scan.items);
   // The split keeps its own currency (THB for new splits); there's no picker.
   const currency = doc.currency;
+  // The first receipt of a split sets its date (a later one doesn't override it).
+  const date = doc.items.length === 0 && scan.date ? scan.date : doc.date;
+  if (date !== doc.date)
+    notes.push(`Date set to ${billDate({ date: date!, createdAt: doc.createdAt }).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} from the receipt.`);
   const m = (v: number | null) => (v === null ? null : parseMoney(v, currency));
 
   const items: Item[] = scannedItems.map((s) => {
@@ -105,6 +109,7 @@ export function applyScan(
   const next: SplitDoc = {
     ...doc,
     currency,
+    date,
     items: [...doc.items, ...items],
     receipt: {
       subtotal: doc.items.length === 0 ? subtotal : null,

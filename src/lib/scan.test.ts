@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isValidPromptPayId } from "./promptpay";
 import { addFriend, findByName, markUsed, sameAsLastTime, sortFriends, toPeople, type Friend } from "./friends";
 import { readJpegInfo, swapsAxes } from "./jpeg";
-import { sanitizeScan, summariseFailure, type ScanAttempt } from "./scanResult";
+import { receiptDate, sanitizeScan, summariseFailure, type ScanAttempt } from "./scanResult";
 import { promptPayPayload } from "./promptpay";
 import { cleanScannedItems, isSummaryLine } from "./scanFilter";
 import { applyScan, newDoc, totalMismatch } from "./draft";
@@ -219,5 +219,37 @@ describe("applyScan + totalMismatch", () => {
     expect(totalMismatch(131400, 127500, "THB")).toBe(3900);
     expect(totalMismatch(100, null, "THB")).toBeNull();
     expect(totalMismatch(1002, 1000, "JPY")).toBe(2);
+  });
+});
+
+describe("receipt date", () => {
+  const now = new Date(2026, 9, 5, 12); // 5 Oct 2026
+
+  it("keeps a Gregorian date and converts a Buddhist-era year", () => {
+    expect(receiptDate("2026-10-04", now)).toBe("2026-10-04");
+    expect(receiptDate("2569-10-04", now)).toBe("2026-10-04");
+    expect(receiptDate("2026-9-8", now)).toBe("2026-09-08");
+  });
+
+  it("rejects impossible, future and very old dates", () => {
+    expect(receiptDate("2026-02-30", now)).toBeNull();
+    expect(receiptDate("2026-10-07", now)).toBeNull(); // two days ahead
+    expect(receiptDate("2026-10-06", now)).toBe("2026-10-06"); // server clock may lag Thailand
+    expect(receiptDate("2019-01-01", now)).toBeNull();
+    expect(receiptDate("04/10/2026", now)).toBeNull();
+    expect(receiptDate(null, now)).toBeNull();
+  });
+
+  it("sanitizeScan reads it", () => {
+    expect(sanitizeScan({ items: [], date: "2569-10-04" }, now).date).toBe("2026-10-04");
+  });
+
+  it("the first receipt sets the split's date; a later one doesn't", () => {
+    const scan = { items: [{ name: "Rice", qty: 1, price: 50 }], subtotal: null, serviceCharge: null, vat: null, vatIncluded: false, discount: null, total: null, currency: "THB", date: "2026-09-28" };
+    const first = applyScan(newDoc(), scan);
+    expect(first.doc.date).toBe("2026-09-28");
+    expect(first.notes.join(" ")).toContain("28 Sept 2026");
+    const second = applyScan(first.doc, { ...scan, date: "2026-10-01" });
+    expect(second.doc.date).toBe("2026-09-28");
   });
 });

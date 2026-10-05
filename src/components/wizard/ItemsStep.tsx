@@ -12,6 +12,7 @@ import { formatMoney } from "@/lib/money";
 import type { DroppedLine } from "@/lib/scanFilter";
 import type { ScanResult } from "@/lib/scanResult";
 import type { SplitDoc } from "@/lib/types";
+import { DateField } from "../DateField";
 import { Callout, ICON, Money, MoneyInput, QtyStepper, Section, Sheet, cx } from "../ui";
 import type { SetDoc } from "./Wizard";
 
@@ -46,7 +47,17 @@ const REASONS: Record<string, { title: string; hint: string }> = {
 // Kept at module level so the photo survives moving between steps.
 let lastReceipt: { url: string; upload: Blob; info: ScanInfo | null } | null = null;
 
-export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc; calc: CalcResult }) {
+export function ItemsStep({
+  doc,
+  setDoc,
+  calc,
+  editing = false,
+}: {
+  doc: SplitDoc;
+  setDoc: SetDoc;
+  calc: CalcResult;
+  editing?: boolean;
+}) {
   const [scan, setScan] = useState<ScanState>({ status: "idle" });
   const [receipt, setReceipt] = useState(lastReceipt);
   const [zoom, setZoom] = useState(false);
@@ -168,7 +179,7 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
   return (
     <div className="space-y-6">
       <div className="space-y-3.5">
-        <h1 className="large-title">New split</h1>
+        <h1 className="large-title">{editing ? "Edit split" : "New split"}</h1>
         <div className="card rows">
           <div className="px-5 py-4">
             <input
@@ -180,15 +191,10 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
               onChange={(e) => setDoc((d) => ({ ...d, title: e.target.value }))}
             />
           </div>
-          <label className="flex min-h-[56px] items-center justify-between gap-3 py-2 pr-3 pl-5">
+          <div className="flex min-h-[56px] items-center justify-between gap-3 py-2 pr-3 pl-5">
             <span>Date</span>
-            <input
-              type="date"
-              className="press min-h-11 rounded-full bg-[var(--field)] px-4 text-[17px] text-ink tnum outline-none focus-visible:outline-2 focus-visible:outline-accent"
-              value={billDay(doc)}
-              onChange={(e) => setDoc((d) => ({ ...d, date: e.target.value || undefined }))}
-            />
-          </label>
+            <DateField label="Bill date" value={billDay(doc)} onChange={(date) => setDoc((d) => ({ ...d, date }))} />
+          </div>
         </div>
       </div>
 
