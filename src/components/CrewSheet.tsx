@@ -3,7 +3,7 @@
 import { Check, History, Plus, Search, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ensureFriend, getFriends, getGroups, getLastCrew } from "@/lib/client/friendsStore";
-import { useLastSplitDates } from "@/lib/client/lastSplit";
+import { newestSplitPeople, useLastSplitDates, useSplitHistory } from "@/lib/client/lastSplit";
 import { getProfile } from "@/lib/client/profile";
 import { ME_ID, sameAsLastTime, sortFriends, toPeople, withLastSplit, type Friend } from "@/lib/friends";
 import type { Person } from "@/lib/types";
@@ -35,14 +35,17 @@ export function CrewSheet({
 function CrewPicker({ people, onConfirm }: { people: Person[]; onConfirm: (people: Person[]) => void }) {
   const [friends, setFriends] = useState<Friend[]>(getFriends);
   const [groups] = useState(getGroups);
-  const last = useMemo(() => sameAsLastTime(friends, getLastCrew()), [friends]);
+  const history = useSplitHistory();
+  // "Same as last time" = the people in the newest split by bill date (the
+  // most recently finished one only if History doesn't know who was in any).
+  const last = useMemo(() => sameAsLastTime(friends, newestSplitPeople(history) ?? getLastCrew()), [friends, history]);
   const [picked, setPicked] = useState<Set<string>>(
     () => new Set(people.filter((p) => friends.some((f) => f.id === p.id)).map((p) => p.id)),
   );
   const [query, setQuery] = useState("");
   const me = getProfile();
   // Newest last split first, the same order as the Friends page.
-  const lastSplit = useLastSplitDates();
+  const lastSplit = useLastSplitDates(history);
   const list = sortFriends(withLastSplit(friends, lastSplit), query);
   const exact = friends.some((f) => f.name.trim().toLocaleLowerCase() === query.trim().toLocaleLowerCase());
 

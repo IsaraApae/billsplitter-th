@@ -3,29 +3,40 @@
 import { CheckCircle2, ChevronRight, ReceiptText, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { byBillDate, deleteHistory, getHistory, patchHistory, type HistoryEntry } from "@/lib/client/storage";
+import { byBillDate, deleteHistory, getHistory, historyFromDoc, patchHistory, type HistoryEntry } from "@/lib/client/storage";
 import { askConfirm } from "@/lib/client/confirm";
-import { ICON, Money, cx } from "./ui";
+import type { SplitDoc } from "@/lib/types";
+import { Avatar, ICON, Money, cx } from "./ui";
 
 export function HistoryList() {
   const [entries, setEntries] = useState<HistoryEntry[]>(() => byBillDate(getHistory()));
   const [gone, setGone] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Refresh paid progress for the most recent splits.
+    // Refresh paid progress for the most recent splits. Older entries don't
+    // know who's in them yet: those load the whole split once instead.
     byBillDate(getHistory())
       .slice(0, 20)
       .forEach(async (h) => {
         try {
-          const r = await fetch(`/api/splits/${h.id}/paid`, { cache: "no-store" });
+          const full = !h.members;
+          const r = await fetch(full ? `/api/splits/${h.id}` : `/api/splits/${h.id}/paid`, { cache: "no-store" });
           if (r.status === 404) {
             setGone((g) => new Set(g).add(h.id));
             return;
           }
           if (!r.ok) return;
-          const data: { paid: string[]; people: number } = await r.json();
-          patchHistory(h.id, { paid: data.paid.length, people: data.people });
-          setEntries((es) => es.map((e) => (e.id === h.id ? { ...e, paid: data.paid.length, people: data.people } : e)));
+          let patch: Partial<HistoryEntry>;
+          if (full) {
+            const data: { doc: SplitDoc; paid: string[] } = await r.json();
+            const ids = new Set(data.doc.people.map((p) => p.id));
+            patch = { ...historyFromDoc(data.doc), people: ids.size, paid: data.paid.filter((p) => ids.has(p)).length };
+          } else {
+            const data: { paid: string[]; people: number } = await r.json();
+            patch = { paid: data.paid.length, people: data.people };
+          }
+          patchHistory(h.id, patch);
+          setEntries((es) => byBillDate(es.map((e) => (e.id === h.id ? { ...e, ...patch } : e))));
         } catch {
           /* offline — show cached progress */
         }
@@ -86,6 +97,18 @@ export function HistoryList() {
                     <span className="font-semibold text-warn">{`${h.paid}/${h.people} paid`}</span>
                   )}
                 </span>
+                {h.members && h.members.length > 0 && (
+                  <span className="mt-1.5 flex items-center gap-2" aria-label={`With ${h.members.map((m) => m.name).join(", ")}`}>
+                    <span className="flex shrink-0 -space-x-1.5">
+                      {h.members.slice(0, 5).map((m) => (
+                        <Avatar key={m.id} person={m} size={22} className="ring-2 ring-[var(--bg)]" />
+                      ))}
+                    </span>
+                    <span className="truncate text-[13px] text-ink-2" aria-hidden>
+                      {h.members.map((m) => m.name).join(", ")}
+                    </span>
+                  </span>
+                )}
                 <span className="mt-2 block h-1 overflow-hidden rounded-full bg-[var(--field)]">
                   <span
                     className="block h-full rounded-full bg-accent"
