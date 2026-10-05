@@ -57,6 +57,12 @@ export function getHistory(): HistoryEntry[] {
   return Array.isArray(h) ? h : [];
 }
 
+/** Newest bill date first (`createdAt` holds the bill's date); ties keep their order. */
+export function byBillDate(entries: HistoryEntry[]): HistoryEntry[] {
+  const time = (h: HistoryEntry) => Date.parse(h.createdAt) || 0;
+  return [...entries].sort((a, b) => time(b) - time(a));
+}
+
 export function upsertHistory(entry: HistoryEntry): void {
   const rest = getHistory().filter((h) => h.id !== entry.id);
   save(HISTORY, [entry, ...rest].slice(0, 100));

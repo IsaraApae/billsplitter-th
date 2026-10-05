@@ -3,17 +3,17 @@
 import { CheckCircle2, ChevronRight, ReceiptText, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { deleteHistory, getHistory, patchHistory, type HistoryEntry } from "@/lib/client/storage";
+import { byBillDate, deleteHistory, getHistory, patchHistory, type HistoryEntry } from "@/lib/client/storage";
 import { askConfirm } from "@/lib/client/confirm";
 import { ICON, Money, cx } from "./ui";
 
 export function HistoryList() {
-  const [entries, setEntries] = useState<HistoryEntry[]>(getHistory);
+  const [entries, setEntries] = useState<HistoryEntry[]>(() => byBillDate(getHistory()));
   const [gone, setGone] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Refresh paid progress for the most recent splits.
-    getHistory()
+    byBillDate(getHistory())
       .slice(0, 20)
       .forEach(async (h) => {
         try {
