@@ -3,8 +3,9 @@
 import { Check, History, Plus, Search, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ensureFriend, getFriends, getGroups, getLastCrew } from "@/lib/client/friendsStore";
+import { useLastSplitDates } from "@/lib/client/lastSplit";
 import { getProfile } from "@/lib/client/profile";
-import { ME_ID, sameAsLastTime, sortFriends, toPeople, type Friend } from "@/lib/friends";
+import { ME_ID, sameAsLastTime, sortFriends, toPeople, withLastSplit, type Friend } from "@/lib/friends";
 import type { Person } from "@/lib/types";
 import { Avatar, ICON, Sheet, cx } from "./ui";
 
@@ -40,7 +41,9 @@ function CrewPicker({ people, onConfirm }: { people: Person[]; onConfirm: (peopl
   );
   const [query, setQuery] = useState("");
   const me = getProfile();
-  const list = sortFriends(friends, query);
+  // Newest last split first, the same order as the Friends page.
+  const lastSplit = useLastSplitDates();
+  const list = sortFriends(withLastSplit(friends, lastSplit), query);
   const exact = friends.some((f) => f.name.trim().toLocaleLowerCase() === query.trim().toLocaleLowerCase());
 
   const toggle = (id: string) =>

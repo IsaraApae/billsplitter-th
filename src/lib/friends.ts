@@ -72,6 +72,11 @@ export function lastSplitDates(splits: { createdAt: string; personIds?: string[]
   return last;
 }
 
+/** Friends with `lastUsed` set to their newest bill date, where one is known. */
+export function withLastSplit(friends: Friend[], last: Map<string, number>): Friend[] {
+  return friends.map((f) => ({ ...f, lastUsed: last.get(f.id) ?? f.lastUsed }));
+}
+
 /** Friend ids from the last split that still exist. */
 export function sameAsLastTime(friends: Friend[], lastIds: string[]): string[] {
   const exists = new Set(friends.map((f) => f.id));
