@@ -31,6 +31,24 @@ export function newDoc(payment: PaymentInfo = { promptpay: "", note: "" }): Spli
   };
 }
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** A date as YYYY-MM-DD in the local time zone (the value of a date input). */
+export function toDay(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** The bill's day: the picked date, else the day the split was started. */
+export function billDay(doc: Pick<SplitDoc, "date" | "createdAt">): string {
+  return doc.date ?? toDay(new Date(doc.createdAt));
+}
+
+/** The bill's day as a local-midnight Date, for display. */
+export function billDate(doc: Pick<SplitDoc, "date" | "createdAt">): Date {
+  const [y, m, d] = billDay(doc).split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function defaultTitle(date = new Date()): string {
   return `Bill · ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
 }

@@ -12,6 +12,7 @@ export const splitDocSchema = z
     v: z.literal(1),
     title: z.string().trim().max(80).default(""),
     createdAt: z.iso.datetime(),
+    date: z.iso.date().optional(),
     currency: z.enum(CURRENCIES),
     mode: z.enum(["equal", "itemized"]),
     people: z

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { billDate, billDay, newDoc } from "./draft";
 import { formatMoney, parseMoney, percentToBp } from "./money";
+import { parseSplitDoc } from "./schema";
 import { isValidPromptPayId, normalizePromptPayInput } from "./promptpay";
 
 describe("money", () => {
@@ -60,5 +62,31 @@ describe("PromptPay number input", () => {
     // 13-digit national IDs can start with 66; they must not be rewritten.
     expect(normalizePromptPayInput("6612345678901")).toBe("6612345678901");
     expect(normalizePromptPayInput("1234567890123456")).toBe("123456789012345");
+  });
+});
+
+describe("bill date", () => {
+  it("defaults to the day the split was started", () => {
+    const doc = newDoc();
+    const started = new Date(doc.createdAt);
+    expect(billDay(doc)).toBe(
+      `${started.getFullYear()}-${String(started.getMonth() + 1).padStart(2, "0")}-${String(started.getDate()).padStart(2, "0")}`,
+    );
+  });
+
+  it("uses the picked date, at local midnight", () => {
+    const d = billDate({ ...newDoc(), date: "2026-09-28" });
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([2026, 8, 28, 0]);
+  });
+
+  it("is saved with the split, and rejects junk", () => {
+    const valid = {
+      ...newDoc(),
+      people: [{ id: "me", name: "Me" }],
+      items: [{ id: "i1", name: "Rice", qty: 1, price: 5000, assigned: ["me"] }],
+    };
+    const ok = parseSplitDoc({ ...valid, date: "2026-09-28" });
+    expect(ok.ok ? ok.doc.date : ok.error).toBe("2026-09-28");
+    expect(parseSplitDoc({ ...valid, date: "28/09/2026" }).ok).toBe(false);
   });
 });

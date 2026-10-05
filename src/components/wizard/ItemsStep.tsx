@@ -7,7 +7,7 @@ import { lineTotal } from "@/lib/calc";
 import { loadUpright, uploadJpeg } from "@/lib/client/image";
 import { askConfirm } from "@/lib/client/confirm";
 import { SCAN_EVENT, takePendingScan } from "@/lib/client/pendingScan";
-import { applyScan, totalMismatch, uid } from "@/lib/draft";
+import { applyScan, billDay, totalMismatch, uid } from "@/lib/draft";
 import { formatMoney } from "@/lib/money";
 import type { DroppedLine } from "@/lib/scanFilter";
 import type { ScanResult } from "@/lib/scanResult";
@@ -169,15 +169,26 @@ export function ItemsStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc
     <div className="space-y-6">
       <div className="space-y-3.5">
         <h1 className="large-title">New split</h1>
-        <div className="card px-5 py-4">
-          <input
-            className="w-full bg-transparent text-center text-[26px] font-semibold tracking-tight text-ink outline-none placeholder:font-normal placeholder:text-ink-3"
-            placeholder="Title, e.g. Friday dinner"
-            aria-label="Split title"
-            maxLength={80}
-            value={doc.title}
-            onChange={(e) => setDoc((d) => ({ ...d, title: e.target.value }))}
-          />
+        <div className="card rows">
+          <div className="px-5 py-4">
+            <input
+              className="w-full bg-transparent text-center text-[26px] font-semibold tracking-tight text-ink outline-none placeholder:font-normal placeholder:text-ink-3"
+              placeholder="Title, e.g. Friday dinner"
+              aria-label="Split title"
+              maxLength={80}
+              value={doc.title}
+              onChange={(e) => setDoc((d) => ({ ...d, title: e.target.value }))}
+            />
+          </div>
+          <label className="flex min-h-[56px] items-center justify-between gap-3 py-2 pr-3 pl-5">
+            <span>Date</span>
+            <input
+              type="date"
+              className="press min-h-11 rounded-full bg-[var(--field)] px-4 text-[17px] text-ink tnum outline-none focus-visible:outline-2 focus-visible:outline-accent"
+              value={billDay(doc)}
+              onChange={(e) => setDoc((d) => ({ ...d, date: e.target.value || undefined }))}
+            />
+          </label>
         </div>
       </div>
 
