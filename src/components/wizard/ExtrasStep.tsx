@@ -128,8 +128,8 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
             hint={
               doc.roundUp ? (
                 <>
-                  Friends pay whole amounts — some round up, some down — but together never less than their exact
-                  shares, so you never lose money
+                  Everyone gets a whole amount, you too — friends round up or down, but together never less than
+                  their exact shares, so you never lose money
                   {calc.roundingExtra > 0 && (
                     <>
                       {" "}(you save <Money value={calc.roundingExtra} currency={currency} className="text-positive" />)

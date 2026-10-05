@@ -289,8 +289,9 @@ export function SharedView({
         </ul>
         {calc.people.some((p) => p.payable !== p.total) && (
           <p className="px-5 text-[13px] text-ink-2">
-            Amounts are rounded to whole {wholeUnitName(doc.currency)}{" "}
-            (some up, some down, within {formatStep(wholeUnit(doc.currency), doc.currency)} of each exact share)
+            Amounts are rounded to whole {wholeUnitName(doc.currency)}: friends within{" "}
+            {formatStep(wholeUnit(doc.currency), doc.currency)} of their exact shares (some up, some down), the
+            organiser&apos;s down
             {calc.roundingExtra > 0 && (
               <>
                 ; together that&apos;s <Money value={calc.roundingExtra} currency={doc.currency} /> more for{" "}
