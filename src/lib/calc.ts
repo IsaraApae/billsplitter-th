@@ -81,9 +81,9 @@ export interface PersonResult {
   /**
    * What they're asked to pay. Equals `total` unless rounding is on: then
    * payers pay whole units (some up, some down) and the organiser's amount is
-   * what's left of the bill rounded down to a whole unit (never more than
-   * their exact share). Everyone's amounts then add up to the bill minus
-   * under one unit, which the organiser covers.
+   * what's left of the bill (never more than their exact share), shown to
+   * the nearest whole unit. Everyone's amounts then add up to the bill
+   * rounded to the nearest whole unit.
    */
   payable: number;
 }
@@ -97,7 +97,7 @@ export interface CalcResult {
   vat: number;
   total: number;
   people: PersonResult[];
-  /** sum of everyone's `payable` (with rounding: the bill minus < 1 unit) */
+  /** sum of everyone's `payable` (with rounding: the bill to the nearest whole unit) */
   collected: number;
   /**
    * How much more the payers pay in total than their exact shares because of
@@ -270,9 +270,9 @@ export function calculate(input: CalcInput): CalcResult {
     );
     payers.forEach((r, i) => (r.payable = whole[i]));
     // The organiser paid the bill: what's left after the friends pay is never
-    // more than their exact share (they never lose money). It's shown as a
-    // whole unit too, rounded down, so it never reads as more than that.
-    if (organiser) organiser.payable = Math.floor((total - payers.reduce((s, r) => s + r.payable, 0)) / unit) * unit;
+    // more than their exact share (they never lose money). It's shown to the
+    // nearest whole unit, so everyone's amounts add up to the rounded bill.
+    if (organiser) organiser.payable = Math.round((total - payers.reduce((s, r) => s + r.payable, 0)) / unit) * unit;
   }
   const collected = results.reduce((s, r) => s + r.payable, 0);
   const roundingExtra = payers.reduce((s, r) => s + (r.payable - r.total), 0);

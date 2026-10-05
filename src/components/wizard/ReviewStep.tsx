@@ -78,7 +78,7 @@ export function ReviewStep({
           <p className="px-5 text-[13px] text-ink-2">
             {doc.roundUp ? (
               <>
-                Everyone&apos;s share is in whole {wholeUnitName(doc.currency)}, yours too (rounded down). Friends
+                Everyone&apos;s share is in whole {wholeUnitName(doc.currency)}, yours too. Friends
                 together never pay less than their exact shares, so you never lose money
                 {calc.roundingExtra > 0 && (
                   <>

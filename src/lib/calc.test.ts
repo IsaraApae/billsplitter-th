@@ -271,13 +271,13 @@ describe("rounding to whole baht (optional)", () => {
     expect(r.roundingExtra).toBe(0);
   });
 
-  it("everyone gets whole baht, the organiser too, and the organiser never pays more than their share", () => {
+  it("everyone gets whole baht, the organiser too (nearest baht), and the organiser never loses money", () => {
     const r = calculate(base({ people: withMe, items, service: svc, vat, roundUp: true }));
     expect(totals(r)).toEqual([25894, 22363, 22363]); // exact shares unchanged
     // Friends: 447.26 exact → 448 together → 224 + 224.
     // Organiser: 706.20 − 448 = 258.20 left → shown as 258.
     expect(r.people.map((p) => p.payable)).toEqual([25800, 22400, 22400]);
-    expect(r.total - sum(r.people.map((p) => p.payable))).toBe(20); // the organiser covers the 20 satang
+    expect(sum(r.people.map((p) => p.payable))).toBe(70600); // the bill (706.20) to the nearest baht
     expect(r.roundingExtra).toBe(74);
   });
 
@@ -286,7 +286,8 @@ describe("rounding to whole baht (optional)", () => {
       base({ people: withMe, items: [item("m", 5000, ["me"]), item("x", 22330, ["b"]), item("y", 22360, ["c"])], roundUp: true }),
     );
     // Exact 223.30 + 223.60 = 446.90 → 447 together: Bee rounds down, Cat rounds up.
-    expect(r.people.map((p) => p.payable)).toEqual([4900, 22300, 22400]);
+    // Organiser: 496.90 − 447 = 49.90 left → rounds up to 50.
+    expect(r.people.map((p) => p.payable)).toEqual([5000, 22300, 22400]);
     expect(r.roundingExtra).toBe(10);
   });
 
@@ -317,16 +318,14 @@ describe("rounding to whole baht (optional)", () => {
       const exact = sum(friends.map((p) => p.total));
       expect(paid).toBeGreaterThanOrEqual(exact); // never lose money
       expect(paid - exact).toBeLessThan(100); // cheapest: under ฿1 in total
-      expect(me.payable).toBeLessThanOrEqual(me.total);
+      expect(r.total - paid).toBeLessThanOrEqual(me.total); // what the organiser really pays ≤ their share
       expect(me.payable % 100).toBe(0);
-      expect(me.payable).toBeLessThanOrEqual(r.total - paid); // never shown above what they actually pay
+      expect(Math.abs(me.payable - (r.total - paid))).toBeLessThanOrEqual(50); // nearest baht
       for (const p of friends) {
         expect(p.payable % 100).toBe(0);
         expect(Math.abs(p.payable - p.total)).toBeLessThan(100);
       }
-      const shown = sum(r.people.map((p) => p.payable));
-      expect(r.total - shown).toBeGreaterThanOrEqual(0);
-      expect(r.total - shown).toBeLessThan(100);
+      expect(sum(r.people.map((p) => p.payable))).toBe(Math.round(r.total / 100) * 100);
     }
   });
 });
