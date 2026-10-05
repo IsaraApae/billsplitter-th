@@ -8,7 +8,7 @@ import { askConfirm } from "@/lib/client/confirm";
 import { hasPendingScan, SCAN_EVENT } from "@/lib/client/pendingScan";
 import { getProfile, paymentFromProfile } from "@/lib/client/profile";
 import { getEditToken, load, remove, save, setEditToken, upsertHistory } from "@/lib/client/storage";
-import { defaultTitle, newDoc } from "@/lib/draft";
+import { billDate, defaultTitle, newDoc } from "@/lib/draft";
 import { toPeople } from "@/lib/friends";
 import type { Person, SplitDoc } from "@/lib/types";
 import { CrewSheet } from "../CrewSheet";
@@ -132,7 +132,7 @@ export function Wizard() {
     setError(null);
     const clean: SplitDoc = {
       ...doc,
-      title: doc.title.trim() || defaultTitle(new Date(doc.createdAt)),
+      title: doc.title.trim() || defaultTitle(billDate(doc)),
       people: doc.people.map((p, i) => ({ ...p, name: p.name.trim() || `Person ${i + 1}` })),
       items: doc.items.map((it, i) => ({ ...it, name: it.name.trim() || `Item ${i + 1}` })),
       payment: paymentFromProfile(getProfile()),
@@ -153,7 +153,7 @@ export function Wizard() {
       upsertHistory({
         id,
         title: clean.title,
-        createdAt: clean.createdAt,
+        createdAt: billDate(clean).toISOString(),
         total: calculate(clean).total,
         currency: clean.currency,
         people: clean.people.length,

@@ -61,6 +61,8 @@ export interface SplitDoc {
   v: 1;
   title: string;
   createdAt: string; // ISO
+  /** Day of the meal, YYYY-MM-DD, when the user picked one; else createdAt's day. */
+  date?: string;
   currency: string;
   mode: SplitMode;
   people: Person[];

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate, wholeUnit } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { getEditToken, getHistory, patchHistory } from "@/lib/client/storage";
+import { billDate } from "@/lib/draft";
 import { ME_ID } from "@/lib/friends";
 import { formatStep, wholeUnitName } from "@/lib/money";
 import { formatPromptPayId } from "@/lib/promptpay";
@@ -140,7 +141,7 @@ export function SharedView({
     }
   }
 
-  const date = new Date(doc.createdAt).toLocaleDateString("en-GB", {
+  const date = billDate(doc).toLocaleDateString("en-GB", {
     weekday: "short",
     day: "numeric",
     month: "short",
