@@ -48,6 +48,8 @@ export interface HistoryEntry {
   currency: string;
   people: number;
   paid: number;
+  /** ids of everyone in the split (absent on entries saved before this was kept) */
+  personIds?: string[];
 }
 
 const HISTORY = "bs:history";

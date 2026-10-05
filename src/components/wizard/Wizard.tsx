@@ -162,6 +162,7 @@ export function Wizard() {
         currency: clean.currency,
         people: clean.people.length,
         paid: 0,
+        personIds: clean.people.map((p) => p.id),
       });
       setState({ doc: clean, step: 4, editingId: id });
       window.scrollTo({ top: 0 });
