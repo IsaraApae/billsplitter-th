@@ -363,3 +363,52 @@ describe("negative items (a discount printed under one item)", () => {
     for (const p of r.people) expect(p.discount).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("paid upfront (a friend paid part of the bill)", () => {
+  const ppl = [
+    { id: "me", name: "Me" },
+    { id: "b", name: "Bee" },
+    { id: "c", name: "Cat" },
+  ];
+  const its = [item("food", 90000, ["me", "b", "c"]), item("drinks", 30000, ["b", "c"])];
+
+  it("lowers that friend's amount; the organiser's share is unchanged", () => {
+    const r = calculate(base({ people: ppl, items: its, prepaid: [{ personId: "b", amount: 30000 }] }));
+    expect(totals(r)).toEqual([30000, 45000, 45000]); // exact shares unchanged
+    expect(r.people.map((p) => p.prepaid)).toEqual([0, 30000, 0]);
+    expect(r.people.map((p) => p.payable)).toEqual([30000, 15000, 45000]);
+  });
+
+  it("goes negative when they paid more than their share: the organiser pays them back", () => {
+    const r = calculate(base({ people: ppl, items: its, prepaid: [{ personId: "b", amount: 60000 }] }));
+    expect(r.people.find((p) => p.personId === "b")!.payable).toBe(-15000);
+    // What the organiser collects minus what they pay back = bill − what Bee paid − the organiser's share.
+    const friends = r.people.filter((p) => p.personId !== "me");
+    expect(sum(friends.map((p) => p.payable))).toBe(r.total - 60000 - 30000);
+  });
+
+  it("is ignored for the organiser and for people not in the split", () => {
+    const r = calculate(
+      base({ people: ppl, items: its, prepaid: [{ personId: "me", amount: 5000 }, { personId: "zz", amount: 5000 }] }),
+    );
+    expect(r.people.map((p) => p.payable)).toEqual(totals(r));
+  });
+
+  it("works with rounding without the organiser losing money", () => {
+    const r = calculate(
+      base({
+        people: ppl,
+        items: [item("food", 100000, ["me", "b", "c"]), item("x", 333, ["b"])],
+        service: { enabled: true, rateBp: 1000 },
+        vat: { enabled: true, rateBp: 700 },
+        roundUp: true,
+        prepaid: [{ personId: "c", amount: 12345 }],
+      }),
+    );
+    const friends = r.people.filter((p) => p.personId !== "me");
+    for (const p of r.people) expect(p.payable % 100).toBe(0);
+    const owedExactly = sum(friends.map((p) => p.total - p.prepaid));
+    expect(sum(friends.map((p) => p.payable))).toBeGreaterThanOrEqual(owedExactly);
+    expect(sum(friends.map((p) => p.payable)) - owedExactly).toBeLessThan(100);
+  });
+});

@@ -29,6 +29,25 @@ export async function storeQrImage(ownerId: string, bytes: Buffer, contentType: 
   throw new Error("QR storage is not configured (BLOB_READ_WRITE_TOKEN missing).");
 }
 
+/** A receipt photo shown on a split's shared page. Returns its URL (or a dev: key). */
+export async function storeReceiptImage(bytes: Buffer): Promise<string> {
+  if (blobReady) {
+    const blob = await put("receipts/receipt.jpg", bytes, {
+      access: "public",
+      addRandomSuffix: true, // unguessable URL
+      contentType: "image/jpeg",
+      cacheControlMaxAge: 60 * 60 * 24 * 30,
+    });
+    return blob.url;
+  }
+  if (devMode) {
+    const key = `r-${randomBytes(8).toString("hex")}`;
+    await devImagePut(key, `data:image/jpeg;base64,${bytes.toString("base64")}`);
+    return `dev:${key}`;
+  }
+  throw new Error("Image storage is not configured (BLOB_READ_WRITE_TOKEN missing).");
+}
+
 export async function deleteQrImage(url: string | null): Promise<void> {
   if (!url) return;
   try {

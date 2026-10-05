@@ -3,6 +3,7 @@
 // localStorage helpers. Every access is guarded: storage can be unavailable
 // (private mode, blocked site data) and the app must still work.
 
+import { calculate } from "../calc";
 import { billDate } from "../draft";
 import type { Person, SplitDoc } from "../types";
 
@@ -53,16 +54,22 @@ export interface HistoryEntry {
   paid: number;
   /** ids of everyone in the split (absent on entries saved before this was kept) */
   personIds?: string[];
-  /** who's in the split, for the History list (absent on older entries) */
-  members?: Pick<Person, "id" | "name" | "emoji" | "color">[];
+  /**
+   * who's in the split, for the History list (absent on older entries), with
+   * what each is asked to pay (`amount`, minor units; negative = owed back)
+   */
+  members?: (Pick<Person, "id" | "name" | "emoji" | "color"> & { amount?: number })[];
+  /** ids of the people marked paid */
+  paidIds?: string[];
 }
 
 /** What History keeps from a saved split besides its title and totals. */
 export function historyFromDoc(doc: SplitDoc): Pick<HistoryEntry, "createdAt" | "personIds" | "members"> {
+  const amounts = new Map(calculate(doc).people.map((p) => [p.personId, p.payable]));
   return {
     createdAt: billDate(doc).toISOString(),
     personIds: doc.people.map((p) => p.id),
-    members: doc.people.map(({ id, name, emoji, color }) => ({ id, name, emoji, color })),
+    members: doc.people.map(({ id, name, emoji, color }) => ({ id, name, emoji, color, amount: amounts.get(id) ?? 0 })),
   };
 }
 

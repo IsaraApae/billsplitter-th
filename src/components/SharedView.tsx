@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, ChevronDown, Copy, PartyPopper, Pencil, QrCode } from "lucide-react";
+import { Check, ChevronDown, Copy, PartyPopper, Pencil, QrCode, ZoomIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate, wholeUnit } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
-import { getEditToken, getHistory, patchHistory } from "@/lib/client/storage";
+import { photoSrc } from "@/lib/client/photo";
+import { getEditToken, getHistory, historyFromDoc, patchHistory } from "@/lib/client/storage";
 import { billDate } from "@/lib/draft";
 import { ME_ID } from "@/lib/friends";
 import { formatStep, wholeUnitName } from "@/lib/money";
@@ -16,6 +17,7 @@ import { Breakdown } from "./Breakdown";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { ShareButtons } from "./ShareButtons";
+import { ZoomableImage } from "./ZoomableImage";
 import { Callout, ICON, Money, Section, Sheet, cx } from "./ui";
 
 const POLL_MS = 10_000;
@@ -42,6 +44,7 @@ export function SharedView({
   const canEdit = !!editToken;
   const url = `${useBrowserValue(() => window.location.origin, "")}/s/${id}`;
   const [payFor, setPayFor] = useState<string | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const version = useRef(updatedAt);
   const pendingRef = useRef(pending);
@@ -52,7 +55,12 @@ export function SharedView({
   const paidCount = doc.people.filter((p) => paid.has(p.id)).length;
   const total = doc.people.length;
   const allPaid = paidCount === total;
-  const outstanding = calc.people.filter((p) => !paid.has(p.personId)).reduce((s, p) => s + p.payable, 0);
+  // Only money still coming in; someone who paid upfront may be owed money back instead.
+  const outstanding = calc.people.filter((p) => !paid.has(p.personId)).reduce((s, p) => s + Math.max(0, p.payable), 0);
+  // Not people the organiser owes money back to (they paid upfront).
+  const waitingOn = doc.people
+    .filter((p) => !paid.has(p.id) && (calc.people.find((r) => r.personId === p.id)?.payable ?? 0) >= 0)
+    .map((p) => p.name);
   const pp = doc.payment.promptpay;
   const payPerson = calc.people.find((p) => p.personId === payFor);
 
@@ -62,8 +70,9 @@ export function SharedView({
 
   // Keep the history entry's progress fresh if this split is in our history.
   useEffect(() => {
-    if (getHistory().some((h) => h.id === id)) patchHistory(id, { paid: paidCount, people: total, total: calc.total });
-  }, [id, paidCount, total, calc.total]);
+    if (getHistory().some((h) => h.id === id))
+      patchHistory(id, { ...historyFromDoc(doc), paid: paidCount, people: total, total: calc.total, paidIds: [...paid] });
+  }, [id, doc, paid, paidCount, total, calc.total]);
 
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible" || pendingRef.current.size > 0) return;
@@ -173,15 +182,9 @@ export function SharedView({
           <div className="h-2 overflow-hidden rounded-full bg-[var(--field)]">
             <div className="h-full rounded-full bg-accent" style={{ width: `${total ? (paidCount / total) * 100 : 0}%` }} />
           </div>
-          {!allPaid && (
+          {!allPaid && waitingOn.length > 0 && (
             <p className="mt-2 text-[15px] text-ink-2">
-              Waiting on:{" "}
-              <b className="text-ink">
-                {doc.people
-                  .filter((p) => !paid.has(p.id))
-                  .map((p) => p.name)
-                  .join(", ")}
-              </b>
+              Waiting on: <b className="text-ink">{waitingOn.join(", ")}</b>
             </p>
           )}
         </div>
@@ -273,8 +276,23 @@ export function SharedView({
                   )
                 }
                 badge={
-                  <span className={cx("text-[13px] font-semibold", isPaid ? "text-accent" : "text-warn")}>
-                    {p.personId === ME_ID ? (isPaid ? "Paid" : "Organiser") : isPaid ? "Paid" : "Unpaid"}
+                  <span
+                    className={cx(
+                      "text-[13px] font-semibold",
+                      isPaid ? "text-accent" : p.payable < 0 ? "text-positive" : "text-warn",
+                    )}
+                  >
+                    {p.personId === ME_ID
+                      ? isPaid
+                        ? "Paid"
+                        : "Organiser"
+                      : p.payable < 0
+                        ? isPaid
+                          ? "Paid back"
+                          : "Gets money back"
+                        : isPaid
+                          ? "Paid"
+                          : "Unpaid"}
                   </span>
                 }
                 action={
@@ -288,7 +306,7 @@ export function SharedView({
             );
           })}
         </ul>
-        {calc.people.some((p) => p.payable !== p.total) && (
+        {calc.people.some((p) => p.payable !== p.total - p.prepaid) && (
           <p className="px-5 text-[13px] text-ink-2">
             Amounts are rounded to whole {wholeUnitName(doc.currency)}: friends within{" "}
             {formatStep(wholeUnit(doc.currency), doc.currency)} of their exact shares (some up, some down), the
@@ -310,6 +328,21 @@ export function SharedView({
       </Section>
 
       <Section title="Bill">
+        {doc.photo && (
+          <button
+            type="button"
+            onClick={() => setPhotoOpen(true)}
+            className="card relative block w-full overflow-hidden p-0 text-left"
+            aria-label="Open the receipt photo"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoSrc(doc.photo)} alt="Receipt" loading="lazy" className="h-44 w-full object-cover object-top" />
+            <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/65 to-transparent px-5 pt-10 pb-4 text-[15px] font-semibold text-white">
+              Receipt photo
+              <ZoomIn size={22} {...ICON} aria-hidden />
+            </span>
+          </button>
+        )}
         <details className="card group">
           <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between px-5 font-semibold">
             All items ({doc.items.length})
@@ -341,6 +374,12 @@ export function SharedView({
           Make your own split
         </Link>
       </section>
+
+      {doc.photo && (
+        <Sheet open={photoOpen} onClose={() => setPhotoOpen(false)} title="Receipt">
+          <ZoomableImage src={photoSrc(doc.photo)} />
+        </Sheet>
+      )}
 
       <Sheet open={!!payPerson} onClose={() => setPayFor(null)} title={payPerson ? `Pay ${payPerson.name}'s share` : "Pay"}>
         {payPerson && qr && <PayQr source={qr} amount={payPerson.payable} name={payPerson.name} />}

@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, ChevronRight, Plus, Trash2, UsersRound } from "lucide-react";
+import { Check, ChevronRight, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { askConfirm } from "@/lib/client/confirm";
 import { getFriends, getGroups, saveFriends, saveGroups } from "@/lib/client/friendsStore";
@@ -110,21 +111,29 @@ export function FriendsManager() {
         ) : (
           <ul className="card rows overflow-hidden">
             {list.map((f) => (
-              <li key={f.id}>
+              <li key={f.id} className="relative flex min-h-[60px] items-center gap-1 py-2 pr-2 pl-5 hover:bg-[var(--hover)]">
+                <Avatar person={f} size={40} />
+                <span className="ml-2 min-w-0 flex-1">
+                  {/* Tapping the row shows their splits; the link's ::after covers it. */}
+                  <Link
+                    href={`/history?person=${encodeURIComponent(f.id)}`}
+                    className="block truncate font-semibold outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+                  >
+                    {f.name}
+                  </Link>
+                  <span className="block text-[13px] text-ink-2">
+                    {f.lastUsed ? `Last split ${new Date(f.lastUsed).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "Not used yet"}
+                  </span>
+                </span>
                 <button
                   type="button"
-                  className="flex min-h-[60px] w-full items-center gap-3 py-2 pr-4 pl-5 text-left hover:bg-[var(--hover)]"
+                  className="icon-plain relative z-10 size-11"
+                  aria-label={`Edit ${f.name}`}
                   onClick={() => setEditing({ kind: "friend", friend: friends.find((x) => x.id === f.id) ?? f })}
                 >
-                  <Avatar person={f} size={40} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{f.name}</span>
-                    <span className="block text-[13px] text-ink-2">
-                      {f.lastUsed ? `Last split ${new Date(f.lastUsed).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "Not used yet"}
-                    </span>
-                  </span>
-                  <ChevronRight size={20} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
+                  <Pencil size={20} {...ICON} />
                 </button>
+                <ChevronRight size={20} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
               </li>
             ))}
           </ul>

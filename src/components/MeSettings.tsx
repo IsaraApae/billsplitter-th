@@ -7,6 +7,7 @@ import { compressImage } from "@/lib/client/image";
 import { getProfile, qrImageUrl, saveProfile, type Profile } from "@/lib/client/profile";
 import { formatPromptPayId, isValidPromptPayId, normalizePromptPayInput } from "@/lib/promptpay";
 import { PERSON_COLORS, type QrMode } from "@/lib/types";
+import { BackupSection } from "./BackupSection";
 import { PayQr } from "./PayQr";
 import { ThemePicker } from "./ThemeToggle";
 import { Avatar, COLOR_HEX, Callout, ICON, Section, Segmented, cx } from "./ui";
@@ -227,6 +228,8 @@ export function MeSettings() {
       <Section title="Appearance">
         <ThemePicker />
       </Section>
+
+      <BackupSection />
 
       <p className="px-5 text-[13px] text-ink-2">Everything on this page is saved on this device only.</p>
     </div>
