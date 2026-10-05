@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { calculate } from "@/lib/calc";
 import { rememberPeople } from "@/lib/client/friendsStore";
@@ -39,11 +40,10 @@ function freshState(): DraftState {
 }
 
 /** Initial state from localStorage, or a request to load a shared split (?edit=id). */
-function boot(): { draft: DraftState; editId: string | null; error: string | null; isNew: boolean } {
+function boot(editId: string | null): { draft: DraftState; editId: string | null; error: string | null; isNew: boolean } {
   const saved = load<DraftState | null>(DRAFT_KEY, null);
   const isNew = !(saved?.doc?.v === 1);
   const draft = isNew ? freshState() : saved!;
-  const editId = new URLSearchParams(window.location.search).get("edit");
   if (!editId) return { draft, editId: null, error: null, isNew };
   if (!getEditToken(editId))
     return { draft, editId: null, error: "You can only edit splits created on this device.", isNew: false };
@@ -51,7 +51,11 @@ function boot(): { draft: DraftState; editId: string | null; error: string | nul
 }
 
 export function Wizard() {
-  const [init] = useState(boot);
+  // Read ?edit from the router, not window.location: on a client-side
+  // navigation (Shared page → "Edit this split") this component can render
+  // before the address bar changes, and would miss the request.
+  const editParam = useSearchParams().get("edit");
+  const [init] = useState(() => boot(editParam));
   const [state, setState] = useState<DraftState | null>(init.editId ? null : init.draft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(init.error);
@@ -219,7 +223,7 @@ export function Wizard() {
       )}
 
       <div key={step}>
-        {step === 0 && <ItemsStep doc={doc} setDoc={setDoc} calc={calc} />}
+        {step === 0 && <ItemsStep doc={doc} setDoc={setDoc} calc={calc} editing={!!state.editingId} />}
         {step === 1 && <PeopleStep doc={doc} setDoc={setDoc} calc={calc} onPickFriends={() => setCrewOpen(true)} />}
         {step === 2 && <ExtrasStep doc={doc} setDoc={setDoc} calc={calc} />}
         {step === 3 && <ReviewStep doc={doc} setDoc={setDoc} calc={calc} goTo={go} />}
