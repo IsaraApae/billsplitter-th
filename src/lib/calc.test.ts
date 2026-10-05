@@ -271,12 +271,13 @@ describe("rounding to whole baht (optional)", () => {
     expect(r.roundingExtra).toBe(0);
   });
 
-  it("friends pay whole baht; the organiser covers what's left and never pays more than their share", () => {
+  it("everyone gets whole baht, the organiser too, and the organiser never pays more than their share", () => {
     const r = calculate(base({ people: withMe, items, service: svc, vat, roundUp: true }));
     expect(totals(r)).toEqual([25894, 22363, 22363]); // exact shares unchanged
     // Friends: 447.26 exact → 448 together → 224 + 224.
-    expect(r.people.map((p) => p.payable)).toEqual([25820, 22400, 22400]);
-    expect(sum(r.people.map((p) => p.payable))).toBe(r.total); // still adds up to the bill
+    // Organiser: 706.20 − 448 = 258.20 left → shown as 258.
+    expect(r.people.map((p) => p.payable)).toEqual([25800, 22400, 22400]);
+    expect(r.total - sum(r.people.map((p) => p.payable))).toBe(20); // the organiser covers the 20 satang
     expect(r.roundingExtra).toBe(74);
   });
 
@@ -285,7 +286,7 @@ describe("rounding to whole baht (optional)", () => {
       base({ people: withMe, items: [item("m", 5000, ["me"]), item("x", 22330, ["b"]), item("y", 22360, ["c"])], roundUp: true }),
     );
     // Exact 223.30 + 223.60 = 446.90 → 447 together: Bee rounds down, Cat rounds up.
-    expect(r.people.map((p) => p.payable)).toEqual([4990, 22300, 22400]);
+    expect(r.people.map((p) => p.payable)).toEqual([4900, 22300, 22400]);
     expect(r.roundingExtra).toBe(10);
   });
 
@@ -317,11 +318,15 @@ describe("rounding to whole baht (optional)", () => {
       expect(paid).toBeGreaterThanOrEqual(exact); // never lose money
       expect(paid - exact).toBeLessThan(100); // cheapest: under ฿1 in total
       expect(me.payable).toBeLessThanOrEqual(me.total);
+      expect(me.payable % 100).toBe(0);
+      expect(me.payable).toBeLessThanOrEqual(r.total - paid); // never shown above what they actually pay
       for (const p of friends) {
         expect(p.payable % 100).toBe(0);
         expect(Math.abs(p.payable - p.total)).toBeLessThan(100);
       }
-      expect(sum(r.people.map((p) => p.payable))).toBe(r.total);
+      const shown = sum(r.people.map((p) => p.payable));
+      expect(r.total - shown).toBeGreaterThanOrEqual(0);
+      expect(r.total - shown).toBeLessThan(100);
     }
   });
 });
@@ -355,7 +360,7 @@ describe("negative items (a discount printed under one item)", () => {
       roundUp: true,
     });
     expect(sum(totals(r))).toBe(r.total);
-    expect(sum(r.people.map((p) => p.payable))).toBe(r.total);
+    for (const p of r.people) expect(p.payable % 100).toBe(0);
     for (const p of r.people) expect(p.discount).toBeGreaterThanOrEqual(0);
   });
 });
