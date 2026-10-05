@@ -63,6 +63,15 @@ export interface HistoryEntry {
   paidIds?: string[];
 }
 
+/**
+ * Paid progress counts only the friends: the organiser ("me") paid the bill
+ * and never owes themselves. Older splits without an organiser count everyone.
+ */
+export function paidProgress(personIds: string[], paidIds: string[]): { people: number; paid: number } {
+  const friends = personIds.filter((id) => id !== "me");
+  return { people: friends.length, paid: paidIds.filter((id) => friends.includes(id)).length };
+}
+
 /** What History keeps from a saved split besides its title and totals. */
 export function historyFromDoc(doc: SplitDoc): Pick<HistoryEntry, "createdAt" | "personIds" | "members"> {
   const amounts = new Map(calculate(doc).people.map((p) => [p.personId, p.payable]));

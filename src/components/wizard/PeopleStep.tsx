@@ -1,12 +1,12 @@
 "use client";
 
-import { Check, UserPlus, UsersRound, X } from "lucide-react";
+import { Check, SlidersHorizontal, UserPlus, UsersRound, X } from "lucide-react";
 import { useState } from "react";
 import type { CalcResult } from "@/lib/calc";
 import { ensureFriend } from "@/lib/client/friendsStore";
 import { ME_ID } from "@/lib/friends";
 import type { SplitDoc } from "@/lib/types";
-import { Avatar, Callout, ICON, Money, Section, Segmented, cx } from "../ui";
+import { Avatar, Callout, ICON, Money, QtyStepper, Section, Segmented, Sheet, cx } from "../ui";
 import type { SetDoc } from "./Wizard";
 
 export function PeopleStep({
@@ -20,6 +20,8 @@ export function PeopleStep({
   calc: CalcResult;
   onPickFriends: () => void;
 }) {
+  // Item whose uneven shares are being edited.
+  const [sharesFor, setSharesFor] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [onlyUnassigned, setOnlyUnassigned] = useState(false);
@@ -208,7 +210,9 @@ export function PeopleStep({
             {visibleItems.map((it) => {
               const line = calc.lines.find((l) => l.itemId === it.id);
               const missing = unassigned.has(it.id);
-              const k = it.assigned.filter((a) => doc.people.some((p) => p.id === a)).length;
+              const who = doc.people.filter((p) => it.assigned.includes(p.id));
+              const k = who.length;
+              const uneven = who.some((p) => (it.shares?.[p.id] ?? 1) > 1);
               const allOn = doc.people.length > 0 && k === doc.people.length;
               return (
                 <li key={it.id} className={cx("px-5 py-4", missing && "bg-warn-soft")}>
@@ -220,12 +224,13 @@ export function PeopleStep({
                       </p>
                       <p className="text-[13px] text-ink-2">
                         <Money value={line?.lineTotal ?? 0} currency={currency} tone={(line?.lineTotal ?? 0) < 0 ? "negative" : undefined} />
-                        {k > 1 && (
+                        {k > 1 && !uneven && (
                           <>
                             {" "}
                             · ÷{k} ≈ <Money value={Math.round((line?.lineTotal ?? 0) / k)} currency={currency} /> each
                           </>
                         )}
+                        {k > 1 && uneven && <> · {who.map((p) => `${p.name} ${it.shares?.[p.id] ?? 1}`).join(" · ")}</>}
                       </p>
                     </div>
                     {missing && <span className="shrink-0 pt-0.5 text-[13px] font-semibold text-warn">Unassigned</span>}
@@ -251,12 +256,90 @@ export function PeopleStep({
                       );
                     })}
                   </div>
+                  {k > 1 && (
+                    <button type="button" className="btn-ghost mt-1 min-h-11 px-0 text-[15px]" onClick={() => setSharesFor(it.id)}>
+                      <SlidersHorizontal size={18} {...ICON} aria-hidden /> {uneven ? "Change shares" : "Split unevenly"}
+                    </button>
+                  )}
                 </li>
               );
             })}
           </ul>
         </Section>
       )}
+
+      <SharesSheet doc={doc} setDoc={setDoc} calc={calc} itemId={sharesFor} onClose={() => setSharesFor(null)} />
     </div>
+  );
+}
+
+/** "Mint had 2 of the 3 beers": how many shares each person had of one item. */
+function SharesSheet({
+  doc,
+  setDoc,
+  calc,
+  itemId,
+  onClose,
+}: {
+  doc: SplitDoc;
+  setDoc: SetDoc;
+  calc: CalcResult;
+  itemId: string | null;
+  onClose: () => void;
+}) {
+  const it = doc.items.find((x) => x.id === itemId);
+  const who = it ? doc.people.filter((p) => it.assigned.includes(p.id)) : [];
+  const setShares = (pid: string, n: number) =>
+    setDoc((d) => ({
+      ...d,
+      items: d.items.map((x) => {
+        if (x.id !== itemId) return x;
+        const shares = Object.fromEntries(Object.entries({ ...x.shares, [pid]: n }).filter(([, v]) => v > 1));
+        return { ...x, shares: Object.keys(shares).length ? shares : undefined };
+      }),
+    }));
+
+  return (
+    <Sheet
+      open={!!it}
+      onClose={onClose}
+      onConfirm={onClose}
+      title={it ? `${it.qty > 1 ? `${it.qty}× ` : ""}${it.name || "Unnamed item"}` : ""}
+      subtitle="How many shares each person had"
+    >
+      {it && (
+        <div className="space-y-3.5">
+          <ul className="card rows overflow-hidden">
+            {who.map((p) => {
+              const share = calc.people.find((r) => r.personId === p.id)?.items.find((x) => x.itemId === it.id);
+              return (
+                <li key={p.id} className="flex min-h-[60px] items-center gap-3 py-2 pr-3 pl-5">
+                  <Avatar person={p} size={32} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">{p.name || "Unnamed"}</span>
+                    {share && <Money value={share.amount} currency={doc.currency} className="text-[13px] text-ink-2" />}
+                  </span>
+                  <QtyStepper label={`${p.name}'s shares`} value={it.shares?.[p.id] ?? 1} onChange={(n) => setShares(p.id, n)} />
+                </li>
+              );
+            })}
+          </ul>
+          <p className="px-5 text-[13px] text-ink-2">
+            {it.qty > 1
+              ? `E.g. if one person had 2 of the ${it.qty} and another had 1, give them 2 and 1.`
+              : "E.g. give someone 2 to make their part twice as big as everyone else's."}
+          </p>
+          {who.some((p) => (it.shares?.[p.id] ?? 1) > 1) && (
+            <button
+              type="button"
+              className="btn-secondary h-12 w-full"
+              onClick={() => setDoc((d) => ({ ...d, items: d.items.map((x) => (x.id === itemId ? { ...x, shares: undefined } : x)) }))}
+            >
+              Split evenly
+            </button>
+          )}
+        </div>
+      )}
+    </Sheet>
   );
 }

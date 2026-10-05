@@ -9,6 +9,7 @@ import {
   deleteHistory,
   getHistory,
   historyFromDoc,
+  paidProgress,
   patchHistory,
   type HistoryEntry,
 } from "@/lib/client/storage";
@@ -50,12 +51,12 @@ export function HistoryList() {
           let patch: Partial<HistoryEntry>;
           if (full) {
             const data: { doc: SplitDoc; paid: string[] } = await r.json();
-            const ids = new Set(data.doc.people.map((p) => p.id));
-            const paidIds = data.paid.filter((p) => ids.has(p));
-            patch = { ...historyFromDoc(data.doc), people: ids.size, paid: paidIds.length, paidIds };
+            const ids = data.doc.people.map((p) => p.id);
+            const paidIds = data.paid.filter((p) => ids.includes(p));
+            patch = { ...historyFromDoc(data.doc), ...paidProgress(ids, paidIds), paidIds };
           } else {
             const data: { paid: string[]; people: number } = await r.json();
-            patch = { paid: data.paid.length, people: data.people, paidIds: data.paid };
+            patch = { ...paidProgress(h.personIds ?? [], data.paid), paidIds: data.paid };
           }
           patchHistory(h.id, patch);
           setEntries((es) => byBillDate(es.map((e) => (e.id === h.id ? { ...e, ...patch } : e))));
@@ -93,6 +94,7 @@ export function HistoryList() {
 
   const shown = person ? entries.filter((h) => h.members?.some((m) => samePerson(m, person))) : entries;
   const balance = person && person.id !== ME_ID ? balanceWith(person, shown) : null;
+  const mine = person?.id === ME_ID ? myMoney(shown) : null;
 
   function filterBy(m: Member | null) {
     setPerson((cur) => (!m || (cur && samePerson(cur, m)) ? null : m));
@@ -122,6 +124,24 @@ export function HistoryList() {
                 </>
               )}
               {balance?.known && balance.owesYou.length + balance.youOwe.length === 0 && " · all settled"}
+              {mine && mine.spent.length > 0 && (
+                <>
+                  {" · you spent "}
+                  <b className="tnum text-ink">{mine.spent.join(" + ")}</b>
+                </>
+              )}
+              {mine && mine.owedToYou.length > 0 && (
+                <>
+                  {" · friends owe you "}
+                  <b className="tnum text-ink">{mine.owedToYou.join(" + ")}</b>
+                </>
+              )}
+              {mine && mine.youOwe.length > 0 && (
+                <>
+                  {" · you owe "}
+                  <b className="tnum text-ink">{mine.youOwe.join(" + ")}</b>
+                </>
+              )}
             </p>
           </div>
           <button type="button" className="icon-btn" aria-label="Show all splits" onClick={() => filterBy(null)}>
@@ -189,12 +209,16 @@ export function HistoryList() {
                           >
                             <Avatar person={m} size={24} />
                             <span className="truncate">{m.name}</span>
-                            {on && m.id !== ME_ID && m.amount !== undefined && (
-                              <>
-                                <span className="tnum">{formatMoney(Math.abs(m.amount), h.currency)}</span>
-                                {h.paidIds?.includes(m.id) && <Check size={14} {...ICON} aria-label="paid" />}
-                              </>
-                            )}
+                            {on &&
+                              m.amount !== undefined &&
+                              (m.id === ME_ID ? (
+                                <span className="tnum">{formatMoney(m.amount, h.currency)}</span>
+                              ) : (
+                                <>
+                                  <span className="tnum">{formatMoney(Math.abs(m.amount), h.currency)}</span>
+                                  {h.paidIds?.includes(m.id) && <Check size={14} {...ICON} aria-label="paid" />}
+                                </>
+                              ))}
                           </button>
                         );
                       })}
@@ -233,10 +257,7 @@ type Member = NonNullable<HistoryEntry["members"]>[number];
  * What a friend still owes you across these splits (unpaid amounts), and
  * what you owe them back (they paid upfront), formatted per currency.
  */
-function balanceWith(
-  person: Member,
-  entries: HistoryEntry[],
-): { owesYou: string[]; youOwe: string[]; known: boolean } {
+function balanceWith(person: Member, entries: HistoryEntry[]): { owesYou: string[]; youOwe: string[]; known: boolean } {
   const owes = new Map<string, number>();
   const owed = new Map<string, number>();
   let known = true;
@@ -250,6 +271,28 @@ function balanceWith(
   const fmt = (map: Map<string, number>) =>
     [...map].filter(([, v]) => v > 0).map(([currency, v]) => formatMoney(v, currency));
   return { owesYou: fmt(owes), youOwe: fmt(owed), known };
+}
+
+/**
+ * The organiser's money across these splits: their own shares, what friends
+ * still owe them, and what they owe friends who paid upfront (per currency).
+ */
+function myMoney(entries: HistoryEntry[]): { spent: string[]; owedToYou: string[]; youOwe: string[] } {
+  const spent = new Map<string, number>();
+  const owed = new Map<string, number>();
+  const owe = new Map<string, number>();
+  const add = (map: Map<string, number>, currency: string, v: number) =>
+    map.set(currency, (map.get(currency) ?? 0) + v);
+  for (const h of entries) {
+    for (const m of h.members ?? []) {
+      if (m.amount === undefined) continue;
+      if (m.id === ME_ID) add(spent, h.currency, m.amount);
+      else if (!h.paidIds?.includes(m.id)) add(m.amount > 0 ? owed : owe, h.currency, Math.abs(m.amount));
+    }
+  }
+  const fmt = (map: Map<string, number>) =>
+    [...map].filter(([, v]) => v > 0).map(([currency, v]) => formatMoney(v, currency));
+  return { spent: fmt(spent), owedToYou: fmt(owed), youOwe: fmt(owe) };
 }
 
 /** Same person across splits: same id, or (for names typed into one split) same name. */

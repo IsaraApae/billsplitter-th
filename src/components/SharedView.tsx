@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate, wholeUnit } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { photoSrc } from "@/lib/client/photo";
-import { getEditToken, getHistory, historyFromDoc, patchHistory } from "@/lib/client/storage";
+import { getEditToken, getHistory, historyFromDoc, paidProgress, patchHistory } from "@/lib/client/storage";
 import { billDate } from "@/lib/draft";
 import { ME_ID } from "@/lib/friends";
 import { formatStep, wholeUnitName } from "@/lib/money";
@@ -45,6 +45,7 @@ export function SharedView({
   const url = `${useBrowserValue(() => window.location.origin, "")}/s/${id}`;
   const [payFor, setPayFor] = useState<string | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [photoBroken, setPhotoBroken] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const version = useRef(updatedAt);
   const pendingRef = useRef(pending);
@@ -52,14 +53,25 @@ export function SharedView({
     pendingRef.current = pending;
   }, [pending]);
 
-  const paidCount = doc.people.filter((p) => paid.has(p.id)).length;
-  const total = doc.people.length;
+  // Progress counts friends only: the organiser paid the bill and never owes themselves.
+  const friendIds = doc.people.map((p) => p.id).filter((pid) => pid !== ME_ID);
+  const { paid: paidCount, people: total } = paidProgress(
+    doc.people.map((p) => p.id),
+    [...paid],
+  );
   const allPaid = paidCount === total;
   // Only money still coming in; someone who paid upfront may be owed money back instead.
-  const outstanding = calc.people.filter((p) => !paid.has(p.personId)).reduce((s, p) => s + Math.max(0, p.payable), 0);
-  // Not people the organiser owes money back to (they paid upfront).
+  const outstanding = calc.people
+    .filter((p) => friendIds.includes(p.personId) && !paid.has(p.personId))
+    .reduce((s, p) => s + Math.max(0, p.payable), 0);
+  // Not the organiser, and not people the organiser owes money back to (they paid upfront).
   const waitingOn = doc.people
-    .filter((p) => !paid.has(p.id) && (calc.people.find((r) => r.personId === p.id)?.payable ?? 0) >= 0)
+    .filter(
+      (p) =>
+        friendIds.includes(p.id) &&
+        !paid.has(p.id) &&
+        (calc.people.find((r) => r.personId === p.id)?.payable ?? 0) >= 0,
+    )
     .map((p) => p.name);
   const pp = doc.payment.promptpay;
   const payPerson = calc.people.find((p) => p.personId === payFor);
@@ -164,7 +176,7 @@ export function SharedView({
         <h1 className="mt-1 text-[28px] leading-tight font-bold tracking-tight break-words">{doc.title}</h1>
         <Money value={calc.total} currency={doc.currency} className="mt-3 block text-[48px] leading-none font-bold tracking-tight" />
         <p className="mt-2 text-[15px] text-ink-2">
-          {total} {total === 1 ? "person" : "people"} · {doc.mode === "equal" ? "split equally" : "split by item"}
+          {doc.people.length} {doc.people.length === 1 ? "person" : "people"} · {doc.mode === "equal" ? "split equally" : "split by item"}
         </p>
 
         <div className="mt-5 text-left" aria-label="Payment progress">
@@ -230,7 +242,7 @@ export function SharedView({
       <Section title="Who owes what">
         <ul className="card rows overflow-hidden" aria-label="People">
           {calc.people.map((p, i) => {
-            const isPaid = paid.has(p.personId);
+            const isPaid = p.personId !== ME_ID && paid.has(p.personId);
             const busy = pending.has(p.personId);
             return (
               <PersonCard
@@ -241,7 +253,10 @@ export function SharedView({
                 mode={doc.mode}
                 highlight={isPaid ? "paid" : "unpaid"}
                 leading={
-                  canEdit ? (
+                  p.personId === ME_ID ? (
+                    // The organiser paid the bill: nothing to tick.
+                    <span className="size-11 shrink-0" aria-hidden />
+                  ) : canEdit ? (
                     <label className="grid size-11 shrink-0 cursor-pointer place-items-center">
                       <input
                         type="checkbox"
@@ -279,7 +294,13 @@ export function SharedView({
                   <span
                     className={cx(
                       "text-[13px] font-semibold",
-                      isPaid ? "text-accent" : p.payable < 0 ? "text-positive" : "text-warn",
+                      p.personId === ME_ID
+                        ? "text-ink-2"
+                        : isPaid
+                          ? "text-accent"
+                          : p.payable < 0
+                            ? "text-positive"
+                            : "text-warn",
                     )}
                   >
                     {p.personId === ME_ID
@@ -328,7 +349,7 @@ export function SharedView({
       </Section>
 
       <Section title="Bill">
-        {doc.photo && (
+        {doc.photo && !photoBroken && (
           <button
             type="button"
             onClick={() => setPhotoOpen(true)}
@@ -336,7 +357,13 @@ export function SharedView({
             aria-label="Open the receipt photo"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoSrc(doc.photo)} alt="Receipt" loading="lazy" className="h-44 w-full object-cover object-top" />
+            <img
+              src={photoSrc(doc.photo)}
+              alt="Receipt"
+              loading="lazy"
+              className="h-44 w-full object-cover object-top"
+              onError={() => setPhotoBroken(true)}
+            />
             <span className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/65 to-transparent px-5 pt-10 pb-4 text-[15px] font-semibold text-white">
               Receipt photo
               <ZoomIn size={22} {...ICON} aria-hidden />

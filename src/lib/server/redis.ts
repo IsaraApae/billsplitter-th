@@ -153,14 +153,20 @@ export async function createSplit(doc: SplitDoc): Promise<{ id: string; token: s
   for (let attempt = 0; attempt < 3; attempt++) {
     const id = newId();
     const stored: StoredSplit = { doc, editHash: hash(token), updatedAt: new Date().toISOString() };
-    if (await db().set(docKey(id), stored, { ex: TTL_SECONDS, nx: true })) return { id, token };
+    if (await db().set(docKey(id), stored, { ex: TTL_SECONDS, nx: true })) {
+      await linkPhoto(id, doc);
+      return { id, token };
+    }
   }
   throw new Error("Could not allocate an id");
 }
 
 export async function getSplit(id: string): Promise<{ doc: SplitDoc; updatedAt: string } | null> {
   const s = await db().get<StoredSplit>(docKey(id));
-  return s ? { doc: s.doc, updatedAt: s.updatedAt } : null;
+  if (!s) return null;
+  // Also covers photos on splits saved before photos were linked.
+  if (s.doc.photo) await linkPhoto(id, s.doc).catch(() => {});
+  return { doc: s.doc, updatedAt: s.updatedAt };
 }
 
 export async function getPaid(id: string): Promise<string[]> {
@@ -190,6 +196,7 @@ export async function updateSplit(id: string, token: string, doc: SplitDoc): Pro
     db().set(docKey(id), next, { ex: TTL_SECONDS }),
     db().hdel(paidKey(id), ...removed),
     db().expire(paidKey(id), TTL_SECONDS),
+    linkPhoto(id, next.doc),
   ]);
   return "ok";
 }
@@ -260,9 +267,30 @@ export async function setPaid(
   if (!s || !s.doc.people.some((p) => p.id === personId)) return "not_found";
   if (!(token && tokenMatches(token, s.editHash))) return "forbidden";
   await (paid ? db().hset(paidKey(id), personId, String(Date.now())) : db().hdel(paidKey(id), personId));
-  await Promise.all([db().expire(paidKey(id), TTL_SECONDS), db().expire(docKey(id), TTL_SECONDS)]);
+  await Promise.all([db().expire(paidKey(id), TTL_SECONDS), db().expire(docKey(id), TTL_SECONDS), linkPhoto(id, s.doc)]);
   const ids = new Set(s.doc.people.map((p) => p.id));
   return (await getPaid(id)).filter((p) => ids.has(p));
+}
+
+// ---- Receipt photos: which split shows each one, so unused photos can be deleted
+
+const photoKey = (url: string) => `photo:${url}`;
+const PHOTO_TTL = TTL_SECONDS + 60 * 60 * 24 * 30; // outlives the split; refreshed with it
+
+async function linkPhoto(splitId: string, doc: SplitDoc): Promise<void> {
+  if (doc.photo) await db().set(photoKey(doc.photo), splitId, { ex: PHOTO_TTL });
+}
+
+/** True while a live split still shows this receipt photo. */
+export async function photoInUse(url: string): Promise<boolean> {
+  const splitId = await db().get<string>(photoKey(url));
+  if (!splitId) return false;
+  const s = await db().get<StoredSplit>(docKey(splitId));
+  return s?.doc.photo === url;
+}
+
+export async function forgetPhoto(url: string): Promise<void> {
+  await db().del(photoKey(url));
 }
 
 // ---- Gemini model cooldowns (circuit breaker shared by all instances) -----

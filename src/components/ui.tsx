@@ -243,22 +243,30 @@ export function PercentInput({
   );
 }
 
-export function QtyStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+export function QtyStepper({
+  value,
+  onChange,
+  label = "quantity",
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  label?: string;
+}) {
   return (
     <div className="flex items-center rounded-full bg-[var(--field)]">
       <button
         type="button"
-        aria-label="Decrease quantity"
+        aria-label={`Decrease ${label}`}
         className="icon-plain disabled:opacity-30"
         disabled={value <= 1}
         onClick={() => onChange(Math.max(1, value - 1))}
       >
         <Minus size={20} {...ICON} />
       </button>
-      <span className="tnum w-7 text-center font-semibold" aria-label="Quantity">
+      <span className="tnum w-7 text-center font-semibold" aria-label={label}>
         {value}
       </span>
-      <button type="button" aria-label="Increase quantity" className="icon-plain" onClick={() => onChange(Math.min(999, value + 1))}>
+      <button type="button" aria-label={`Increase ${label}`} className="icon-plain" onClick={() => onChange(Math.min(999, value + 1))}>
         <Plus size={20} {...ICON} />
       </button>
     </div>
