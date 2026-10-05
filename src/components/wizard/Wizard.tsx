@@ -8,7 +8,16 @@ import { rememberPeople } from "@/lib/client/friendsStore";
 import { askConfirm } from "@/lib/client/confirm";
 import { hasPendingScan, SCAN_EVENT } from "@/lib/client/pendingScan";
 import { getProfile, paymentFromProfile } from "@/lib/client/profile";
-import { getEditToken, historyFromDoc, load, remove, save, setEditToken, upsertHistory } from "@/lib/client/storage";
+import {
+  getEditToken,
+  historyFromDoc,
+  load,
+  paidProgress,
+  remove,
+  save,
+  setEditToken,
+  upsertHistory,
+} from "@/lib/client/storage";
 import { billDate, defaultTitle, newDoc } from "@/lib/draft";
 import { toPeople } from "@/lib/friends";
 import type { Person, SplitDoc } from "@/lib/types";
@@ -160,8 +169,10 @@ export function Wizard() {
         ...historyFromDoc(clean),
         total: calculate(clean).total,
         currency: clean.currency,
-        people: clean.people.length,
-        paid: 0,
+        ...paidProgress(
+          clean.people.map((p) => p.id),
+          [],
+        ),
       });
       setState({ doc: clean, step: 4, editingId: id });
       window.scrollTo({ top: 0 });

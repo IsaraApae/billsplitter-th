@@ -412,3 +412,25 @@ describe("paid upfront (a friend paid part of the bill)", () => {
     expect(sum(friends.map((p) => p.payable)) - owedExactly).toBeLessThan(100);
   });
 });
+
+describe("uneven shares of one item", () => {
+  it("splits by shares: Mint had 2 of the 3 beers", () => {
+    const beers = { ...item("beer", 9000, ["a", "b"], 3), shares: { a: 2 } };
+    const r = calculate(base({ items: [beers] }));
+    expect(totals(r)).toEqual([18000, 9000, 0]);
+    expect(r.people[0].items[0]).toMatchObject({ shares: 2, totalShares: 3 });
+  });
+
+  it("keeps service, VAT and discounts exact", () => {
+    const r = calculate(
+      base({
+        items: [{ ...item("x", 10001, ["a", "b", "c"]), shares: { a: 3, c: 2 } }, item("y", 4999, ["b"])],
+        discount: { ...noDiscount, enabled: true, value: 1500 },
+        service: { enabled: true, rateBp: 1000 },
+        vat: { enabled: true, rateBp: 700 },
+      }),
+    );
+    expect(sum(totals(r))).toBe(r.total);
+    for (const p of r.people) expect(p.discount).toBeGreaterThanOrEqual(0);
+  });
+});

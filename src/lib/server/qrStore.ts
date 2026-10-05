@@ -1,5 +1,5 @@
 import "server-only";
-import { del, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import { randomBytes } from "node:crypto";
 import { devImageDel, devImageGet, devImagePut } from "./redis";
 
@@ -46,6 +46,23 @@ export async function storeReceiptImage(bytes: Buffer): Promise<string> {
     return `dev:${key}`;
   }
   throw new Error("Image storage is not configured (BLOB_READ_WRITE_TOKEN missing).");
+}
+
+/** Every stored receipt photo (Vercel Blob only; nothing to clean up in local dev). */
+export async function listReceiptImages(): Promise<{ url: string; uploadedAt: Date }[]> {
+  if (!blobReady) return [];
+  const all: { url: string; uploadedAt: Date }[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: "receipts/", cursor, limit: 1000 });
+    all.push(...page.blobs.map((b) => ({ url: b.url, uploadedAt: new Date(b.uploadedAt) })));
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  return all;
+}
+
+export async function deleteImages(urls: string[]): Promise<void> {
+  if (blobReady && urls.length) await del(urls);
 }
 
 export async function deleteQrImage(url: string | null): Promise<void> {

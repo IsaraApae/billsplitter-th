@@ -19,6 +19,8 @@ export interface Item {
   qty: number; // positive integer
   price: number; // unit price, minor units
   assigned: string[]; // person ids (itemized mode)
+  /** Uneven split: how many shares each assigned person had (e.g. 2 of 3 beers). Absent / missing = 1. */
+  shares?: Record<string, number>;
 }
 
 export interface Discount {

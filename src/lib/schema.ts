@@ -37,6 +37,7 @@ export const splitDocSchema = z
           qty: z.number().int().min(1).max(999),
           price: z.number().int().min(-1_000_000_000_00).max(1_000_000_000_00), // negative = discount on one item
           assigned: z.array(id).max(50),
+          shares: z.record(id, z.number().int().min(1).max(999)).optional(),
         }),
       )
       .min(1)
@@ -84,7 +85,12 @@ export function parseSplitDoc(input: unknown): { ok: true; doc: SplitDoc } | { o
   const doc = r.data as SplitDoc;
   const ids = new Set(doc.people.map((p) => p.id));
   const itemIds = new Set(doc.items.map((i) => i.id));
-  doc.items = doc.items.map((it) => ({ ...it, assigned: [...new Set(it.assigned)].filter((a) => ids.has(a)) }));
+  doc.items = doc.items.map((it) => {
+    const assigned = [...new Set(it.assigned)].filter((a) => ids.has(a));
+    const shares = it.shares && Object.fromEntries(Object.entries(it.shares).filter(([pid, n]) => assigned.includes(pid) && n > 1));
+    // Only keep shares that make a difference (missing = 1).
+    return shares && Object.keys(shares).length > 0 ? { ...it, assigned, shares } : { ...it, assigned, shares: undefined };
+  });
   doc.discount.itemIds = doc.discount.itemIds.filter((i) => itemIds.has(i));
   if (doc.prepaid) doc.prepaid = doc.prepaid.filter((p) => ids.has(p.personId) && p.amount > 0);
   return { ok: true, doc };

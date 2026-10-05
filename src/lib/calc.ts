@@ -65,6 +65,9 @@ export interface PersonItemShare {
   name: string;
   /** number of people sharing this item */
   sharedBy: number;
+  /** this person's shares of the item, out of `totalShares` (both = 1 / sharedBy when even) */
+  shares: number;
+  totalShares: number;
   /** share of the pre-discount line total */
   amount: number;
 }
@@ -226,7 +229,7 @@ export function calculate(input: CalcInput): CalcResult {
         r.discount = sub[i] - ds[i];
         r.service = sc[i];
         r.vat = vt[i];
-        r.items = items.map((it) => ({ itemId: it.id, name: it.name, sharedBy: n, amount: 0 }));
+        r.items = items.map((it) => ({ itemId: it.id, name: it.name, sharedBy: n, shares: 1, totalShares: n, amount: 0 }));
       });
       // Show each person's even share of every line.
       lines.forEach((l, li) => {
@@ -238,18 +241,20 @@ export function calculate(input: CalcInput): CalcResult {
           .sort((a, b) => personIndex.get(a)! - personIndex.get(b)!);
         if (who.length === 0) return;
         const k = who.length;
-        const ones = equalWeights(k);
+        // Even by default; "Mint had 2 of the 3 beers" gives Mint weight 2.
+        const weights = who.map((id) => Math.max(1, Math.round(it.shares?.[id] ?? 1)));
+        const totalShares = weights.reduce((a, b) => a + b, 0);
         const off = li % k;
-        // Same offset for both allocations, so line share − discounted share
-        // is never negative and discount shares still sum exactly.
-        const lineShares = allocate(lines[li].lineTotal, ones, off);
-        const dsShares = allocate(lines[li].discounted, ones, off);
+        const lineShares = allocate(lines[li].lineTotal, weights, off);
+        // Split the line's discount the same way, so nobody's discount is
+        // negative and the shares still sum exactly.
+        const discShares = allocate(lines[li].lineTotal - lines[li].discounted, weights, off);
         who.forEach((pid, j) => {
           const r = results[personIndex.get(pid)!];
           r.subtotal += lineShares[j];
-          r.discounted += dsShares[j];
-          r.discount += lineShares[j] - dsShares[j];
-          r.items.push({ itemId: it.id, name: it.name, sharedBy: k, amount: lineShares[j] });
+          r.discounted += lineShares[j] - discShares[j];
+          r.discount += discShares[j];
+          r.items.push({ itemId: it.id, name: it.name, sharedBy: k, shares: weights[j], totalShares, amount: lineShares[j] });
         });
       });
       const weights = results.map((r) => r.discounted);

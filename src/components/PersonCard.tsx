@@ -69,7 +69,14 @@ export function PersonCard({
                 <li key={it.itemId} className="flex justify-between gap-3">
                   <span className="min-w-0 truncate">
                     {it.name}
-                    {it.sharedBy > 1 && <span className="text-ink-2"> ÷{it.sharedBy}</span>}
+                    {it.totalShares !== it.sharedBy ? (
+                      <span className="text-ink-2">
+                        {" "}
+                        {it.shares}/{it.totalShares}
+                      </span>
+                    ) : (
+                      it.sharedBy > 1 && <span className="text-ink-2"> ÷{it.sharedBy}</span>
+                    )}
                   </span>
                   <Money value={it.amount} currency={currency} tone={it.amount < 0 ? "negative" : undefined} />
                 </li>
