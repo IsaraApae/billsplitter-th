@@ -4,7 +4,7 @@ import { Check, ChevronRight, Plus, Trash2, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { askConfirm } from "@/lib/client/confirm";
 import { getFriends, getGroups, saveFriends, saveGroups } from "@/lib/client/friendsStore";
-import { useLastSplitDates } from "@/lib/client/lastSplit";
+import { useLastSplitDates, useSplitHistory } from "@/lib/client/lastSplit";
 import { uid } from "@/lib/draft";
 import { addFriend, findByName, sortFriends, withLastSplit, type Friend, type FriendGroup } from "@/lib/friends";
 import { PERSON_COLORS, type PersonColor } from "@/lib/types";
@@ -19,7 +19,7 @@ export function FriendsManager() {
   const [editing, setEditing] = useState<Editing>(null);
   const [query, setQuery] = useState("");
 
-  const lastSplit = useLastSplitDates();
+  const lastSplit = useLastSplitDates(useSplitHistory());
 
   const commitFriends = (f: Friend[]) => {
     setFriends(f);

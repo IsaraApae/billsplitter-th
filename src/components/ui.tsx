@@ -59,13 +59,21 @@ export const COLOR_HEX: Record<PersonColor, string> = {
   slate: "#A9A9B0",
 };
 
-export function Avatar({ person, size = 32 }: { person: Pick<Person, "name" | "emoji" | "color">; size?: number }) {
+export function Avatar({
+  person,
+  size = 32,
+  className,
+}: {
+  person: Pick<Person, "name" | "emoji" | "color">;
+  size?: number;
+  className?: string;
+}) {
   const hex = COLOR_HEX[person.color ?? "slate"];
   const initial = [...(person.name.trim() || "?")][0].toUpperCase();
   return (
     <span
       aria-hidden
-      className="inline-grid shrink-0 place-items-center rounded-full font-semibold text-[#1c1c1e]"
+      className={cx("inline-grid shrink-0 place-items-center rounded-full font-semibold text-[#1c1c1e]", className)}
       style={{ width: size, height: size, fontSize: person.emoji ? size * 0.55 : size * 0.42, background: hex }}
     >
       {person.emoji || initial}
