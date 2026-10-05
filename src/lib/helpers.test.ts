@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { backupSummary, makeBackup, mergeBackup, parseBackup } from "./backup";
-import { billDate, billDay, newDoc } from "./draft";
+import { billDate, billDay, newDoc, splitItem } from "./draft";
+import { calculate } from "./calc";
 import { formatMoney, parseMoney, percentToBp } from "./money";
 import { parseSplitDoc } from "./schema";
 import { isValidPromptPayId, normalizePromptPayInput } from "./promptpay";
@@ -130,5 +131,48 @@ describe("backup", () => {
     expect(m["bs:tokens"]).toEqual({ s1: "x1", s2: "x2", s3: "x3" });
     // The name stays; the uploaded QR from the old phone is adopted.
     expect(m["bs:profile"]).toMatchObject({ name: "Isara (new phone)", ownerId: "o1", ownerToken: "t1", qrMode: "upload" });
+  });
+});
+
+describe("split an item into separate lines", () => {
+  const doc = {
+    ...newDoc(),
+    people: [
+      { id: "a", name: "A" },
+      { id: "b", name: "B" },
+      { id: "c", name: "C" },
+    ],
+    items: [
+      { id: "rice", name: "Rice", qty: 1, price: 5000, assigned: ["a"] },
+      { id: "w", name: "Water", qty: 2, price: 2000, assigned: ["a", "b", "c"] },
+    ],
+  };
+
+  it("makes one line per unit, keeping the price and people", () => {
+    const d = splitItem(doc, "w");
+    expect(d.items.map((i) => [i.name, i.qty, i.price])).toEqual([
+      ["Rice", 1, 5000],
+      ["Water (1)", 1, 2000],
+      ["Water (2)", 1, 2000],
+    ]);
+    expect(d.items[1].id).toBe("w");
+    expect(d.items[2].assigned).toEqual(["a", "b", "c"]);
+  });
+
+  it("then each bottle can be shared by different people", () => {
+    const d = splitItem(doc, "w");
+    d.items[1] = { ...d.items[1], assigned: ["a", "b"] };
+    const r = calculate(d);
+    const [a, b, c] = r.people.map((p) => p.total);
+    // A and B: half of bottle 1 plus a third of bottle 2; C: a third of bottle 2 (to the satang).
+    expect(Math.abs(a - 5000 - 1667)).toBeLessThanOrEqual(1);
+    expect(Math.abs(b - 1667)).toBeLessThanOrEqual(1);
+    expect(Math.abs(c - 667)).toBeLessThanOrEqual(1);
+    expect(a + b + c).toBe(r.total);
+  });
+
+  it("keeps the new lines in a discount on selected items", () => {
+    const d = splitItem({ ...doc, discount: { ...doc.discount, scope: "selected", itemIds: ["w"] } }, "w");
+    expect(d.discount.itemIds).toHaveLength(2);
   });
 });

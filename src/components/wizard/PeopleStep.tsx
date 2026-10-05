@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, SlidersHorizontal, UserPlus, UsersRound, X } from "lucide-react";
+import { Check, Rows3, SlidersHorizontal, UserPlus, UsersRound, X } from "lucide-react";
 import { useState } from "react";
 import type { CalcResult } from "@/lib/calc";
 import { ensureFriend } from "@/lib/client/friendsStore";
+import { MAX_SPLIT_QTY, splitItem } from "@/lib/draft";
 import { ME_ID } from "@/lib/friends";
 import type { SplitDoc } from "@/lib/types";
 import { Avatar, Callout, ICON, Money, QtyStepper, Section, Segmented, Sheet, cx } from "../ui";
@@ -256,10 +257,23 @@ export function PeopleStep({
                       );
                     })}
                   </div>
-                  {k > 1 && (
-                    <button type="button" className="btn-ghost mt-1 min-h-11 px-0 text-[15px]" onClick={() => setSharesFor(it.id)}>
-                      <SlidersHorizontal size={18} {...ICON} aria-hidden /> {uneven ? "Change shares" : "Split unevenly"}
-                    </button>
+                  {(k > 1 || (it.qty > 1 && it.qty <= MAX_SPLIT_QTY)) && (
+                    <div className="mt-1 flex flex-wrap gap-x-5">
+                      {it.qty > 1 && it.qty <= MAX_SPLIT_QTY && (
+                        <button
+                          type="button"
+                          className="btn-ghost min-h-11 px-0 text-[15px]"
+                          onClick={() => setDoc((d) => splitItem(d, it.id))}
+                        >
+                          <Rows3 size={18} {...ICON} aria-hidden /> Split into {it.qty} items
+                        </button>
+                      )}
+                      {k > 1 && (
+                        <button type="button" className="btn-ghost min-h-11 px-0 text-[15px]" onClick={() => setSharesFor(it.id)}>
+                          <SlidersHorizontal size={18} {...ICON} aria-hidden /> {uneven ? "Change shares" : "Split unevenly"}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </li>
               );

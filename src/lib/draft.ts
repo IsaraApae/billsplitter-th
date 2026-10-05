@@ -49,6 +49,35 @@ export function billDate(doc: Pick<SplitDoc, "date" | "createdAt">): Date {
   return new Date(y, m - 1, d);
 }
 
+/** Most an item can be split into separate lines. */
+export const MAX_SPLIT_QTY = 20;
+
+/**
+ * "2× Water" → "Water (1)" and "Water (2)", one unit each, so each can be
+ * shared by different people. They start with the same people ticked, and
+ * stay in a receipt-wide discount on selected items if the original was.
+ */
+export function splitItem(doc: SplitDoc, itemId: string): SplitDoc {
+  const i = doc.items.findIndex((it) => it.id === itemId);
+  const it = doc.items[i];
+  if (!it || it.qty < 2 || it.qty > MAX_SPLIT_QTY) return doc;
+  const parts = Array.from({ length: it.qty }, (_, n) => ({
+    id: n === 0 ? it.id : uid(),
+    name: `${it.name || "Item"} (${n + 1})`,
+    qty: 1,
+    price: it.price,
+    assigned: [...it.assigned],
+  }));
+  const inDiscount = doc.discount.itemIds.includes(it.id);
+  return {
+    ...doc,
+    items: [...doc.items.slice(0, i), ...parts, ...doc.items.slice(i + 1)],
+    discount: inDiscount
+      ? { ...doc.discount, itemIds: [...doc.discount.itemIds, ...parts.slice(1).map((p) => p.id)] }
+      : doc.discount,
+  };
+}
+
 export function defaultTitle(date = new Date()): string {
   return `Bill · ${date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
 }
