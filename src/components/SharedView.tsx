@@ -16,6 +16,7 @@ import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
+import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
 import { ZoomableImage } from "./ZoomableImage";
 import { Callout, ICON, Money, Section, Sheet, cx } from "./ui";
@@ -27,17 +28,23 @@ export function SharedView({
   doc,
   updatedAt,
   initialPaid,
+  initialPartial = {},
   qr,
 }: {
   id: string;
   doc: SplitDoc;
   updatedAt: string;
   initialPaid: string[];
+  /** part-payments so far: personId → amount */
+  initialPartial?: Record<string, number>;
   qr: PayQrSource | null;
 }) {
   const router = useRouter();
   const calc = useMemo(() => calculate(doc), [doc]);
   const [paid, setPaid] = useState<Set<string>>(() => new Set(initialPaid));
+  const [partial, setPartial] = useState<Record<string, number>>(initialPartial);
+  // Person whose payment the organiser is recording.
+  const [askFor, setAskFor] = useState<string | null>(null);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const editToken = useBrowserValue(() => getEditToken(id), null);
@@ -60,10 +67,13 @@ export function SharedView({
     [...paid],
   );
   const allPaid = paidCount === total;
-  // Only money still coming in; someone who paid upfront may be owed money back instead.
+  // Only money still coming in (less any part-payments); someone who paid
+  // upfront may be owed money back instead.
   const outstanding = calc.people
     .filter((p) => friendIds.includes(p.personId) && !paid.has(p.personId))
-    .reduce((s, p) => s + Math.max(0, p.payable), 0);
+    .reduce((s, p) => s + Math.max(0, p.payable - (partial[p.personId] ?? 0)), 0);
+  const partCount = friendIds.filter((pid) => !paid.has(pid) && partial[pid]).length;
+  const statusOf = (pid: string): PaidStatus => (paid.has(pid) ? "full" : partial[pid] ? "part" : "none");
   // Not the organiser, and not people the organiser owes money back to (they paid upfront).
   const waitingOn = doc.people
     .filter(
@@ -75,6 +85,7 @@ export function SharedView({
     .map((p) => p.name);
   const pp = doc.payment.promptpay;
   const payPerson = calc.people.find((p) => p.personId === payFor);
+  const askPerson = calc.people.find((p) => p.personId === askFor);
 
   useEffect(() => {
     version.current = updatedAt;
@@ -83,8 +94,15 @@ export function SharedView({
   // Keep the history entry's progress fresh if this split is in our history.
   useEffect(() => {
     if (getHistory().some((h) => h.id === id))
-      patchHistory(id, { ...historyFromDoc(doc), paid: paidCount, people: total, total: calc.total, paidIds: [...paid] });
-  }, [id, doc, paid, paidCount, total, calc.total]);
+      patchHistory(id, {
+        ...historyFromDoc(doc),
+        paid: paidCount,
+        people: total,
+        total: calc.total,
+        paidIds: [...paid],
+        partialPaid: partial,
+      });
+  }, [id, doc, paid, partial, paidCount, total, calc.total]);
 
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible" || pendingRef.current.size > 0) return;
@@ -95,9 +113,10 @@ export function SharedView({
         return;
       }
       if (!r.ok) return;
-      const data: { paid: string[]; updatedAt: string } = await r.json();
+      const data: { paid: string[]; partial?: Record<string, number>; updatedAt: string } = await r.json();
       if (pendingRef.current.size > 0) return; // a tick is in flight; don't clobber it
       setPaid(new Set(data.paid));
+      setPartial(data.partial ?? {});
       if (data.updatedAt !== version.current) {
         version.current = data.updatedAt;
         router.refresh(); // the creator edited the split — reload the server data
@@ -119,30 +138,38 @@ export function SharedView({
     };
   }, [refresh]);
 
-  async function togglePaid(personId: string) {
-    const next = !paid.has(personId);
-    if (!canEdit) return; // only the organiser can change who has paid
+  /** Paid in full (big tick), part of it (small tick), or not yet — organiser only. */
+  async function savePayment(personId: string, input: PaymentInput) {
+    if (!canEdit) return;
     setError(null);
-    const flip = (s: Set<string>, on: boolean) => {
+    const before = { paid, partial };
+    setPaid((s) => {
       const n = new Set(s);
-      if (on) n.add(personId);
+      if ("paid" in input && input.paid) n.add(personId);
       else n.delete(personId);
       return n;
-    };
-    setPaid((s) => flip(s, next));
+    });
+    setPartial((m) => {
+      const n = { ...m };
+      if ("amount" in input) n[personId] = input.amount;
+      else delete n[personId];
+      return n;
+    });
     setPending((s) => new Set(s).add(personId));
     try {
       const r = await fetch(`/api/splits/${id}/paid`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(editToken ? { "x-edit-token": editToken } : {}) },
-        body: JSON.stringify({ personId, paid: next }),
+        body: JSON.stringify({ personId, ...input }),
       });
       const data = await r.json().catch(() => null);
       if (!r.ok) throw new Error(data?.message ?? "Couldn't save.");
       setPaid(new Set(data.paid as string[]));
+      setPartial((data.partial as Record<string, number>) ?? {});
     } catch (e) {
-      setPaid((s) => flip(s, !next));
-      setError(navigator.onLine ? (e as Error).message : "You're offline — the tick wasn't saved.");
+      setPaid(before.paid);
+      setPartial(before.partial);
+      setError(navigator.onLine ? (e as Error).message : "You're offline — the payment wasn't saved.");
     } finally {
       setPending((s) => {
         const n = new Set(s);
@@ -183,7 +210,7 @@ export function SharedView({
           <div className="mb-2 flex items-baseline justify-between gap-2">
             <span className="flex items-center gap-1.5 font-semibold">
               {allPaid && <PartyPopper size={20} {...ICON} className="text-accent" aria-hidden />}
-              {allPaid ? "Everyone has paid" : `${paidCount} of ${total} paid`}
+              {allPaid ? "Everyone has paid" : `${paidCount} of ${total} paid${partCount ? ` · ${partCount} part paid` : ""}`}
             </span>
             {!allPaid && (
               <span className="text-[15px] text-ink-2">
@@ -243,6 +270,8 @@ export function SharedView({
         <ul className="card rows overflow-hidden" aria-label="People">
           {calc.people.map((p, i) => {
             const isPaid = p.personId !== ME_ID && paid.has(p.personId);
+            const status = statusOf(p.personId);
+            const paidPart = partial[p.personId] ?? 0;
             const busy = pending.has(p.personId);
             return (
               <PersonCard
@@ -257,36 +286,19 @@ export function SharedView({
                     // The organiser paid the bill: nothing to tick.
                     <span className="size-11 shrink-0" aria-hidden />
                   ) : canEdit ? (
-                    <label className="grid size-11 shrink-0 cursor-pointer place-items-center">
-                      <input
-                        type="checkbox"
-                        className="peer sr-only"
-                        checked={isPaid}
-                        disabled={busy}
-                        onChange={() => togglePaid(p.personId)}
-                        aria-label={`${p.name} paid`}
-                      />
-                      <span
-                        aria-hidden
-                        className={cx(
-                          "press grid size-8 place-items-center rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-accent",
-                          isPaid ? "bg-accent text-accent-ink" : "bg-[var(--field)]",
-                          busy && "opacity-50",
-                        )}
-                      >
-                        {isPaid && <Check size={18} {...ICON} />}
-                      </span>
-                    </label>
+                    <button
+                      type="button"
+                      className="press grid size-11 shrink-0 place-items-center rounded-full"
+                      disabled={busy}
+                      aria-label={`${p.name}: ${status === "full" ? "paid" : status === "part" ? "paid part" : "not paid"}. Change`}
+                      onClick={() => setAskFor(p.personId)}
+                    >
+                      <PaidMark status={status} busy={busy} />
+                    </button>
                   ) : (
                     // Read-only for everyone but the organiser: a status icon, not a control.
                     <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
-                      {isPaid ? (
-                        <span className="grid size-8 place-items-center rounded-full bg-accent text-accent-ink">
-                          <Check size={18} {...ICON} />
-                        </span>
-                      ) : (
-                        <span className="size-2.5 rounded-full bg-warn" />
-                      )}
+                      {status === "none" ? <span className="size-2.5 rounded-full bg-warn" /> : <PaidMark status={status} />}
                     </span>
                   )
                 }
@@ -296,24 +308,31 @@ export function SharedView({
                       "text-[13px] font-semibold",
                       p.personId === ME_ID
                         ? "text-ink-2"
-                        : isPaid
+                        : isPaid || status === "part"
                           ? "text-accent"
                           : p.payable < 0
                             ? "text-positive"
                             : "text-warn",
                     )}
                   >
-                    {p.personId === ME_ID
-                      ? isPaid
-                        ? "Paid"
-                        : "Organiser"
-                      : p.payable < 0
-                        ? isPaid
-                          ? "Paid back"
-                          : "Gets money back"
-                        : isPaid
-                          ? "Paid"
-                          : "Unpaid"}
+                    {p.personId === ME_ID ? (
+                      "Organiser"
+                    ) : p.payable < 0 ? (
+                      isPaid ? (
+                        "Paid back"
+                      ) : (
+                        "Gets money back"
+                      )
+                    ) : isPaid ? (
+                      "Paid"
+                    ) : status === "part" ? (
+                      <>
+                        Paid <Money value={paidPart} currency={doc.currency} /> ·{" "}
+                        <Money value={Math.max(0, p.payable - paidPart)} currency={doc.currency} /> left
+                      </>
+                    ) : (
+                      "Unpaid"
+                    )}
                   </span>
                 }
                 action={
@@ -408,8 +427,28 @@ export function SharedView({
         </Sheet>
       )}
 
+      {canEdit && (
+        <PaymentSheet
+          open={!!askPerson}
+          onClose={() => setAskFor(null)}
+          name={askPerson?.name ?? ""}
+          owed={askPerson?.payable ?? 0}
+          currency={doc.currency}
+          status={askPerson ? statusOf(askPerson.personId) : "none"}
+          paidSoFar={askPerson ? (partial[askPerson.personId] ?? 0) : 0}
+          onSave={(input) => askPerson && savePayment(askPerson.personId, input)}
+        />
+      )}
+
       <Sheet open={!!payPerson} onClose={() => setPayFor(null)} title={payPerson ? `Pay ${payPerson.name}'s share` : "Pay"}>
-        {payPerson && qr && <PayQr source={qr} amount={payPerson.payable} name={payPerson.name} />}
+        {payPerson && qr && (
+          // What's still left after any part-payment.
+          <PayQr
+            source={qr}
+            amount={Math.max(0, payPerson.payable - (partial[payPerson.personId] ?? 0))}
+            name={payPerson.name}
+          />
+        )}
       </Sheet>
     </main>
   );

@@ -1,7 +1,15 @@
 // Backup file for moving to a new phone: everything this device keeps in
 // localStorage except the current draft and display settings. Pure.
 
-export const BACKUP_KEYS = ["bs:profile", "bs:friends", "bs:groups", "bs:history", "bs:tokens", "bs:lastCrew"] as const;
+export const BACKUP_KEYS = [
+  "bs:profile",
+  "bs:friends",
+  "bs:groups",
+  "bs:history",
+  "bs:events",
+  "bs:tokens",
+  "bs:lastCrew",
+] as const;
 export type BackupKey = (typeof BACKUP_KEYS)[number];
 export type BackupData = Partial<Record<BackupKey, unknown>>;
 
@@ -65,6 +73,7 @@ export function mergeBackup(current: BackupData, incoming: BackupData): BackupDa
     "bs:friends": union(current["bs:friends"], incoming["bs:friends"]),
     "bs:groups": union(current["bs:groups"], incoming["bs:groups"]),
     "bs:history": union(current["bs:history"], incoming["bs:history"]),
+    "bs:events": union(current["bs:events"], incoming["bs:events"]),
     "bs:tokens": {
       ...(isObject(incoming["bs:tokens"]) ? incoming["bs:tokens"] : {}),
       ...(isObject(current["bs:tokens"]) ? current["bs:tokens"] : {}),
