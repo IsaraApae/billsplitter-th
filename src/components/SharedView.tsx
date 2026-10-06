@@ -304,6 +304,7 @@ export function SharedView({
                 currency={doc.currency}
                 mode={doc.mode}
                 highlight={isPaid ? "paid" : "unpaid"}
+                leftToPay={status === "part" ? Math.max(0, p.payable - paidPart) : undefined}
                 leading={
                   p.personId === ME_ID ? (
                     // The organiser paid the bill: nothing to tick.
@@ -350,8 +351,7 @@ export function SharedView({
                       "Paid"
                     ) : status === "part" ? (
                       <>
-                        Paid <Money value={paidPart} currency={doc.currency} /> ·{" "}
-                        <Money value={Math.max(0, p.payable - paidPart)} currency={doc.currency} /> left
+                        Part paid · <Money value={paidPart} currency={doc.currency} /> paid
                       </>
                     ) : (
                       "Unpaid"

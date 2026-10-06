@@ -20,13 +20,13 @@ export function PaidMark({ status, busy, small }: { status: PaidStatus; busy?: b
         "grid shrink-0 place-items-center rounded-full",
         small ? "size-5" : "size-8",
         status === "full" && "bg-accent text-accent-ink",
-        status === "part" && "bg-accent-soft text-accent shadow-[inset_0_0_0_2px_var(--accent)]",
+        status === "part" && "bg-[var(--field)] text-accent",
         status === "none" && "bg-[var(--field)]",
         busy && "opacity-50",
       )}
     >
       {status === "full" && <Check size={small ? 12 : 18} {...ICON} />}
-      {status === "part" && <Check size={small ? 9 : 12} strokeWidth={3} />}
+      {status === "part" && <Check size={small ? 10 : 14} strokeWidth={3} />}
     </span>
   );
 }
