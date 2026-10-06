@@ -16,6 +16,7 @@ export function PersonCard({
   leading,
   badge,
   action,
+  leftToPay,
   defaultOpen = false,
 }: {
   person: PersonResult;
@@ -26,6 +27,8 @@ export function PersonCard({
   leading?: ReactNode;
   badge?: ReactNode;
   action?: ReactNode;
+  /** after a part payment: what's still to pay, shown instead of the full amount */
+  leftToPay?: number;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -53,6 +56,11 @@ export function PersonCard({
             <span className="text-right leading-tight">
               <span className="block text-[11px] text-ink-2">gets back</span>
               <Money value={-person.payable} currency={currency} className="text-[19px] font-bold tracking-tight text-positive" />
+            </span>
+          ) : leftToPay !== undefined ? (
+            <span className="text-right leading-tight">
+              <span className="block text-[11px] text-ink-2">left to pay</span>
+              <Money value={leftToPay} currency={currency} className="text-[19px] font-bold tracking-tight" />
             </span>
           ) : (
             <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" />

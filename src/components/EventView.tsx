@@ -364,7 +364,7 @@ function PersonRow({
                 p.total < 0 ? "Paid back" : "Paid"
               ) : p.status === "part" ? (
                 <>
-                  Paid <Money value={p.paidSoFar} currency={currency} /> · <Money value={left} currency={currency} /> left
+                  Part paid · <Money value={p.paidSoFar} currency={currency} /> paid
                 </>
               ) : p.total < 0 ? (
                 "Gets money back"
@@ -377,6 +377,11 @@ function PersonRow({
             <span className="text-right leading-tight">
               <span className="block text-[11px] text-ink-2">gets back</span>
               <Money value={-p.total} currency={currency} className="text-[19px] font-bold tracking-tight text-positive" />
+            </span>
+          ) : p.status === "part" ? (
+            <span className="text-right leading-tight">
+              <span className="block text-[11px] text-ink-2">left to pay</span>
+              <Money value={left} currency={currency} className="text-[19px] font-bold tracking-tight" />
             </span>
           ) : (
             <Money value={p.total} currency={currency} className="text-[19px] font-bold tracking-tight" />
@@ -414,7 +419,14 @@ function PersonRow({
                 )}
                 <span className="truncate">{b.title}</span>
               </span>
-              <Money value={b.amount} currency={currency} tone={b.amount < 0 ? "negative" : undefined} />
+              {b.status === "part" ? (
+                <span className="text-right leading-tight">
+                  <span className="block text-[11px] text-ink-2">left to pay</span>
+                  <Money value={Math.max(0, b.amount - b.paidSoFar)} currency={currency} />
+                </span>
+              ) : (
+                <Money value={b.amount} currency={currency} tone={b.amount < 0 ? "negative" : undefined} />
+              )}
             </li>
           ))}
         </ul>
