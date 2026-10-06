@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { SharedView } from "@/components/SharedView";
 import { calculate } from "@/lib/calc";
 import { formatMoney } from "@/lib/money";
+import { splitVersion } from "@/lib/shareVersion";
 import { resolveQr } from "@/lib/server/payQr";
 import { getPaidState, isValidId, storageReady } from "@/lib/server/redis";
 import { loadSplit } from "@/lib/server/splits";
@@ -13,14 +14,16 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
   const s = await loadSplit(id);
   if (!s) return { title: "Split not found", robots: { index: false } };
   const c = calculate(s.doc);
+  // Versioned so a chat app's cached preview refreshes after the bill is edited.
+  const image = { url: `/api/og/s/${id}?v=${splitVersion(s.doc)}`, width: 1200, height: 630, alt: "Bill split summary" };
   const n = s.doc.people.length;
   const description = `${formatMoney(c.total, s.doc.currency)} split between ${n} ${n === 1 ? "person" : "people"}. Tap to see what you owe and mark it paid.`;
   return {
     title: s.doc.title,
     description,
     robots: { index: false, follow: false },
-    openGraph: { title: s.doc.title, description, type: "website", siteName: "Bill Splitter" },
-    twitter: { card: "summary_large_image", title: s.doc.title, description },
+    openGraph: { title: s.doc.title, description, type: "website", siteName: "Bill Splitter", images: [image] },
+    twitter: { card: "summary_large_image", title: s.doc.title, description, images: [image.url] },
   };
 }
 

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { getEditToken, getEvents, upsertEvent } from "@/lib/client/storage";
+import { eventVersion } from "@/lib/shareVersion";
 import { byTitle, eventPeople, type EventBill, type EventMeta, type EventPerson, type EventPersonBill } from "@/lib/event";
 import { EventEditor } from "./EventEditor";
 import { PayQr, type PayQrSource } from "./PayQr";
@@ -40,7 +41,8 @@ export function EventView({
   const [editing, setEditing] = useState(false);
   const editToken = useBrowserValue(() => getEditToken(id), null);
   const canEdit = !!editToken;
-  const url = `${useBrowserValue(() => window.location.origin, "")}/e/${id}`;
+  // ?v= changes when the big bill does, so chat apps show a fresh preview.
+  const url = `${useBrowserValue(() => window.location.origin, "")}/e/${id}?v=${eventVersion(meta, bills.map((b) => b.doc))}`;
   const busyRef = useRef(busy);
   useEffect(() => {
     busyRef.current = busy;

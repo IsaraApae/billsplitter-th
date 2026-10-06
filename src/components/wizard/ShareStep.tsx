@@ -5,12 +5,14 @@ import Link from "next/link";
 import type { CalcResult } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { formatMoney } from "@/lib/money";
+import { splitVersion } from "@/lib/shareVersion";
 import type { SplitDoc } from "@/lib/types";
 import { ShareButtons } from "../ShareButtons";
 import { ICON, Money } from "../ui";
 
 export function ShareStep({ doc, calc, id }: { doc: SplitDoc; calc: CalcResult; id: string }) {
-  const url = `${useBrowserValue(() => window.location.origin, "")}/s/${id}`;
+  // ?v= changes when the bill does, so chat apps show a fresh preview after an edit.
+  const url = `${useBrowserValue(() => window.location.origin, "")}/s/${id}?v=${splitVersion(doc)}`;
   const total = formatMoney(calc.total, doc.currency);
 
   return (
