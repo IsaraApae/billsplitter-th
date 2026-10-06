@@ -4,6 +4,7 @@ import { Camera, ImageIcon, RefreshCw, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { askConfirm } from "@/lib/client/confirm";
 import { compressImage } from "@/lib/client/image";
+import { renameEverywhere } from "@/lib/client/rename";
 import { getProfile, qrImageUrl, saveProfile, type Profile } from "@/lib/client/profile";
 import { formatPromptPayId, isValidPromptPayId, normalizePromptPayInput } from "@/lib/promptpay";
 import { PERSON_COLORS, type QrMode } from "@/lib/types";
@@ -20,6 +21,23 @@ export function MeSettings() {
   const [error, setError] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+
+  // Renaming yourself updates the splits you've shared (once per change).
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const synced = useRef<{ name: string; emoji?: string; color?: Profile["color"] }>({
+    name: p.name,
+    emoji: p.emoji,
+    color: p.color,
+  });
+  function syncMe(look: { name: string; emoji?: string; color?: Profile["color"] }) {
+    const was = synced.current;
+    if (!look.name.trim() || (was.name === look.name && was.emoji === look.emoji && was.color === look.color)) return;
+    synced.current = look;
+    setSyncMsg("Updating your name in your shared splits…");
+    void renameEverywhere("me", { ...look, color: look.color ?? "emerald" }).then((n) =>
+      setSyncMsg(n ? `Updated in ${n} shared ${n === 1 ? "split" : "splits"}.` : null),
+    );
+  }
 
   const update = (patch: Partial<Profile>) =>
     setP((cur) => {
@@ -95,15 +113,24 @@ export function MeSettings() {
               maxLength={40}
               value={p.name}
               onChange={(e) => update({ name: e.target.value })}
+              onBlur={() => syncMe({ name: p.name, emoji: p.emoji, color: p.color })}
             />
           </div>
           <EmojiColorPicker
             emoji={p.emoji}
             color={p.color ?? "emerald"}
-            onEmoji={(emoji) => update({ emoji })}
-            onColor={(color) => update({ color })}
+            onEmoji={(emoji) => {
+              update({ emoji });
+              syncMe({ name: p.name, emoji, color: p.color });
+            }}
+            onColor={(color) => {
+              update({ color });
+              syncMe({ name: p.name, emoji: p.emoji, color });
+            }}
           />
-          <p className="text-[13px] text-ink-2">You&apos;re added to every new split with this name.</p>
+          <p className="text-[13px] text-ink-2" aria-live="polite">
+            {syncMsg ?? "You're added to every new split with this name; changing it updates the splits you've shared too."}
+          </p>
         </div>
       </Section>
 
