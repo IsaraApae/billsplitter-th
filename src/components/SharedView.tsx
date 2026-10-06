@@ -9,7 +9,7 @@ import { useBrowserValue } from "@/lib/client/hooks";
 import { photoSrc } from "@/lib/client/photo";
 import { getEditToken, getHistory, historyFromDoc, paidProgress, patchHistory } from "@/lib/client/storage";
 import { billDate } from "@/lib/draft";
-import { ME_ID } from "@/lib/friends";
+import { ME_ID, organiserFirstByName } from "@/lib/friends";
 import { formatStep, wholeUnitName } from "@/lib/money";
 import { formatPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
@@ -268,7 +268,11 @@ export function SharedView({
 
       <Section title="Who owes what">
         <ul className="card rows overflow-hidden" aria-label="People">
-          {calc.people.map((p, i) => {
+          {organiserFirstByName(
+            calc.people.map((p, i) => ({ p, profile: doc.people[i] })),
+            (x) => x.p.personId,
+            (x) => x.p.name,
+          ).map(({ p, profile }) => {
             const isPaid = p.personId !== ME_ID && paid.has(p.personId);
             const status = statusOf(p.personId);
             const paidPart = partial[p.personId] ?? 0;
@@ -277,7 +281,7 @@ export function SharedView({
               <PersonCard
                 key={p.personId}
                 person={p}
-                profile={doc.people[i]}
+                profile={profile}
                 currency={doc.currency}
                 mode={doc.mode}
                 highlight={isPaid ? "paid" : "unpaid"}
@@ -348,9 +352,16 @@ export function SharedView({
         </ul>
         {calc.people.some((p) => p.payable !== p.total - p.prepaid) && (
           <p className="px-5 text-[13px] text-ink-2">
-            Amounts are rounded to whole {wholeUnitName(doc.currency)}: friends within{" "}
-            {formatStep(wholeUnit(doc.currency), doc.currency)} of their exact shares (some up, some down), the
-            organiser&apos;s to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
+            Amounts are rounded to whole {wholeUnitName(doc.currency)}:{" "}
+            {doc.mode === "equal" ? (
+              "every friend pays the same, their share rounded up"
+            ) : (
+              <>
+                friends within {formatStep(wholeUnit(doc.currency), doc.currency)} of their exact shares (some up, some
+                down)
+              </>
+            )}
+            , the organiser&apos;s to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
             {calc.roundingExtra > 0 && (
               <>
                 ; together that&apos;s <Money value={calc.roundingExtra} currency={doc.currency} /> more for{" "}

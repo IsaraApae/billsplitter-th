@@ -291,6 +291,14 @@ describe("rounding to whole baht (optional)", () => {
     expect(r.roundingExtra).toBe(10);
   });
 
+  it("split equally: every friend pays the same whole amount", () => {
+    const three = [{ id: "me", name: "Me" }, { id: "b", name: "Bee" }, { id: "c", name: "Cat" }];
+    // ฿1,000.45 three ways: 333.48 / 333.49 exact.
+    const r = calculate(base({ mode: "equal", people: three, items: [item("x", 100045, [])], roundUp: true }));
+    expect(r.people.slice(1).map((p) => p.payable)).toEqual([33400, 33400]);
+    expect(r.people[0].payable).toBe(33200); // the organiser keeps the rest: 1,000.45 − 668 = 332.45
+  });
+
   it("without an organiser (older splits) the whole bill rounds up to a whole baht", () => {
     const r = calculate(base({ mode: "equal", items: [item("x", 10000, [])], roundUp: true }));
     expect(totals(r)).toEqual([3334, 3333, 3333]);
@@ -311,21 +319,32 @@ describe("rounding to whole baht (optional)", () => {
       const its = Array.from({ length: 1 + Math.floor(rand() * 8) }, (_, i) =>
         item(`i${i}`, Math.floor(rand() * 50000), ps.filter(() => rand() < 0.6).map((p) => p.id).concat(ps[0].id)),
       );
-      const r = calculate({ mode: rand() < 0.3 ? "equal" : "itemized", people: ps, items: its, discount: noDiscount, service: svc, vat, roundUp: true });
+      const mode = rand() < 0.3 ? "equal" : "itemized";
+      const r = calculate({ mode, people: ps, items: its, discount: noDiscount, service: svc, vat, roundUp: true });
       const me = r.people.find((p) => p.personId === "me")!;
       const friends = r.people.filter((p) => p.personId !== "me");
       const paid = sum(friends.map((p) => p.payable));
       const exact = sum(friends.map((p) => p.total));
       expect(paid).toBeGreaterThanOrEqual(exact); // never lose money
-      expect(paid - exact).toBeLessThan(100); // cheapest: under ฿1 in total
+      if (mode === "equal") {
+        // Everyone pays the same whole amount, each under ฿1 over their share.
+        expect(new Set(friends.map((p) => p.payable)).size).toBeLessThanOrEqual(1);
+        for (const p of friends) expect(p.payable - p.total).toBeLessThan(100);
+      } else {
+        expect(paid - exact).toBeLessThan(100); // cheapest: under ฿1 in total
+      }
       expect(r.total - paid).toBeLessThanOrEqual(me.total); // what the organiser really pays ≤ their share
-      expect(me.payable % 100).toBe(0);
-      expect(Math.abs(me.payable - (r.total - paid))).toBeLessThanOrEqual(50); // nearest baht
+      expect(Math.abs(me.payable % 100)).toBe(0);
+      expect(me.payable).toBeGreaterThanOrEqual(0);
+      // Nearest baht (unless friends' rounding up leaves the organiser ahead: then ฿0).
+      if (r.total - paid > 0) expect(Math.abs(me.payable - (r.total - paid))).toBeLessThanOrEqual(50);
       for (const p of friends) {
         expect(p.payable % 100).toBe(0);
         expect(Math.abs(p.payable - p.total)).toBeLessThan(100);
       }
-      expect(sum(r.people.map((p) => p.payable))).toBe(Math.round(r.total / 100) * 100);
+      // Everyone's amounts add up to the bill to the nearest baht (unless the
+      // organiser's share was held at ฿0 above).
+      if (r.total - paid >= 50) expect(sum(r.people.map((p) => p.payable))).toBe(Math.round(r.total / 100) * 100);
     }
   });
 });

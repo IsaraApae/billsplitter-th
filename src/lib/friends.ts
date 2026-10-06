@@ -90,3 +90,13 @@ export function toPeople(me: { name: string; emoji?: string; color?: PersonColor
     ...picked.map((f) => ({ id: f.id, name: f.name, emoji: f.emoji, color: f.color })),
   ];
 }
+
+/** Lists of people: the organiser ("me") first, then everyone by name (Thai and English). */
+export function organiserFirstByName<T>(items: T[], idOf: (t: T) => string, nameOf: (t: T) => string): T[] {
+  return [...items].sort((a, b) => {
+    const am = idOf(a) === ME_ID;
+    const bm = idOf(b) === ME_ID;
+    if (am !== bm) return am ? -1 : 1;
+    return nameOf(a).localeCompare(nameOf(b), ["th", "en"], { sensitivity: "base" });
+  });
+}

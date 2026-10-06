@@ -86,7 +86,17 @@ function PaymentForm({
   onSave: (p: PaymentInput) => void;
 }) {
   const [amount, setAmount] = useState(status === "part" ? paidSoFar : 0);
-  const partOk = amount > 0 && amount < owed;
+  const [hint, setHint] = useState<string | null>(null);
+  const half = Math.round(owed / 2);
+
+  // Paying the whole amount (or more) is the big tick, not a part.
+  function savePart() {
+    if (amount <= 0) {
+      setHint("Type how much they've paid you so far.");
+      return;
+    }
+    onSave(amount >= owed ? { paid: true } : { amount });
+  }
 
   return (
     <div className="space-y-3.5">
@@ -94,31 +104,47 @@ function PaymentForm({
         <Check size={22} {...ICON} aria-hidden /> Paid <Money value={owed} currency={currency} /> in full
       </button>
 
-      <div className="card space-y-3 p-5">
+      <form
+        className="card space-y-3 p-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          savePart();
+        }}
+      >
         <p className="font-semibold">Paid part of it</p>
         <div className="flex items-center gap-2.5">
-          <MoneyInput className="flex-1" ariaLabel="Amount paid so far" currency={currency} value={amount} onChange={setAmount} />
-          <button
-            type="button"
-            className="btn-secondary h-12 shrink-0 px-5"
-            disabled={!partOk}
-            onClick={() => onSave({ amount })}
-          >
+          <MoneyInput
+            className="flex-1"
+            ariaLabel="Amount paid so far"
+            currency={currency}
+            value={amount}
+            onChange={(v) => {
+              setAmount(v);
+              setHint(null);
+            }}
+          />
+          <button type="submit" className="btn-secondary h-12 shrink-0 px-5">
             Save
           </button>
         </div>
-        <p className="text-[13px] text-ink-2">
-          {amount >= owed && amount > 0 ? (
-            "That's everything — use “Paid in full”."
-          ) : partOk ? (
-            <>
-              <Money value={owed - amount} currency={currency} /> still to pay
-            </>
-          ) : (
-            "How much they've paid you so far."
-          )}
+        {owed > 1 && (
+          <button type="button" className="chip" onClick={() => setAmount(half)}>
+            Half · <Money value={half} currency={currency} />
+          </button>
+        )}
+        <p className={cx("text-[13px]", hint ? "font-semibold text-ink" : "text-ink-2")} aria-live="polite">
+          {hint ??
+            (amount >= owed && amount > 0 ? (
+              "That's everything — saving gives the big tick."
+            ) : amount > 0 ? (
+              <>
+                <Money value={owed - amount} currency={currency} /> still to pay
+              </>
+            ) : (
+              "How much they've paid you so far."
+            ))}
         </p>
-      </div>
+      </form>
 
       {status !== "none" && (
         <button type="button" className="btn-secondary h-12 w-full" onClick={() => onSave({ paid: false })}>

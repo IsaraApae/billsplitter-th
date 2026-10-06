@@ -7,6 +7,7 @@ import type { CalcResult } from "@/lib/calc";
 import { getProfile, qrImageUrl } from "@/lib/client/profile";
 import { totalMismatch } from "@/lib/draft";
 import { wholeUnitName } from "@/lib/money";
+import { organiserFirstByName } from "@/lib/friends";
 import { formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
@@ -71,8 +72,12 @@ export function ReviewStep({
       {doc.people.length > 0 && (
         <Section title={`Per person · ${doc.people.length}`}>
           <ul className="card rows overflow-hidden">
-            {calc.people.map((p, i) => (
-              <PersonCard key={p.personId} person={p} profile={doc.people[i]} currency={doc.currency} mode={doc.mode} />
+            {organiserFirstByName(
+              calc.people.map((p, i) => ({ p, profile: doc.people[i] })),
+              (x) => x.p.personId,
+              (x) => x.p.name,
+            ).map(({ p, profile }) => (
+              <PersonCard key={p.personId} person={p} profile={profile} currency={doc.currency} mode={doc.mode} />
             ))}
           </ul>
           <p className="px-5 text-[13px] text-ink-2">
