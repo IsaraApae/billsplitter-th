@@ -291,12 +291,13 @@ describe("rounding to whole baht (optional)", () => {
     expect(r.roundingExtra).toBe(10);
   });
 
-  it("split equally: every friend pays the same whole amount", () => {
+  it("split equally: everyone's share is the same whole amount, the organiser's too", () => {
     const three = [{ id: "me", name: "Me" }, { id: "b", name: "Bee" }, { id: "c", name: "Cat" }];
     // ฿1,000.45 three ways: 333.48 / 333.49 exact.
     const r = calculate(base({ mode: "equal", people: three, items: [item("x", 100045, [])], roundUp: true }));
-    expect(r.people.slice(1).map((p) => p.payable)).toEqual([33400, 33400]);
-    expect(r.people[0].payable).toBe(33200); // the organiser keeps the rest: 1,000.45 − 668 = 332.45
+    expect(r.people.map((p) => p.payable)).toEqual([33400, 33400, 33400]);
+    // What the organiser really pays (1,000.45 − 668 = 332.45) is less than the ฿334 shown.
+    expect(r.total - 66800).toBeLessThanOrEqual(r.people[0].payable);
   });
 
   it("without an organiser (older splits) the whole bill rounds up to a whole baht", () => {
@@ -327,9 +328,12 @@ describe("rounding to whole baht (optional)", () => {
       const exact = sum(friends.map((p) => p.total));
       expect(paid).toBeGreaterThanOrEqual(exact); // never lose money
       if (mode === "equal") {
-        // Everyone pays the same whole amount, each under ฿1 over their share.
-        expect(new Set(friends.map((p) => p.payable)).size).toBeLessThanOrEqual(1);
-        for (const p of friends) expect(p.payable - p.total).toBeLessThan(100);
+        // Everyone (the organiser too) has the same whole amount, under ฿1 over their share,
+        // and the organiser really pays no more than that.
+        expect(new Set(r.people.map((p) => p.payable)).size).toBe(1);
+        for (const p of r.people) expect(p.payable - p.total).toBeLessThan(100);
+        expect(r.total - paid).toBeLessThanOrEqual(me.payable);
+        continue;
       } else {
         expect(paid - exact).toBeLessThan(100); // cheapest: under ฿1 in total
       }

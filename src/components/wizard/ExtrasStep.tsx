@@ -132,7 +132,7 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
               doc.roundUp ? (
                 <>
                   {doc.mode === "equal"
-                    ? "Every friend pays the same whole amount (their share rounded up), so you never lose money"
+                    ? "Everyone's share is the same whole amount, yours too (each share rounded up), so you never lose money"
                     : "Everyone gets a whole amount, you too — friends round up or down, but together never less than their exact shares, so you never lose money"}
                   {calc.roundingExtra > 0 && (
                     <>

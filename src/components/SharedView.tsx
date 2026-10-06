@@ -373,14 +373,13 @@ export function SharedView({
           <p className="px-5 text-[13px] text-ink-2">
             Amounts are rounded to whole {wholeUnitName(doc.currency)}:{" "}
             {doc.mode === "equal" ? (
-              "every friend pays the same, their share rounded up"
+              "everyone's share is the same, rounded up"
             ) : (
               <>
                 friends within {formatStep(wholeUnit(doc.currency), doc.currency)} of their exact shares (some up, some
-                down)
+                down), the organiser&apos;s to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
               </>
             )}
-            , the organiser&apos;s to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
             {calc.roundingExtra > 0 && (
               <>
                 ; together that&apos;s <Money value={calc.roundingExtra} currency={doc.currency} /> more for{" "}
