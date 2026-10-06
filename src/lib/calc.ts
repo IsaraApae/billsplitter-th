@@ -50,14 +50,11 @@ export function roundToWholeUnits(exact: number[], unit: number): number[] {
 }
 
 /**
- * Equal split, rounded: everyone pays the largest exact share rounded up to a
- * whole unit (exact equal shares differ by at most one minor unit), less
- * anything they paid upfront.
+ * Equal split, rounded: everyone's share is the largest exact share rounded
+ * up to a whole unit (exact equal shares differ by at most one minor unit).
  */
-function equalWholeUnits(payers: { total: number; prepaid: number }[], unit: number): number[] {
-  if (unit <= 1) return payers.map((r) => r.total - r.prepaid);
-  const each = Math.ceil(Math.max(...payers.map((r) => r.total)) / unit) * unit;
-  return payers.map((r) => Math.ceil((each - r.prepaid) / unit) * unit);
+function equalWholeShare(people: { total: number }[], unit: number): number {
+  return Math.ceil(Math.max(...people.map((r) => r.total)) / unit) * unit;
 }
 
 /** The person who paid the bill (the device owner in new splits). */
@@ -292,12 +289,14 @@ export function calculate(input: CalcInput): CalcResult {
   for (const r of results) r.payable = r.total - r.prepaid;
   if (input.roundUp && payers.length > 0) {
     const unit = wholeUnit(input.currency);
-    // Split equally: every friend pays the same whole amount (each share
-    // rounded up, so the organiser never loses). Otherwise the cheapest
+    // Split equally: everyone's share is the same whole amount, the
+    // organiser's too (each share rounded up, so the organiser never loses);
+    // friends pay it less anything they paid upfront. Otherwise the cheapest
     // group rounding (some up, some down).
+    const each = mode === "equal" && organiser && unit > 1 ? equalWholeShare(results, unit) : null;
     const whole =
-      mode === "equal" && organiser
-        ? equalWholeUnits(payers, unit)
+      each !== null
+        ? payers.map((r) => Math.ceil((each - r.prepaid) / unit) * unit)
         : roundToWholeUnits(
             payers.map((r) => r.total - r.prepaid),
             unit,
@@ -306,7 +305,11 @@ export function calculate(input: CalcInput): CalcResult {
     // The organiser paid the rest of the bill: what's left after the friends
     // pay is never more than their exact share (they never lose money). It's
     // shown to the nearest whole unit, so everyone's amounts add up.
-    if (organiser) {
+    if (organiser && each !== null) {
+      // Split equally: the organiser's share is the same as everyone's (what
+      // they really pay after the friends' payments is never more than that).
+      organiser.payable = each;
+    } else if (organiser) {
       const left = Math.round((total - prepaidTotal - payers.reduce((s, r) => s + r.payable, 0)) / unit) * unit;
       // Friends' rounding up can leave an organiser who ate (almost) nothing
       // slightly ahead; show that as ฿0, not a negative share.
