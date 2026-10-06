@@ -61,6 +61,8 @@ export interface HistoryEntry {
   members?: (Pick<Person, "id" | "name" | "emoji" | "color"> & { amount?: number })[];
   /** ids of the people marked paid */
   paidIds?: string[];
+  /** part-payments so far: personId → amount paid (minor units) */
+  partialPaid?: Record<string, number>;
 }
 
 /**
@@ -73,10 +75,12 @@ export function paidProgress(personIds: string[], paidIds: string[]): { people: 
 }
 
 /** What History keeps from a saved split besides its title and totals. */
-export function historyFromDoc(doc: SplitDoc): Pick<HistoryEntry, "createdAt" | "personIds" | "members"> {
-  const amounts = new Map(calculate(doc).people.map((p) => [p.personId, p.payable]));
+export function historyFromDoc(doc: SplitDoc): Pick<HistoryEntry, "createdAt" | "total" | "personIds" | "members"> {
+  const calc = calculate(doc);
+  const amounts = new Map(calc.people.map((p) => [p.personId, p.payable]));
   return {
     createdAt: billDate(doc).toISOString(),
+    total: calc.total,
     personIds: doc.people.map((p) => p.id),
     members: doc.people.map(({ id, name, emoji, color }) => ({ id, name, emoji, color, amount: amounts.get(id) ?? 0 })),
   };
@@ -106,4 +110,28 @@ export function patchHistory(id: string, patch: Partial<HistoryEntry>): void {
 
 export function deleteHistory(id: string): void {
   save(HISTORY, getHistory().filter((h) => h.id !== id));
+}
+
+// ---- Big bills (several splits from one outing). Edit tokens live in TOKENS too.
+export interface EventEntry {
+  id: string;
+  title: string;
+  /** YYYY-MM-DD */
+  date: string;
+  splitIds: string[];
+}
+
+const EVENTS = "bs:events";
+
+export function getEvents(): EventEntry[] {
+  const e = load<EventEntry[]>(EVENTS, []);
+  return Array.isArray(e) ? e : [];
+}
+
+export function upsertEvent(entry: EventEntry): void {
+  save(EVENTS, [entry, ...getEvents().filter((e) => e.id !== entry.id)]);
+}
+
+export function deleteEvent(id: string): void {
+  save(EVENTS, getEvents().filter((e) => e.id !== id));
 }

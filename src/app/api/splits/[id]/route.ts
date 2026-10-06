@@ -1,7 +1,7 @@
 import { parseSplitDoc } from "@/lib/schema";
 import { jsonError, readJson, safely } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
-import { getPaid, getSplit, isValidId, touchOwner, updateSplit } from "@/lib/server/redis";
+import { getPaidState, getSplit, isValidId, touchOwner, updateSplit } from "@/lib/server/redis";
 
 export async function GET(req: Request, ctx: RouteContext<"/api/splits/[id]">) {
   const limited = await rateLimit(req, "read");
@@ -11,8 +11,8 @@ export async function GET(req: Request, ctx: RouteContext<"/api/splits/[id]">) {
   return safely(async () => {
     const s = await getSplit(id);
     if (!s) return jsonError(404, "not_found", "This split doesn't exist or has expired.");
-    const paid = await getPaid(id);
-    return Response.json({ doc: s.doc, updatedAt: s.updatedAt, paid }, { headers: { "Cache-Control": "no-store" } });
+    const { paid, partial } = await getPaidState(id, s.doc);
+    return Response.json({ doc: s.doc, updatedAt: s.updatedAt, paid, partial }, { headers: { "Cache-Control": "no-store" } });
   });
 }
 

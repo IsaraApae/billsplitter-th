@@ -2,6 +2,7 @@ import "server-only";
 import { Redis } from "@upstash/redis";
 import { createClient, type RedisClientType } from "redis";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { eventPeople, spreadPayment, type EventBill, type EventMeta } from "../event";
 import type { SplitDoc } from "../types";
 
 // Two supported backends:
@@ -21,6 +22,7 @@ interface Kv {
   get<T>(key: string): Promise<T | null>;
   set(key: string, value: unknown, opts: { ex: number; nx?: boolean }): Promise<boolean>;
   hkeys(key: string): Promise<string[]>;
+  hgetall(key: string): Promise<Record<string, string>>;
   hset(key: string, field: string, value: string): Promise<void>;
   hdel(key: string, ...fields: string[]): Promise<void>;
   expire(key: string, seconds: number): Promise<void>;
@@ -32,6 +34,9 @@ function upstashKv(r: Redis): Kv {
     get: (k) => r.get(k),
     set: async (k, v, o) => (o.nx ? r.set(k, v, { ex: o.ex, nx: true }) : r.set(k, v, { ex: o.ex })) !== null,
     hkeys: (k) => r.hkeys(k),
+    // Upstash decodes numeric strings, so normalise the values back to strings.
+    hgetall: async (k) =>
+      Object.fromEntries(Object.entries((await r.hgetall<Record<string, unknown>>(k)) ?? {}).map(([f, v]) => [f, String(v)])),
     hset: async (k, f, v) => void (await r.hset(k, { [f]: v })),
     hdel: async (k, ...f) => void (f.length && (await r.hdel(k, ...f))),
     expire: async (k, s) => void (await r.expire(k, s)),
@@ -67,6 +72,7 @@ function tcpKv(): Kv {
         ...(o.nx ? { condition: "NX" as const } : {}),
       })) !== null,
     hkeys: async (k) => (await tcp()).hKeys(k),
+    hgetall: async (k) => ({ ...(await (await tcp()).hGetAll(k)) }),
     hset: async (k, f, v) => void (await (await tcp()).hSet(k, f, v)),
     hdel: async (k, ...f) => void (f.length && (await (await tcp()).hDel(k, f))),
     expire: async (k, s) => void (await (await tcp()).expire(k, s)),
@@ -103,6 +109,7 @@ function memoryKv(): Kv {
       return true;
     },
     hkeys: async (k) => [...hash(k).keys()],
+    hgetall: async (k) => Object.fromEntries(hash(k)),
     hset: async (k, f, v) => void hash(k).set(f, v),
     hdel: async (k, ...f) => f.forEach((x) => hash(k).delete(x)),
     expire: async () => {},
@@ -133,6 +140,8 @@ function db(): Kv {
 
 const docKey = (id: string) => `split:${id}`;
 const paidKey = (id: string) => `split:${id}:paid`;
+/** People who paid part of their amount: personId → amount paid so far (minor units). */
+const partKey = (id: string) => `split:${id}:part`;
 
 interface StoredSplit {
   doc: SplitDoc;
@@ -195,7 +204,9 @@ export async function updateSplit(id: string, token: string, doc: SplitDoc): Pro
   await Promise.all([
     db().set(docKey(id), next, { ex: TTL_SECONDS }),
     db().hdel(paidKey(id), ...removed),
+    db().hdel(partKey(id), ...removed),
     db().expire(paidKey(id), TTL_SECONDS),
+    db().expire(partKey(id), TTL_SECONDS),
     linkPhoto(id, next.doc),
   ]);
   return "ok";
@@ -256,20 +267,158 @@ export async function devImageDel(key: string) {
   await db().del(`devimg:${key}`);
 }
 
-/** Only the creator (edit token) can mark someone paid or unpaid. */
-export async function setPaid(
+/** Part-payments so far: personId → amount paid (minor units). */
+export async function getPartial(id: string): Promise<Record<string, number>> {
+  const raw = await db().hgetall(partKey(id));
+  return Object.fromEntries(
+    Object.entries(raw)
+      .map(([pid, v]) => [pid, Math.round(Number(v))] as const)
+      .filter(([, n]) => Number.isFinite(n) && n > 0),
+  );
+}
+
+/** Paid in full (the big tick), part of it (the small tick), or not yet. */
+export type Payment = { kind: "full" } | { kind: "part"; amount: number } | { kind: "none" };
+
+export interface PaidState {
+  paid: string[];
+  partial: Record<string, number>;
+}
+
+/** Current payments of a split's people (ignoring people no longer in it). */
+export async function getPaidState(id: string, doc: SplitDoc): Promise<PaidState> {
+  const ids = new Set(doc.people.map((p) => p.id));
+  const [paid, partial] = await Promise.all([getPaid(id), getPartial(id)]);
+  return {
+    paid: paid.filter((p) => ids.has(p)),
+    partial: Object.fromEntries(Object.entries(partial).filter(([p]) => ids.has(p) && !paid.includes(p))),
+  };
+}
+
+/** Writes one person's payment; no token check (callers check ownership). */
+async function writePayment(id: string, doc: SplitDoc, personId: string, payment: Payment): Promise<void> {
+  if (payment.kind === "full") {
+    await Promise.all([db().hset(paidKey(id), personId, String(Date.now())), db().hdel(partKey(id), personId)]);
+  } else if (payment.kind === "part") {
+    await Promise.all([db().hdel(paidKey(id), personId), db().hset(partKey(id), personId, String(payment.amount))]);
+  } else {
+    await Promise.all([db().hdel(paidKey(id), personId), db().hdel(partKey(id), personId)]);
+  }
+  await Promise.all([
+    db().expire(paidKey(id), TTL_SECONDS),
+    db().expire(partKey(id), TTL_SECONDS),
+    db().expire(docKey(id), TTL_SECONDS),
+    linkPhoto(id, doc),
+  ]);
+}
+
+/** Only the creator (edit token) can record who has paid, and how much. */
+export async function setPayment(
   id: string,
   personId: string,
-  paid: boolean,
+  payment: Payment,
   token: string | null,
-): Promise<string[] | "not_found" | "forbidden"> {
+): Promise<PaidState | "not_found" | "forbidden"> {
   const s = await db().get<StoredSplit>(docKey(id));
   if (!s || !s.doc.people.some((p) => p.id === personId)) return "not_found";
   if (!(token && tokenMatches(token, s.editHash))) return "forbidden";
-  await (paid ? db().hset(paidKey(id), personId, String(Date.now())) : db().hdel(paidKey(id), personId));
-  await Promise.all([db().expire(paidKey(id), TTL_SECONDS), db().expire(docKey(id), TTL_SECONDS), linkPhoto(id, s.doc)]);
-  const ids = new Set(s.doc.people.map((p) => p.id));
-  return (await getPaid(id)).filter((p) => ids.has(p));
+  await writePayment(id, s.doc, personId, payment);
+  return getPaidState(id, s.doc);
+}
+
+// ---- Big bills: several splits from one outing, shown and paid as one -------
+
+const eventKey = (id: string) => `event:${id}`;
+
+interface StoredEvent extends EventMeta {
+  editHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoadedEvent {
+  meta: EventMeta & { updatedAt: string };
+  bills: EventBill[];
+}
+
+/** Every split must exist and the caller must hold its edit token. */
+async function ownsSplits(splits: { id: string; token?: string }[], known: string[] = []): Promise<boolean> {
+  for (const sp of splits) {
+    if (known.includes(sp.id)) continue;
+    const s = await db().get<StoredSplit>(docKey(sp.id));
+    if (!s || !sp.token || !tokenMatches(sp.token, s.editHash)) return false;
+  }
+  return true;
+}
+
+export async function createEvent(
+  meta: Omit<EventMeta, "splitIds">,
+  splits: { id: string; token: string }[],
+): Promise<{ id: string; token: string } | "forbidden"> {
+  if (!(await ownsSplits(splits))) return "forbidden";
+  const token = newToken();
+  const now = new Date().toISOString();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const id = newId();
+    const stored: StoredEvent = { ...meta, splitIds: splits.map((x) => x.id), editHash: hash(token), createdAt: now, updatedAt: now };
+    if (await db().set(eventKey(id), stored, { ex: TTL_SECONDS, nx: true })) return { id, token };
+  }
+  throw new Error("Could not allocate an id");
+}
+
+/** Rename, re-date, or add/remove bills. New bills need their own edit tokens. */
+export async function updateEvent(
+  id: string,
+  token: string,
+  meta: Omit<EventMeta, "splitIds">,
+  splits: { id: string; token?: string }[],
+): Promise<"ok" | "not_found" | "forbidden"> {
+  const e = await db().get<StoredEvent>(eventKey(id));
+  if (!e) return "not_found";
+  if (!tokenMatches(token, e.editHash)) return "forbidden";
+  if (!(await ownsSplits(splits, e.splitIds))) return "forbidden";
+  const next: StoredEvent = { ...e, ...meta, splitIds: splits.map((x) => x.id), updatedAt: new Date().toISOString() };
+  await db().set(eventKey(id), next, { ex: TTL_SECONDS });
+  return "ok";
+}
+
+/** The event with its bills (expired bills are left out). Viewing keeps it alive. */
+export async function getEvent(id: string): Promise<LoadedEvent | null> {
+  const e = await db().get<StoredEvent>(eventKey(id));
+  if (!e) return null;
+  await db().expire(eventKey(id), TTL_SECONDS);
+  const bills = await Promise.all(
+    e.splitIds.map(async (sid): Promise<EventBill | null> => {
+      const s = await getSplit(sid);
+      if (!s) return null;
+      const state = await getPaidState(sid, s.doc);
+      return { id: sid, doc: s.doc, ...state };
+    }),
+  );
+  return {
+    meta: { title: e.title, date: e.date, splitIds: e.splitIds, updatedAt: e.updatedAt },
+    bills: bills.filter((b): b is EventBill => b !== null),
+  };
+}
+
+/** Records one person's payment for the whole event, spread over their bills. */
+export async function setEventPayment(
+  id: string,
+  token: string | null,
+  personKey: string,
+  payment: Payment,
+): Promise<LoadedEvent | "not_found" | "forbidden"> {
+  const e = await db().get<StoredEvent>(eventKey(id));
+  if (!e) return "not_found";
+  if (!(token && tokenMatches(token, e.editHash))) return "forbidden";
+  const loaded = await getEvent(id);
+  const person = loaded && eventPeople(loaded.bills).find((p) => p.key === personKey);
+  if (!loaded || !person) return "not_found";
+  for (const bp of spreadPayment(person, payment)) {
+    const bill = loaded.bills.find((b) => b.id === bp.splitId)!;
+    await writePayment(bp.splitId, bill.doc, bp.personId, bp);
+  }
+  return (await getEvent(id)) ?? "not_found";
 }
 
 // ---- Receipt photos: which split shows each one, so unused photos can be deleted

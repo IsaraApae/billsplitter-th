@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { PayQrSource } from "@/components/PayQr";
 import { SharedView } from "@/components/SharedView";
 import { calculate } from "@/lib/calc";
 import { formatMoney } from "@/lib/money";
-import { effectiveQrMode } from "@/lib/promptpay";
-import { getOwner, getPaid, isValidId, storageReady } from "@/lib/server/redis";
+import { resolveQr } from "@/lib/server/payQr";
+import { getPaidState, isValidId, storageReady } from "@/lib/server/redis";
 import { loadSplit } from "@/lib/server/splits";
-import type { SplitDoc } from "@/lib/types";
 
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
   const { id } = await params;
@@ -24,17 +22,6 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
     openGraph: { title: s.doc.title, description, type: "website", siteName: "Bill Splitter" },
     twitter: { card: "summary_large_image", title: s.doc.title, description },
   };
-}
-
-/** Which QR to show: always the creator's *current* uploaded QR, or a generated one. */
-async function resolveQr(doc: SplitDoc): Promise<PayQrSource | null> {
-  const mode = effectiveQrMode(doc.payment, doc.currency);
-  if (mode === "generate") return { mode, promptpay: doc.payment.promptpay };
-  if (mode === "upload" && doc.payment.ownerId) {
-    const owner = await getOwner(doc.payment.ownerId).catch(() => null);
-    if (owner?.qrUrl) return { mode, ownerId: doc.payment.ownerId, version: owner.version };
-  }
-  return null;
 }
 
 export default async function SharedPage({ params }: PageProps<"/s/[id]">) {
@@ -55,6 +42,18 @@ export default async function SharedPage({ params }: PageProps<"/s/[id]">) {
   }
   const s = await loadSplit(id);
   if (!s) notFound();
-  const [paid, qr] = await Promise.all([getPaid(id).catch(() => []), resolveQr(s.doc)]);
-  return <SharedView id={id} doc={s.doc} updatedAt={s.updatedAt} initialPaid={paid} qr={qr} />;
+  const [state, qr] = await Promise.all([
+    getPaidState(id, s.doc).catch(() => ({ paid: [], partial: {} })),
+    resolveQr(s.doc),
+  ]);
+  return (
+    <SharedView
+      id={id}
+      doc={s.doc}
+      updatedAt={s.updatedAt}
+      initialPaid={state.paid}
+      initialPartial={state.partial}
+      qr={qr}
+    />
+  );
 }
