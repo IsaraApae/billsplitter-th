@@ -1,33 +1,15 @@
-import { extractJson, sanitizeScan, summariseFailure, type ScanAttempt } from "@/lib/scanResult";
+import { extractJson, sanitizeScan, type ScanAttempt } from "@/lib/scanResult";
+import { readImageJson } from "@/lib/server/gemini";
 import { jsonError } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
-import { getModelCooldowns, setModelCooldown } from "@/lib/server/redis";
 
-// Time budget: ~20 s per Gemini call, ~55 s across all calls; the function
-// may run a little longer than that to finish responding.
-const ATTEMPT_MS = 20_000;
+// Time budget: ~55 s across all Gemini calls; the function may run a little
+// longer than that to finish responding.
 const TOTAL_MS = 55_000;
 export const maxDuration = 60;
 
-/**
- * Models tried in order. Each has its own free-tier quota, so when one is out
- * of quota or overloaded the next one can still answer.
- * Override with GEMINI_MODELS="model-a,model-b,…".
- */
-const DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"];
-const MODELS = (process.env.GEMINI_MODELS ?? "")
-  .split(",")
-  .map((m) => m.trim())
-  .filter((m) => /^[\w.-]+$/.test(m));
-const CHAIN = MODELS.length ? [...new Set(MODELS)] : DEFAULT_MODELS;
-
 const MAX_BYTES = 4_000_000; // Vercel's request body limit is ~4.5 MB
 const TYPES = ["image/jpeg", "image/png", "image/webp"];
-
-/** Lowest thinking level each model accepts (Flash-Lite allows "minimal"). */
-function lowestThinking(model: string): "minimal" | "low" {
-  return /flash-lite/.test(model) ? "minimal" : "low";
-}
 
 const PROMPT = `Read the receipt in this photo and return its contents as JSON. The receipt may be in Thai, English or both.
 
@@ -127,108 +109,6 @@ function log(entry: Record<string, unknown>) {
   console.info(JSON.stringify({ evt: "scan", ...entry }));
 }
 
-/** Google's error status and, for quota errors, which quota was hit. */
-function describeGoogleError(raw: string): Record<string, unknown> {
-  try {
-    const e = (
-      JSON.parse(raw) as {
-        error?: { status?: string; message?: string; details?: { violations?: { quotaId?: string; quotaMetric?: string }[]; retryDelay?: string }[] };
-      }
-    ).error;
-    const details = e?.details ?? [];
-    return {
-      googleStatus: e?.status,
-      message: e?.message?.split("\n")[0]?.slice(0, 160),
-      quota: details.flatMap((d) => d.violations ?? []).map((v) => v.quotaId ?? v.quotaMetric).filter(Boolean),
-      retryDelay: details.find((d) => d.retryDelay)?.retryDelay,
-    };
-  } catch {
-    return { detail: raw.slice(0, 300) };
-  }
-}
-
-function body(model: string, mime: string, data: string, legacy: boolean) {
-  const image = legacy
-    ? { inline_data: { mime_type: mime, data } }
-    : { inline_data: { mime_type: mime, data }, media_resolution: { level: "MEDIA_RESOLUTION_HIGH" } };
-  return JSON.stringify({
-    contents: [{ role: "user", parts: [image, { text: PROMPT }] }],
-    generationConfig: legacy
-      ? { temperature: 0, responseMimeType: "application/json", responseSchema: LEGACY_SCHEMA }
-      : {
-          temperature: 0,
-          responseMimeType: "application/json",
-          responseJsonSchema: JSON_SCHEMA,
-          thinkingConfig: { thinkingLevel: lowestThinking(model) },
-        },
-  });
-}
-
-type CallResult = { attempt: ScanAttempt; text?: string; cooldownSec?: number };
-
-/** "32656s" → 32656 */
-const seconds = (delay: unknown) => (typeof delay === "string" && /^\d+(\.\d+)?s$/.test(delay) ? parseFloat(delay) : undefined);
-
-/** One Gemini call. A 400 means our request shape was rejected: retried once in the legacy shape. */
-async function callModel(model: string, key: string, mime: string, data: string, timeoutMs: number): Promise<CallResult> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-  const started = Date.now();
-  const done = (status: number, outcome: ScanAttempt["outcome"], text?: string): CallResult => ({
-    attempt: { model, status, outcome, ms: Date.now() - started },
-    text,
-  });
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const call = (legacy: boolean) =>
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: body(model, mime, data, legacy),
-      signal: controller.signal,
-    });
-  try {
-    let res = await call(false);
-    if (res.status === 400) {
-      log({ model, status: 400, note: "retrying in legacy request shape", ...describeGoogleError(await res.text().catch(() => "")) });
-      res = await call(true);
-    }
-    if (!res.ok) {
-      const g = describeGoogleError(await res.text().catch(() => ""));
-      log({ model, status: res.status, ...g });
-      if (res.status === 429) {
-        // Out of quota: skip this model until Google says it resets (daily) or for a minute.
-        const daily = Array.isArray(g.quota) && g.quota.some((q) => /PerDay/i.test(String(q)));
-        return { ...done(429, "quota"), cooldownSec: seconds(g.retryDelay) ?? (daily ? 3600 : 60) };
-      }
-      if (res.status === 500 || res.status === 503 || res.status === 504) return done(res.status, "busy");
-      return done(res.status, "api_error"); // 400 etc.: bad image or blocked — another model won't help
-    }
-    const json = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
-      promptFeedback?: { blockReason?: string };
-    };
-    const blocked = json.promptFeedback?.blockReason ?? (json.candidates?.[0]?.finishReason === "SAFETY" ? "SAFETY" : undefined);
-    if (blocked) {
-      log({ model, status: 200, blocked });
-      return done(200, "api_error");
-    }
-    const text =
-      json.candidates?.[0]?.content?.parts
-        ?.filter((p) => !p.thought)
-        .map((p) => p.text ?? "")
-        .join("") ?? "";
-    return done(200, "ok", text);
-  } catch (e) {
-    const aborted = e instanceof Error && (e.name === "AbortError" || e.name === "TimeoutError");
-    log({ model, error: aborted ? "timeout" : String(e) });
-    return aborted ? { ...done(0, "timeout"), cooldownSec: 120 } : done(0, "network");
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 export async function POST(req: Request) {
   const started = Date.now();
   const limited = await rateLimit(req, "scan");
@@ -252,40 +132,23 @@ export async function POST(req: Request) {
   if (file.size > MAX_BYTES) return jsonError(413, "too_large", "That image is too large (max 4 MB).");
   const data = Buffer.from(await file.arrayBuffer()).toString("base64");
 
-  const attempts: ScanAttempt[] = [];
-  const left = () => TOTAL_MS - (Date.now() - started);
-  let text: string | undefined;
-  let model: string | undefined;
-
-  // Models that recently ran out of quota, timed out or kept returning 503 go
-  // last, so this scan doesn't wait on them again (they're still a last resort).
-  const cooling = await getModelCooldowns(CHAIN);
-  const order = [...CHAIN.filter((m) => !cooling.has(m)), ...CHAIN.filter((m) => cooling.has(m))];
-
-  chain: for (const m of order) {
-    // Busy (500/503) gets one retry on the same model after 1–2 s; quota (429)
-    // or a timeout moves straight to the next model; a 400 stops the chain.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (left() < 5_000) break chain;
-      const r = await callModel(m, key, file.type, data, Math.min(ATTEMPT_MS, left()));
-      attempts.push(r.attempt);
-      const busyTwice = r.attempt.outcome === "busy" && attempt === 1;
-      if (r.cooldownSec || busyTwice) await setModelCooldown(m, r.cooldownSec ?? 120);
-      if (r.attempt.outcome === "ok") {
-        text = r.text;
-        model = m;
-        break chain;
-      }
-      if (r.attempt.outcome === "api_error") break chain;
-      if (r.attempt.outcome !== "busy" || attempt === 1) break;
-      await sleep(1000 + Math.random() * 1000);
-    }
-  }
-
+  const r = await readImageJson({
+    evt: "scan",
+    prompt: PROMPT,
+    schema: JSON_SCHEMA,
+    legacySchema: LEGACY_SCHEMA,
+    mime: file.type,
+    data,
+    totalMs: TOTAL_MS - (Date.now() - started),
+  });
+  const { attempts } = r;
   const tried = attempts.map((a) => `${a.model}:${a.status || a.outcome}`);
-  if (text === undefined || !model) {
-    const reason = summariseFailure(attempts);
-    log({ engine: "none", reason, tried, cooling: [...cooling], ms: Date.now() - started });
+  if (!r.ok) {
+    const reason = r.reason;
+    log({ engine: "none", reason, tried, ms: Date.now() - started });
+    if (reason === "not_configured") {
+      return jsonError(503, "not_configured", MESSAGES.not_configured, { reason, attempts });
+    }
     return jsonError(reason === "quota" ? 429 : 502, reason === "quota" ? "quota" : "scan_failed", MESSAGES[reason], {
       reason,
       attempts,
@@ -293,9 +156,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = sanitizeScan(extractJson(text));
-    log({ engine: "gemini", model, tried, cooling: [...cooling], ms: Date.now() - started, items: result.items.length });
-    return Response.json({ ...result, model, attempts });
+    const result = sanitizeScan(extractJson(r.text));
+    log({ engine: "gemini", model: r.model, tried, ms: Date.now() - started, items: result.items.length });
+    return Response.json({ ...result, model: r.model, attempts });
   } catch {
     attempts[attempts.length - 1].outcome = "bad_output";
     log({ engine: "none", reason: "bad_output", tried, ms: Date.now() - started });

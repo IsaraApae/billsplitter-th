@@ -29,10 +29,10 @@ export async function storeQrImage(ownerId: string, bytes: Buffer, contentType: 
   throw new Error("QR storage is not configured (BLOB_READ_WRITE_TOKEN missing).");
 }
 
-/** A receipt photo shown on a split's shared page. Returns its URL (or a dev: key). */
-export async function storeReceiptImage(bytes: Buffer): Promise<string> {
+/** A receipt photo shown on a split's shared page (or a friend's slip). Returns its URL (or a dev: key). */
+export async function storeReceiptImage(bytes: Buffer, kind: "receipts" | "slips" = "receipts"): Promise<string> {
   if (blobReady) {
-    const blob = await put("receipts/receipt.jpg", bytes, {
+    const blob = await put(`${kind}/${kind === "slips" ? "slip" : "receipt"}.jpg`, bytes, {
       access: "public",
       addRandomSuffix: true, // unguessable URL
       contentType: "image/jpeg",
@@ -41,7 +41,7 @@ export async function storeReceiptImage(bytes: Buffer): Promise<string> {
     return blob.url;
   }
   if (devMode) {
-    const key = `r-${randomBytes(8).toString("hex")}`;
+    const key = `${kind === "slips" ? "s" : "r"}-${randomBytes(8).toString("hex")}`;
     await devImagePut(key, `data:image/jpeg;base64,${bytes.toString("base64")}`);
     return `dev:${key}`;
   }
@@ -49,12 +49,12 @@ export async function storeReceiptImage(bytes: Buffer): Promise<string> {
 }
 
 /** Every stored receipt photo (Vercel Blob only; nothing to clean up in local dev). */
-export async function listReceiptImages(): Promise<{ url: string; uploadedAt: Date }[]> {
+export async function listReceiptImages(prefix: "receipts/" | "slips/" = "receipts/"): Promise<{ url: string; uploadedAt: Date }[]> {
   if (!blobReady) return [];
   const all: { url: string; uploadedAt: Date }[] = [];
   let cursor: string | undefined;
   do {
-    const page = await list({ prefix: "receipts/", cursor, limit: 1000 });
+    const page = await list({ prefix, cursor, limit: 1000 });
     all.push(...page.blobs.map((b) => ({ url: b.url, uploadedAt: new Date(b.uploadedAt) })));
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);

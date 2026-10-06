@@ -16,8 +16,9 @@ import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
-import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput } from "./Payments";
+import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { ZoomableImage } from "./ZoomableImage";
 import { Callout, ICON, Money, Section, Sheet, cx } from "./ui";
 
@@ -45,6 +46,8 @@ export function SharedView({
   const [partial, setPartial] = useState<Record<string, number>>(initialPartial);
   // Person whose payment the organiser is recording.
   const [askFor, setAskFor] = useState<string | null>(null);
+  // Slips friends uploaded (organiser only: they show bank names).
+  const [slips, setSlips] = useState<Record<string, SlipInfo[]>>({});
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const editToken = useBrowserValue(() => getEditToken(id), null);
@@ -104,6 +107,21 @@ export function SharedView({
       });
   }, [id, doc, paid, partial, paidCount, total, calc.total]);
 
+  // Bumped to re-load slips (after a poll or an upload).
+  const [slipsVersion, setSlipsVersion] = useState(0);
+  const loadSlips = useCallback(() => setSlipsVersion((v) => v + 1), []);
+  useEffect(() => {
+    if (!editToken) return;
+    let cancelled = false;
+    fetch(`/api/splits/${id}/slips`, { cache: "no-store", headers: { "x-edit-token": editToken } })
+      .then((r) => (r.ok ? (r.json() as Promise<{ slips: Record<string, SlipInfo[]> }>) : null))
+      .then((d) => !cancelled && d && setSlips(d.slips))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id, editToken, slipsVersion]);
+
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible" || pendingRef.current.size > 0) return;
     try {
@@ -117,6 +135,7 @@ export function SharedView({
       if (pendingRef.current.size > 0) return; // a tick is in flight; don't clobber it
       setPaid(new Set(data.paid));
       setPartial(data.partial ?? {});
+      loadSlips();
       if (data.updatedAt !== version.current) {
         version.current = data.updatedAt;
         router.refresh(); // the creator edited the split — reload the server data
@@ -124,7 +143,7 @@ export function SharedView({
     } catch {
       /* offline: try again next tick */
     }
-  }, [id, router]);
+  }, [id, router, loadSlips]);
 
   useEffect(() => {
     const t = setInterval(refresh, POLL_MS);
@@ -340,7 +359,7 @@ export function SharedView({
                   </span>
                 }
                 action={
-                  qr && !isPaid && p.payable > 0 && doc.currency === "THB" && p.personId !== ME_ID ? (
+                  !isPaid && p.payable > 0 && p.personId !== ME_ID ? (
                     <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPayFor(p.personId)}>
                       Pay
                     </button>
@@ -447,18 +466,34 @@ export function SharedView({
           currency={doc.currency}
           status={askPerson ? statusOf(askPerson.personId) : "none"}
           paidSoFar={askPerson ? (partial[askPerson.personId] ?? 0) : 0}
+          slips={askPerson ? slips[askPerson.personId] : undefined}
           onSave={(input) => askPerson && savePayment(askPerson.personId, input)}
         />
       )}
 
       <Sheet open={!!payPerson} onClose={() => setPayFor(null)} title={payPerson ? `Pay ${payPerson.name}'s share` : "Pay"}>
-        {payPerson && qr && (
-          // What's still left after any part-payment.
-          <PayQr
-            source={qr}
-            amount={Math.max(0, payPerson.payable - (partial[payPerson.personId] ?? 0))}
-            name={payPerson.name}
-          />
+        {payPerson && (
+          <div className="space-y-4">
+            {qr && doc.currency === "THB" && (
+              // What's still left after any part-payment.
+              <PayQr
+                source={qr}
+                amount={Math.max(0, payPerson.payable - (partial[payPerson.personId] ?? 0))}
+                name={payPerson.name}
+              />
+            )}
+            <SlipUpload<SlipResult & { paid: string[]; partial: Record<string, number> }>
+              endpoint={`/api/splits/${id}/slip`}
+              field="personId"
+              personRef={payPerson.personId}
+              currency={doc.currency}
+              onAccepted={(r) => {
+                setPaid(new Set(r.paid));
+                setPartial(r.partial ?? {});
+                loadSlips();
+              }}
+            />
+          </div>
         )}
       </Sheet>
     </main>

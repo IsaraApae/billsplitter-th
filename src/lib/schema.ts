@@ -8,7 +8,8 @@ const money = z.number().int().min(0).max(1_000_000_000_00);
 const bp = z.number().int().min(0).max(10000);
 
 /** A stored receipt photo: a Vercel Blob URL under receipts/, or a local-dev key. */
-export const RECEIPT_PHOTO_RE = /^(https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/receipts\/[\w.-]+|dev:r-[0-9a-f]{16})$/i;
+export const RECEIPT_PHOTO_RE =
+  /^(https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/(receipts|slips)\/[\w.-]+|dev:[rs]-[0-9a-f]{16})$/i;
 
 export const splitDocSchema = z
   .object({
@@ -56,6 +57,7 @@ export const splitDocSchema = z
       note: z.string().max(300).default(""),
       qrMode: z.enum(["none", "upload", "generate"]).optional(),
       ownerId: z.string().regex(/^[\w-]{16}$/).optional(),
+      slipName: z.string().trim().max(80).optional(),
     }),
     receipt: z.object({ subtotal: money.nullable(), total: money.nullable() }),
     roundUp: z.boolean().optional(),

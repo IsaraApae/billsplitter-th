@@ -8,6 +8,7 @@ export const maxDuration = 60;
 // A photo picked for a draft is stored before the split is shared, so give
 // drafts a month before an unshared photo counts as unused.
 const GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+const SLIP_MAX_AGE_MS = 200 * 24 * 60 * 60 * 1000;
 
 /**
  * Daily (vercel.json): deletes receipt photos no live split shows any more —
@@ -25,13 +26,18 @@ export async function GET(req: Request) {
     if (limited) return limited;
   }
   return safely(async () => {
+    // Slip pictures are only for the organiser to look over; drop them after ~6 months.
+    const slips = await listReceiptImages("slips/");
+    const oldSlips = slips.filter((p) => Date.now() - p.uploadedAt.getTime() > SLIP_MAX_AGE_MS).map((p) => p.url);
+    await deleteImages(oldSlips);
+
     const photos = await listReceiptImages();
     const old = photos.filter((p) => Date.now() - p.uploadedAt.getTime() > GRACE_MS);
     const unused: string[] = [];
     for (const p of old) if (!(await photoInUse(p.url))) unused.push(p.url);
     await deleteImages(unused);
     await Promise.all(unused.map(forgetPhoto));
-    console.info("[cleanup-photos]", { stored: photos.length, checked: old.length, deleted: unused.length });
-    return Response.json({ stored: photos.length, checked: old.length, deleted: unused.length });
+    console.info("[cleanup-photos]", { stored: photos.length, checked: old.length, deleted: unused.length, slipsDeleted: oldSlips.length });
+    return Response.json({ stored: photos.length, checked: old.length, deleted: unused.length, slipsDeleted: oldSlips.length });
   });
 }
