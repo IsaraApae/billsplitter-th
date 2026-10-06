@@ -49,6 +49,17 @@ export function roundToWholeUnits(exact: number[], unit: number): number[] {
   return units.map((u) => u * unit);
 }
 
+/**
+ * Equal split, rounded: everyone pays the largest exact share rounded up to a
+ * whole unit (exact equal shares differ by at most one minor unit), less
+ * anything they paid upfront.
+ */
+function equalWholeUnits(payers: { total: number; prepaid: number }[], unit: number): number[] {
+  if (unit <= 1) return payers.map((r) => r.total - r.prepaid);
+  const each = Math.ceil(Math.max(...payers.map((r) => r.total)) / unit) * unit;
+  return payers.map((r) => Math.ceil((each - r.prepaid) / unit) * unit);
+}
+
 /** The person who paid the bill (the device owner in new splits). */
 export const ORGANISER_ID = "me";
 
@@ -281,17 +292,26 @@ export function calculate(input: CalcInput): CalcResult {
   for (const r of results) r.payable = r.total - r.prepaid;
   if (input.roundUp && payers.length > 0) {
     const unit = wholeUnit(input.currency);
-    const whole = roundToWholeUnits(
-      payers.map((r) => r.total - r.prepaid),
-      unit,
-    );
+    // Split equally: every friend pays the same whole amount (each share
+    // rounded up, so the organiser never loses). Otherwise the cheapest
+    // group rounding (some up, some down).
+    const whole =
+      mode === "equal" && organiser
+        ? equalWholeUnits(payers, unit)
+        : roundToWholeUnits(
+            payers.map((r) => r.total - r.prepaid),
+            unit,
+          );
     payers.forEach((r, i) => (r.payable = whole[i]));
     // The organiser paid the rest of the bill: what's left after the friends
     // pay is never more than their exact share (they never lose money). It's
     // shown to the nearest whole unit, so everyone's amounts add up.
-    if (organiser)
-      organiser.payable =
-        Math.round((total - prepaidTotal - payers.reduce((s, r) => s + r.payable, 0)) / unit) * unit;
+    if (organiser) {
+      const left = Math.round((total - prepaidTotal - payers.reduce((s, r) => s + r.payable, 0)) / unit) * unit;
+      // Friends' rounding up can leave an organiser who ate (almost) nothing
+      // slightly ahead; show that as ฿0, not a negative share.
+      organiser.payable = organiser.total >= 0 ? Math.max(0, left) : left || 0;
+    }
   }
   const collected = results.reduce((s, r) => s + r.payable, 0);
   const roundingExtra = payers.reduce((s, r) => s + (r.payable - (r.total - r.prepaid)), 0);

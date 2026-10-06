@@ -2,6 +2,7 @@
 // food) combined so each friend sees and pays one total. Pure.
 
 import { calculate, ORGANISER_ID } from "./calc";
+import { organiserFirstByName } from "./friends";
 import type { PersonColor, SplitDoc } from "./types";
 
 export interface EventMeta {
@@ -106,7 +107,7 @@ export function eventPeople(bills: EventBill[]): EventPerson[] {
             ? "full"
             : "none";
   }
-  return people.sort((a, b) => Number(b.organiser) - Number(a.organiser));
+  return organiserFirstByName(people, (p) => (p.organiser ? ORGANISER_ID : p.key), (p) => p.name);
 }
 
 /** What to record in each bill when the organiser records a payment for the whole event. */

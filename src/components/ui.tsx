@@ -2,8 +2,9 @@
 
 import { AlertTriangle, Check, CheckCircle2, Info, Minus, Plus, X, XCircle } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { COLOR_HEX } from "@/lib/colors";
 import { currencyExponent, currencySymbol, parseMoney, toMajorString } from "@/lib/money";
-import type { Person, PersonColor } from "@/lib/types";
+import type { Person } from "@/lib/types";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -48,16 +49,7 @@ export function Money({
 // ---------- People ------------------------------------------------------------
 
 /** Soft, muted tag colours for people (never neon). */
-export const COLOR_HEX: Record<PersonColor, string> = {
-  emerald: "#93C79C",
-  sky: "#86B2DE",
-  violet: "#9F9DDA",
-  rose: "#E39AB4",
-  amber: "#E8AC72",
-  teal: "#7FC4BD",
-  indigo: "#92C1D1",
-  slate: "#A9A9B0",
-};
+export { COLOR_HEX } from "@/lib/colors";
 
 export function Avatar({
   person,
