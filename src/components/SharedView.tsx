@@ -352,9 +352,7 @@ export function SharedView({
                     ) : isPaid ? (
                       "Paid"
                     ) : status === "part" ? (
-                      <>
-                        Part paid · <Money value={paidPart} currency={doc.currency} /> paid
-                      </>
+                      "Part paid"
                     ) : (
                       "Unpaid"
                     )}

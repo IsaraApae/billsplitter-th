@@ -68,3 +68,11 @@ describe("big bill order", () => {
     expect(byTitle(["Karaoke", "Food 10", "food 2", "ชาบู"], (t) => t)).toEqual(["ชาบู", "food 2", "Food 10", "Karaoke"]);
   });
 });
+
+describe("the organiser in a big bill", () => {
+  it("is never ticked, even if an older bill still holds a tick for them", () => {
+    const b = bill("b1", "Food", [me, mint], 20000, { paid: ["me"], partial: {} });
+    const isara = eventPeople([b]).find((p) => p.organiser)!;
+    expect([isara.status, isara.paidSoFar, isara.bills[0].status]).toEqual(["none", 0, "none"]);
+  });
+});

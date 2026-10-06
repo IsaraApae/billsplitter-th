@@ -365,9 +365,7 @@ function PersonRow({
               ) : p.status === "full" ? (
                 p.total < 0 ? "Paid back" : "Paid"
               ) : p.status === "part" ? (
-                <>
-                  Part paid · <Money value={p.paidSoFar} currency={currency} /> paid
-                </>
+                "Part paid"
               ) : p.total < 0 ? (
                 "Gets money back"
               ) : (
@@ -416,7 +414,8 @@ function PersonRow({
                   </button>
                 ) : (
                   <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
-                    <PaidMark status={b.status} small />
+                    {/* The organiser's own bills have nothing to tick. */}
+                    {!p.organiser && <PaidMark status={b.status} small />}
                   </span>
                 )}
                 <span className="truncate">{b.title}</span>
