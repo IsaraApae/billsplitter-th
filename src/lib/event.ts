@@ -50,6 +50,11 @@ export interface EventPerson {
 
 const norm = (name: string) => name.trim().toLocaleLowerCase();
 
+/** Bills A–Z by title (Thai and English; "Food 2" before "Food 10"). */
+export function byTitle<T>(items: T[], titleOf: (t: T) => string): T[] {
+  return [...items].sort((a, b) => titleOf(a).localeCompare(titleOf(b), ["th", "en"], { numeric: true, sensitivity: "base" }));
+}
+
 /**
  * Everyone across the bills, merged by id — or by name, for people typed into
  * a single bill (they get a new id each time). The organiser is "me" in every
@@ -60,7 +65,7 @@ export function eventPeople(bills: EventBill[]): EventPerson[] {
   const byId = new Map<string, EventPerson>();
   const byName = new Map<string, EventPerson>();
 
-  for (const bill of bills) {
+  for (const bill of byTitle(bills, (b) => b.doc.title)) {
     const calc = calculate(bill.doc);
     bill.doc.people.forEach((p, i) => {
       const r = calc.people[i];

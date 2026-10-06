@@ -44,11 +44,14 @@ export function PaymentSheet({
   status,
   paidSoFar,
   slips = [],
+  title,
   onSave,
 }: {
   open: boolean;
   onClose: () => void;
   name: string;
+  /** defaults to "Has <name> paid?" */
+  title?: string;
   owed: number;
   currency: string;
   status: PaidStatus;
@@ -58,7 +61,7 @@ export function PaymentSheet({
   onSave: (p: PaymentInput) => void;
 }) {
   return (
-    <Sheet open={open} onClose={onClose} title={`Has ${name} paid?`} subtitle={`Asked to pay ${formatMoney(owed, currency)}`}>
+    <Sheet open={open} onClose={onClose} title={title ?? `Has ${name} paid?`} subtitle={`Asked to pay ${formatMoney(owed, currency)}`}>
       {/* Re-mounts on open so the amount starts from what's recorded. */}
       {open && slips.length > 0 && <SlipList slips={slips} currency={currency} />}
       {open && (

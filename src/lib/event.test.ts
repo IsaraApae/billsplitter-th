@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { eventPeople, spreadPayment, type EventBill } from "./event";
+import { byTitle, eventPeople, spreadPayment, type EventBill } from "./event";
 import type { SplitDoc } from "./types";
 
 const me = { id: "me", name: "Isara" };
@@ -53,10 +53,18 @@ describe("big bill: everyone across the bills", () => {
   it("spreads a part payment over the bills in order", () => {
     const m = eventPeople([food1, karaoke, food2]).find((p) => p.name === "Mint")!;
     expect(spreadPayment(m, { kind: "part", amount: 25000 }).map((b) => [b.splitId, b.kind, "amount" in b ? b.amount : null])).toEqual([
+      // A–Z: Food 1 (฿100), Food 2 (฿50), then Karaoke (฿200) gets the rest.
       ["b1", "full", null],
-      ["b2", "part", 15000],
-      ["b3", "none", null],
+      ["b3", "full", null],
+      ["b2", "part", 10000],
     ]);
     expect(spreadPayment(m, { kind: "full" }).every((b) => b.kind === "full")).toBe(true);
+  });
+});
+
+describe("big bill order", () => {
+  it("sorts bills A–Z, numbers in order", () => {
+    // Thai titles come first (Thai alphabetical order), then English.
+    expect(byTitle(["Karaoke", "Food 10", "food 2", "ชาบู"], (t) => t)).toEqual(["ชาบู", "food 2", "Food 10", "Karaoke"]);
   });
 });
