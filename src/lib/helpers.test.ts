@@ -4,6 +4,7 @@ import { billDate, billDay, newDoc, splitItem } from "./draft";
 import { calculate } from "./calc";
 import { formatMoney, parseMoney, percentToBp } from "./money";
 import { parseSplitDoc } from "./schema";
+import { splitVersion } from "./shareVersion";
 import { isValidPromptPayId, normalizePromptPayInput } from "./promptpay";
 
 describe("money", () => {
@@ -174,5 +175,13 @@ describe("split an item into separate lines", () => {
   it("keeps the new lines in a discount on selected items", () => {
     const d = splitItem({ ...doc, discount: { ...doc.discount, scope: "selected", itemIds: ["w"] } }, "w");
     expect(d.discount.itemIds).toHaveLength(2);
+  });
+});
+
+describe("share link version", () => {
+  it("changes when the bill's title changes, so link previews refresh", () => {
+    const doc = { ...newDoc(), title: "Dinner", people: [{ id: "me", name: "Me" }] };
+    expect(splitVersion(doc)).toBe(splitVersion({ ...doc }));
+    expect(splitVersion({ ...doc, title: "Dinner at Baan Suan" })).not.toBe(splitVersion(doc));
   });
 });

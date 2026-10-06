@@ -53,7 +53,9 @@ r = await fetch(`${base}/api/splits/${id}`, { method: "PUT", headers: { ...json,
 ok("creator can edit", r.ok);
 r = await fetch(`${base}/s/${id}`);
 ok("shared page renders", r.ok && (await r.text()).includes("Smoke test (edited)"));
-r = await fetch(`${base}/s/${id}/opengraph-image`);
+// The page's og:image (versioned /api/og/s/<id>?v=…) must load.
+const ogUrl = /<meta property="og:image" content="([^"]+)"/.exec(await (await fetch(`${base}/s/${id}`)).text())?.[1] ?? "";
+r = await fetch(ogUrl.replaceAll("&amp;", "&"));
 ok("OG image", r.ok && r.headers.get("content-type") === "image/png");
 console.log(`  → ${base}/s/${id}`);
 

@@ -11,6 +11,7 @@ import { getEditToken, getHistory, historyFromDoc, paidProgress, patchHistory } 
 import { billDate } from "@/lib/draft";
 import { ME_ID, organiserFirstByName } from "@/lib/friends";
 import { formatStep, wholeUnitName } from "@/lib/money";
+import { splitVersion } from "@/lib/shareVersion";
 import { formatPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
@@ -52,7 +53,8 @@ export function SharedView({
   const [error, setError] = useState<string | null>(null);
   const editToken = useBrowserValue(() => getEditToken(id), null);
   const canEdit = !!editToken;
-  const url = `${useBrowserValue(() => window.location.origin, "")}/s/${id}`;
+  // ?v= changes when the bill does, so chat apps show a fresh preview.
+  const url = `${useBrowserValue(() => window.location.origin, "")}/s/${id}?v=${splitVersion(doc)}`;
   const [payFor, setPayFor] = useState<string | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoBroken, setPhotoBroken] = useState(false);
