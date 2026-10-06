@@ -283,7 +283,6 @@ export function EventView({
               personRef={payPerson.key}
               currency={currency}
               onAccepted={(r) => setBills(r.bills)}
-              onRemoved={() => void refresh()}
             />
           </div>
         )}

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate, wholeUnit } from "@/lib/calc";
-import { askConfirm } from "@/lib/client/confirm";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { photoSrc } from "@/lib/client/photo";
 import { getEditToken, getHistory, historyFromDoc, paidProgress, patchHistory } from "@/lib/client/storage";
@@ -159,32 +158,6 @@ export function SharedView({
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [refresh]);
-
-  /** Organiser takes a slip off: its amount comes off what that person has paid. */
-  async function removeSlip(personId: string, slip: SlipInfo) {
-    const ok = await askConfirm({
-      title: "Remove this slip?",
-      message: "Its amount comes off what they've paid, and the slip can be uploaded again.",
-      confirmLabel: "Remove",
-      destructive: true,
-    });
-    if (!ok || !editToken) return;
-    setError(null);
-    try {
-      const r = await fetch(`/api/splits/${id}/slip`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", "x-edit-token": editToken },
-        body: JSON.stringify({ personId, reference: slip.reference }),
-      });
-      const data = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(data?.message ?? "Couldn't remove the slip.");
-      setPaid(new Set(data.paid as string[]));
-      setPartial((data.partial as Record<string, number>) ?? {});
-      loadSlips();
-    } catch (e) {
-      setError(navigator.onLine ? (e as Error).message : "You're offline — try again when connected.");
-    }
-  }
 
   /** Paid in full (big tick), part of it (small tick), or not yet — organiser only. */
   async function savePayment(personId: string, input: PaymentInput) {
@@ -493,7 +466,6 @@ export function SharedView({
           status={askPerson ? statusOf(askPerson.personId) : "none"}
           paidSoFar={askPerson ? (partial[askPerson.personId] ?? 0) : 0}
           slips={askPerson ? slips[askPerson.personId] : undefined}
-          onRemoveSlip={(slip) => askPerson && removeSlip(askPerson.personId, slip)}
           onSave={(input) => askPerson && savePayment(askPerson.personId, input)}
         />
       )}
@@ -519,7 +491,6 @@ export function SharedView({
                 setPartial(r.partial ?? {});
                 loadSlips();
               }}
-              onRemoved={() => void refresh()}
             />
           </div>
         )}
