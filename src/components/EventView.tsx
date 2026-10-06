@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { getEditToken, getEvents, upsertEvent } from "@/lib/client/storage";
-import { eventPeople, type EventBill, type EventMeta, type EventPerson } from "@/lib/event";
+import { byTitle, eventPeople, type EventBill, type EventMeta, type EventPerson, type EventPersonBill } from "@/lib/event";
 import { EventEditor } from "./EventEditor";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
@@ -34,6 +34,8 @@ export function EventView({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [askFor, setAskFor] = useState<string | null>(null);
+  // One bill inside the big bill, ticked on its own.
+  const [askBill, setAskBill] = useState<{ key: string; splitId: string } | null>(null);
   const [payFor, setPayFor] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const editToken = useBrowserValue(() => getEditToken(id), null);
@@ -56,6 +58,8 @@ export function EventView({
     .reduce((s, p) => s + Math.max(0, p.total - p.paidSoFar), 0);
   const waitingOn = friends.filter((p) => p.status !== "full" && p.total > 0).map((p) => p.name);
   const askPerson = people.find((p) => p.key === askFor);
+  const billPerson = askBill ? people.find((p) => p.key === askBill.key) : undefined;
+  const billLine = billPerson?.bills.find((b) => b.splitId === askBill?.splitId);
   const payPerson = people.find((p) => p.key === payFor);
   const missing = meta.splitIds.length - bills.length;
 
@@ -102,6 +106,29 @@ export function EventView({
       const data = await r.json().catch(() => null);
       if (!r.ok) throw new Error(data?.message ?? "Couldn't save.");
       setBills(data.bills as EventBill[]);
+    } catch (e) {
+      setError(navigator.onLine ? (e as Error).message : "You're offline — the payment wasn't saved.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Ticks one person on one of the bills (with that bill's own edit token). */
+  async function saveBillPayment(person: EventPerson, bill: EventPersonBill, input: PaymentInput) {
+    const token = getEditToken(bill.splitId);
+    if (!token) return;
+    setError(null);
+    setBusy(person.key);
+    try {
+      const r = await fetch(`/api/splits/${bill.splitId}/paid`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-edit-token": token },
+        body: JSON.stringify({ personId: bill.personId, ...input }),
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data?.message ?? "Couldn't save.");
+      const fresh = await fetch(`/api/events/${id}`, { cache: "no-store" });
+      if (fresh.ok) setBills(((await fresh.json()) as { bills: EventBill[] }).bills);
     } catch (e) {
       setError(navigator.onLine ? (e as Error).message : "You're offline — the payment wasn't saved.");
     } finally {
@@ -170,20 +197,21 @@ export function EventView({
               canEdit={canEdit}
               busy={busy === p.key}
               onAsk={() => setAskFor(p.key)}
+              onAskBill={canEdit ? (b) => getEditToken(b.splitId) && setAskBill({ key: p.key, splitId: b.splitId }) : undefined}
               onPay={() => setPayFor(p.key)}
             />
           ))}
         </ul>
         <p className="px-5 text-[13px] text-ink-2">
           {canEdit
-            ? "Tap the circle when someone pays you. It's recorded on each bill too."
+            ? "Tap the circle when someone pays you; it's recorded on each bill too. Open a person to tick a single bill."
             : "Each person pays their total for all the bills at once."}
         </p>
       </Section>
 
       <Section title={`Bills · ${bills.length}`}>
         <ul className="card rows overflow-hidden">
-          {bills.map((b) => (
+          {byTitle(bills, (b) => b.doc.title).map((b) => (
             <li key={b.id}>
               <Link href={`/s/${b.id}`} className="flex min-h-[60px] items-center gap-3 py-2 pr-4 pl-5">
                 <span className="min-w-0 flex-1">
@@ -227,6 +255,20 @@ export function EventView({
         />
       )}
 
+      {canEdit && (
+        <PaymentSheet
+          open={!!billLine}
+          onClose={() => setAskBill(null)}
+          name={billPerson?.name ?? ""}
+          title={billPerson && billLine ? `Has ${billPerson.name} paid for ${billLine.title}?` : undefined}
+          owed={Math.max(0, billLine?.amount ?? 0)}
+          currency={currency}
+          status={billLine?.status ?? "none"}
+          paidSoFar={billLine?.paidSoFar ?? 0}
+          onSave={(input) => billPerson && billLine && saveBillPayment(billPerson, billLine, input)}
+        />
+      )}
+
       <Sheet open={!!payPerson} onClose={() => setPayFor(null)} title={payPerson ? `Pay ${payPerson.name}'s total` : "Pay"}>
         {payPerson && (
           <div className="space-y-4">
@@ -265,6 +307,7 @@ function PersonRow({
   canEdit,
   busy,
   onAsk,
+  onAskBill,
   onPay,
 }: {
   person: EventPerson;
@@ -272,6 +315,8 @@ function PersonRow({
   canEdit: boolean;
   busy: boolean;
   onAsk: () => void;
+  /** tick this person on one bill (organiser only) */
+  onAskBill?: (b: EventPersonBill) => void;
   onPay?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -347,11 +392,26 @@ function PersonRow({
         )}
       </div>
       {open && (
-        <ul className="space-y-1.5 px-5 pb-4 text-[15px]">
+        <ul className="space-y-0.5 pr-5 pb-3 pl-3 text-[15px]">
           {p.bills.map((b) => (
-            <li key={b.splitId} className="flex items-center justify-between gap-3">
-              <span className="flex min-w-0 items-center gap-2">
-                <PaidMark status={b.status} small />
+            <li key={b.splitId} className="flex min-h-11 items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-1">
+                {onAskBill && !p.organiser ? (
+                  // Small circle, 44px tap target.
+                  <button
+                    type="button"
+                    className="press grid size-11 shrink-0 place-items-center rounded-full"
+                    disabled={busy}
+                    aria-label={`${p.name} for ${b.title}: ${b.status === "full" ? "paid" : b.status === "part" ? "paid part" : "not paid"}. Change`}
+                    onClick={() => onAskBill(b)}
+                  >
+                    <PaidMark status={b.status} small busy={busy} />
+                  </button>
+                ) : (
+                  <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
+                    <PaidMark status={b.status} small />
+                  </span>
+                )}
                 <span className="truncate">{b.title}</span>
               </span>
               <Money value={b.amount} currency={currency} tone={b.amount < 0 ? "negative" : undefined} />

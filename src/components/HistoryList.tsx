@@ -22,6 +22,7 @@ import { getFriends } from "@/lib/client/friendsStore";
 import { ME_ID } from "@/lib/friends";
 import { formatMoney } from "@/lib/money";
 import type { SplitDoc } from "@/lib/types";
+import { byTitle } from "@/lib/event";
 import { EventEditor } from "./EventEditor";
 import { Avatar, ICON, Money, cx } from "./ui";
 
@@ -117,7 +118,10 @@ export function HistoryList() {
       .map((event) => ({
         kind: "event" as const,
         event,
-        entries: shown.filter((h) => event.splitIds.includes(h.id)),
+        entries: byTitle(
+          shown.filter((h) => event.splitIds.includes(h.id)),
+          (h) => h.title,
+        ),
         time: Date.parse(`${event.date}T12:00`),
       }))
       .filter((g) => g.entries.length > 0 || !person),
