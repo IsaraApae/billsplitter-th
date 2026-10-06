@@ -15,6 +15,8 @@ export interface Profile {
   ownerId?: string; // server-side owner record for the uploaded QR
   ownerToken?: string; // secret proving this device owns it
   qrVersion?: number; // bumps when the uploaded QR changes
+  /** name on your bank account, so friends' slips can be checked */
+  slipName?: string;
 }
 
 const KEY = "bs:profile";
@@ -60,6 +62,7 @@ export function paymentFromProfile(p: Profile): PaymentInfo {
     note: p.note,
     qrMode: p.qrMode === "upload" && !upload ? "none" : p.qrMode,
     ownerId: upload ? p.ownerId : undefined,
+    slipName: p.slipName?.trim() || undefined,
   };
 }
 

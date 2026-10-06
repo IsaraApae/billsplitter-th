@@ -12,6 +12,7 @@ import { EventEditor } from "./EventEditor";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { Avatar, Callout, ICON, Money, Section, Sheet, cx } from "./ui";
 
 const POLL_MS = 10_000;
@@ -169,7 +170,7 @@ export function EventView({
               canEdit={canEdit}
               busy={busy === p.key}
               onAsk={() => setAskFor(p.key)}
-              onPay={qr && currency === "THB" ? () => setPayFor(p.key) : undefined}
+              onPay={() => setPayFor(p.key)}
             />
           ))}
         </ul>
@@ -227,8 +228,19 @@ export function EventView({
       )}
 
       <Sheet open={!!payPerson} onClose={() => setPayFor(null)} title={payPerson ? `Pay ${payPerson.name}'s total` : "Pay"}>
-        {payPerson && qr && (
-          <PayQr source={qr} amount={Math.max(0, payPerson.total - payPerson.paidSoFar)} name={payPerson.name} />
+        {payPerson && (
+          <div className="space-y-4">
+            {qr && currency === "THB" && (
+              <PayQr source={qr} amount={Math.max(0, payPerson.total - payPerson.paidSoFar)} name={payPerson.name} />
+            )}
+            <SlipUpload<SlipResult & { bills: EventBill[] }>
+              endpoint={`/api/events/${id}/slip`}
+              field="personKey"
+              personRef={payPerson.key}
+              currency={currency}
+              onAccepted={(r) => setBills(r.bills)}
+            />
+          </div>
         )}
       </Sheet>
 

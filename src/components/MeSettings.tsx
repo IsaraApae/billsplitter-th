@@ -221,6 +221,21 @@ export function MeSettings() {
               onChange={(e) => update({ note: e.target.value })}
             />
           </label>
+          <label className="block space-y-1.5">
+            <span className="label">Name on your bank account (for checking slips)</span>
+            <input
+              className="input"
+              maxLength={80}
+              autoComplete="off"
+              placeholder="e.g. ISARA A. / อิสรา อ."
+              value={p.slipName ?? ""}
+              onChange={(e) => update({ slipName: e.target.value })}
+            />
+            <span className="block px-1 text-[13px] text-ink-2">
+              When friends upload a transfer slip, it must show this name as the receiver before they&apos;re ticked.
+              Add both the English and Thai spelling, separated by “/”.
+            </span>
+          </label>
           {error && <Callout tone="error">{error}</Callout>}
         </div>
       </Section>

@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useState } from "react";
+import { photoSrc } from "@/lib/client/photo";
 import { formatMoney } from "@/lib/money";
 import { ICON, Money, MoneyInput, Sheet, cx } from "./ui";
 
@@ -42,6 +43,7 @@ export function PaymentSheet({
   currency,
   status,
   paidSoFar,
+  slips = [],
   onSave,
 }: {
   open: boolean;
@@ -51,11 +53,14 @@ export function PaymentSheet({
   currency: string;
   status: PaidStatus;
   paidSoFar: number;
+  /** slips this person uploaded (organiser only) */
+  slips?: SlipInfo[];
   onSave: (p: PaymentInput) => void;
 }) {
   return (
     <Sheet open={open} onClose={onClose} title={`Has ${name} paid?`} subtitle={`Asked to pay ${formatMoney(owed, currency)}`}>
       {/* Re-mounts on open so the amount starts from what's recorded. */}
+      {open && slips.length > 0 && <SlipList slips={slips} currency={currency} />}
       {open && (
         <PaymentForm
           owed={owed}
@@ -151,6 +156,51 @@ function PaymentForm({
           Not paid yet
         </button>
       )}
+    </div>
+  );
+}
+
+/** A slip a friend uploaded, as the organiser sees it. */
+export interface SlipInfo {
+  photo: string;
+  amount: number;
+  date: string;
+  receiver: "match" | "unknown";
+  senderName: string | null;
+}
+
+function SlipList({ slips, currency }: { slips: SlipInfo[]; currency: string }) {
+  return (
+    <div className="mb-3.5 space-y-2">
+      <p className="px-5 text-[13px] text-ink-2">Slips they uploaded</p>
+      <ul className="card rows overflow-hidden">
+        {slips.map((s, i) => (
+          <li key={i}>
+            <a
+              href={s.photo ? photoSrc(s.photo) : undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-[64px] items-center gap-3 py-2 pr-4 pl-3"
+            >
+              {s.photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoSrc(s.photo)} alt="Slip" className="size-12 shrink-0 rounded-[12px] bg-white object-cover" />
+              ) : (
+                <span className="size-12 shrink-0 rounded-[12px] bg-[var(--field)]" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">
+                  <Money value={s.amount} currency={currency} /> · {s.date}
+                </span>
+                <span className="block truncate text-[13px] text-ink-2">
+                  {s.receiver === "match" ? "Paid to you ✓" : "Receiver not checked"}
+                  {s.senderName ? ` · from ${s.senderName}` : ""}
+                </span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

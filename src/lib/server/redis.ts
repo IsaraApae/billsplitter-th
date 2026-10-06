@@ -326,6 +326,87 @@ export async function setPayment(
   return getPaidState(id, s.doc);
 }
 
+// ---- Slips: friends' transfer slips that ticked them as paid ----------------
+
+const slipsKey = (id: string) => `split:${id}:slips`;
+const slipRefKey = (ref: string) => `slipref:${ref}`;
+const SLIP_REF_TTL = 60 * 60 * 24 * 400;
+
+export interface SlipRecord {
+  /** stored picture (see /api/receipt) */
+  photo: string;
+  /** minor units */
+  amount: number;
+  date: string;
+  reference: string;
+  /** whether the receiver could be matched to the organiser */
+  receiver: "match" | "unknown";
+  senderName: string | null;
+  at: string;
+}
+
+/**
+ * Claims a slip's reference so the same transfer can't tick anyone twice.
+ * Returns false if it was already used.
+ */
+export async function claimSlipReference(reference: string, owner: string): Promise<boolean> {
+  return db().set(slipRefKey(reference), owner, { ex: SLIP_REF_TTL, nx: true });
+}
+
+export async function addSlip(id: string, personId: string, slip: SlipRecord): Promise<void> {
+  const all = await getSlips(id);
+  const mine = [...(all[personId] ?? []), slip].slice(-10);
+  await db().hset(slipsKey(id), personId, JSON.stringify(mine));
+  await db().expire(slipsKey(id), TTL_SECONDS);
+}
+
+/** Slips per person (organiser-only data: they show bank names). */
+export async function getSlips(id: string): Promise<Record<string, SlipRecord[]>> {
+  const raw = await db().hgetall(slipsKey(id));
+  const out: Record<string, SlipRecord[]> = {};
+  for (const [pid, v] of Object.entries(raw)) {
+    try {
+      const list = JSON.parse(v);
+      if (Array.isArray(list)) out[pid] = list as SlipRecord[];
+    } catch {
+      /* ignore a bad record */
+    }
+  }
+  return out;
+}
+
+/** True if `token` is this split's edit token. */
+export async function canEditSplit(id: string, token: string | null): Promise<boolean> {
+  const s = await db().get<StoredSplit>(docKey(id));
+  return !!(s && token && tokenMatches(token, s.editHash));
+}
+
+/** Records a payment without an edit token — only after a slip has been checked. */
+export async function recordCheckedPayment(id: string, personId: string, payment: Payment): Promise<PaidState | "not_found"> {
+  const s = await db().get<StoredSplit>(docKey(id));
+  if (!s || !s.doc.people.some((p) => p.id === personId)) return "not_found";
+  await writePayment(id, s.doc, personId, payment);
+  return getPaidState(id, s.doc);
+}
+
+/** Records a big-bill payment without the event token — only after a slip has been checked. */
+export async function recordCheckedEventPayment(id: string, personKey: string, payment: Payment): Promise<LoadedEvent | "not_found"> {
+  const loaded = await getEvent(id);
+  const person = loaded && eventPeople(loaded.bills).find((p) => p.key === personKey);
+  if (!loaded || !person) return "not_found";
+  for (const bp of spreadPayment(person, payment)) {
+    const bill = loaded.bills.find((b) => b.id === bp.splitId)!;
+    await writePayment(bp.splitId, bill.doc, bp.personId, bp);
+  }
+  return (await getEvent(id)) ?? "not_found";
+}
+
+/** True if `token` is this big bill's edit token. */
+export async function canEditEvent(id: string, token: string | null): Promise<boolean> {
+  const e = await db().get<StoredEvent>(eventKey(id));
+  return !!(e && token && tokenMatches(token, e.editHash));
+}
+
 // ---- Big bills: several splits from one outing, shown and paid as one -------
 
 const eventKey = (id: string) => `event:${id}`;
