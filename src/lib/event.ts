@@ -86,8 +86,10 @@ export function eventPeople(bills: EventBill[]): EventPerson[] {
         if (!person.organiser) byName.set(norm(p.name), person);
       }
       byId.set(p.id, person);
-      const full = bill.paid.includes(p.id);
-      const part = full ? 0 : (bill.partial[p.id] ?? 0);
+      // The organiser paid the bills: never ticked (older splits may still hold a tick for "me").
+      const organiser = p.id === ORGANISER_ID;
+      const full = !organiser && bill.paid.includes(p.id);
+      const part = full || organiser ? 0 : (bill.partial[p.id] ?? 0);
       person.bills.push({
         splitId: bill.id,
         title: bill.doc.title,
