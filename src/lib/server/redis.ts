@@ -343,37 +343,6 @@ export interface SlipRecord {
   receiver: "match" | "unknown";
   senderName: string | null;
   at: string;
-  /** hash of the uploader's undo token: lets them remove their own slip */
-  undoHash?: string;
-  /** set when the slip paid a big bill (spread over its bills) */
-  eventId?: string;
-  personKey?: string;
-}
-
-/** A token the uploader keeps to remove their own slip later, and its stored hash. */
-export function newUndo(): { token: string; hash: string } {
-  const token = newToken();
-  return { token, hash: hash(token) };
-}
-
-export function undoMatches(token: string, undoHash: string | undefined): boolean {
-  if (!undoHash) return false;
-  const a = Buffer.from(hash(token));
-  const b = Buffer.from(undoHash);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-/** Takes a slip off a person (returns it), so the same reference can be used again. */
-export async function removeSlip(id: string, personId: string, reference: string): Promise<SlipRecord | null> {
-  const all = await getSlips(id);
-  const mine = all[personId] ?? [];
-  const slip = mine.find((s) => s.reference === reference);
-  if (!slip) return null;
-  const rest = mine.filter((s) => s !== slip);
-  if (rest.length) await db().hset(slipsKey(id), personId, JSON.stringify(rest));
-  else await db().hdel(slipsKey(id), personId);
-  await db().del(slipRefKey(reference));
-  return slip;
 }
 
 /**
