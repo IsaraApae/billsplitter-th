@@ -6,6 +6,7 @@ import { useState } from "react";
 import { askConfirm } from "@/lib/client/confirm";
 import { getFriends, getGroups, saveFriends, saveGroups } from "@/lib/client/friendsStore";
 import { useLastSplitDates, useSplitHistory } from "@/lib/client/lastSplit";
+import { renameEverywhere } from "@/lib/client/rename";
 import { uid } from "@/lib/draft";
 import { addFriend, findByName, sortFriends, withLastSplit, type Friend, type FriendGroup } from "@/lib/friends";
 import { PERSON_COLORS, type PersonColor } from "@/lib/types";
@@ -19,6 +20,7 @@ export function FriendsManager() {
   const [groups, setGroups] = useState<FriendGroup[]>(getGroups);
   const [editing, setEditing] = useState<Editing>(null);
   const [query, setQuery] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
 
   const lastSplit = useLastSplitDates(useSplitHistory());
 
@@ -60,6 +62,10 @@ export function FriendsManager() {
           <Plus size={22} {...ICON} />
         </button>
       </div>
+
+      {notice && (
+        <Callout tone="success">{notice}</Callout>
+      )}
 
       <Section
         title="Groups"
@@ -152,9 +158,17 @@ export function FriendsManager() {
             friend={editing.friend}
             existing={friends}
             onSave={(f) => {
-              if (editing.friend) commitFriends(friends.map((x) => (x.id === f.id ? f : x)));
+              const before = editing.friend;
+              if (before) commitFriends(friends.map((x) => (x.id === f.id ? f : x)));
               else commitFriends(addFriend(friends, f, f.id).friends);
               setEditing(null);
+              // Renamed (or new look): update the splits you've shared with them.
+              if (before && (before.name !== f.name || before.emoji !== f.emoji || before.color !== f.color)) {
+                setNotice(`Updating ${f.name} in your shared splits…`);
+                void renameEverywhere(f.id, { name: f.name, emoji: f.emoji, color: f.color }).then((n) =>
+                  setNotice(n ? `Updated ${f.name} in ${n} shared ${n === 1 ? "split" : "splits"}.` : null),
+                );
+              }
             }}
             onDelete={editing.friend ? () => deleteFriend(editing.friend!) : undefined}
           />
