@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { photoSrc } from "@/lib/client/photo";
 import { formatMoney } from "@/lib/money";
@@ -44,6 +44,7 @@ export function PaymentSheet({
   status,
   paidSoFar,
   slips = [],
+  onRemoveSlip,
   title,
   onSave,
 }: {
@@ -58,12 +59,14 @@ export function PaymentSheet({
   paidSoFar: number;
   /** slips this person uploaded (organiser only) */
   slips?: SlipInfo[];
+  /** take a slip off (its amount comes off what they've paid) */
+  onRemoveSlip?: (s: SlipInfo) => void;
   onSave: (p: PaymentInput) => void;
 }) {
   return (
     <Sheet open={open} onClose={onClose} title={title ?? `Has ${name} paid?`} subtitle={`Asked to pay ${formatMoney(owed, currency)}`}>
       {/* Re-mounts on open so the amount starts from what's recorded. */}
-      {open && slips.length > 0 && <SlipList slips={slips} currency={currency} />}
+      {open && slips.length > 0 && <SlipList slips={slips} currency={currency} onRemove={onRemoveSlip} />}
       {open && (
         <PaymentForm
           owed={owed}
@@ -165,6 +168,7 @@ function PaymentForm({
 
 /** A slip a friend uploaded, as the organiser sees it. */
 export interface SlipInfo {
+  reference: string;
   photo: string;
   amount: number;
   date: string;
@@ -172,18 +176,18 @@ export interface SlipInfo {
   senderName: string | null;
 }
 
-function SlipList({ slips, currency }: { slips: SlipInfo[]; currency: string }) {
+function SlipList({ slips, currency, onRemove }: { slips: SlipInfo[]; currency: string; onRemove?: (s: SlipInfo) => void }) {
   return (
     <div className="mb-3.5 space-y-2">
       <p className="px-5 text-[13px] text-ink-2">Slips they uploaded</p>
       <ul className="card rows overflow-hidden">
         {slips.map((s, i) => (
-          <li key={i}>
+          <li key={i} className="flex items-center pr-2">
             <a
               href={s.photo ? photoSrc(s.photo) : undefined}
               target="_blank"
               rel="noreferrer"
-              className="flex min-h-[64px] items-center gap-3 py-2 pr-4 pl-3"
+              className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2 pr-2 pl-3"
             >
               {s.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -201,6 +205,11 @@ function SlipList({ slips, currency }: { slips: SlipInfo[]; currency: string }) 
                 </span>
               </span>
             </a>
+            {onRemove && (
+              <button type="button" className="icon-plain size-11 shrink-0" aria-label="Remove this slip" onClick={() => onRemove(s)}>
+                <Trash2 size={20} {...ICON} />
+              </button>
+            )}
           </li>
         ))}
       </ul>

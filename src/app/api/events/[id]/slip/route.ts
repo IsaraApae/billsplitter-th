@@ -4,7 +4,7 @@ import { checkSlip } from "@/lib/slip";
 import { jsonError, safely } from "@/lib/server/http";
 import { storeReceiptImage } from "@/lib/server/qrStore";
 import { rateLimit } from "@/lib/server/ratelimit";
-import { addSlip, claimSlipReference, getEvent, isValidId, recordCheckedEventPayment } from "@/lib/server/redis";
+import { addSlip, claimSlipReference, getEvent, isValidId, newUndo, recordCheckedEventPayment } from "@/lib/server/redis";
 import { readSlipUpload } from "@/lib/server/slipRead";
 
 export const maxDuration = 60;
@@ -43,6 +43,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/events/[id]/sli
     }
 
     const photo = await storeReceiptImage(upload.bytes, "slips").catch(() => "");
+    const undo = newUndo();
     const paidSoFar = person.paidSoFar + verdict.amount;
     const full = paidSoFar >= person.total;
     const next = await recordCheckedEventPayment(id, person.key, full ? { kind: "full" } : { kind: "part", amount: paidSoFar });
@@ -57,12 +58,20 @@ export async function POST(req: Request, ctx: RouteContext<"/api/events/[id]/sli
       receiver: verdict.receiver,
       senderName: upload.slip.senderName,
       at: new Date().toISOString(),
+      undoHash: undo.hash,
+      eventId: id,
+      personKey: person.key,
     });
     return Response.json({
       result: full ? "full" : "part",
       amount: verdict.amount,
       left: Math.max(0, person.total - paidSoFar),
       receiver: verdict.receiver,
+      reference: verdict.reference,
+      // Lets the uploader remove this slip later (kept on their phone);
+      // it's stored with their first bill.
+      undoToken: undo.token,
+      slipAt: { splitId: first.splitId, personId: first.personId },
       ...next,
     });
   });
