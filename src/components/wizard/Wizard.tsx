@@ -18,7 +18,7 @@ import {
   setEditToken,
   upsertHistory,
 } from "@/lib/client/storage";
-import { billDate, defaultTitle, newDoc } from "@/lib/draft";
+import { billDate, defaultTitle, newDoc, toDay } from "@/lib/draft";
 import { toPeople } from "@/lib/friends";
 import type { Person, SplitDoc } from "@/lib/types";
 import { CrewSheet } from "../CrewSheet";
@@ -52,7 +52,11 @@ function freshState(): DraftState {
 function boot(editId: string | null): { draft: DraftState; editId: string | null; error: string | null; isNew: boolean } {
   const saved = load<DraftState | null>(DRAFT_KEY, null);
   const isNew = !(saved?.doc?.v === 1);
-  const draft = isNew ? freshState() : saved!;
+  let draft = isNew ? freshState() : saved!;
+  // A draft nobody has started (no items, no date picked) belongs to today.
+  if (!draft.editingId && draft.doc.items.length === 0 && !draft.doc.date && toDay(new Date(draft.doc.createdAt)) !== toDay(new Date())) {
+    draft = { ...draft, doc: { ...draft.doc, createdAt: new Date().toISOString() } };
+  }
   if (!editId) return { draft, editId: null, error: null, isNew };
   if (!getEditToken(editId))
     return { draft, editId: null, error: "You can only edit splits created on this device.", isNew: false };

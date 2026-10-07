@@ -21,6 +21,8 @@ export interface ScanResult {
   currency: string | null;
   /** date printed on the receipt, YYYY-MM-DD (Gregorian); null if none or implausible */
   date?: string | null;
+  /** shop or restaurant name, for the split's title */
+  merchant?: string | null;
   /** model that produced the result */
   model?: string;
   /** every Gemini call made for this scan, in order */
@@ -97,6 +99,7 @@ export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
     total: num(o.total),
     currency,
     date: receiptDate(o.date, now),
+    merchant: typeof o.merchant === "string" && o.merchant.trim() ? o.merchant.replace(/\s+/g, " ").trim().slice(0, 60) : null,
   };
 }
 

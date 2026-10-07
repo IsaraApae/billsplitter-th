@@ -116,6 +116,9 @@ export function applyScan(
   const currency = doc.currency;
   // The first receipt of a split sets its date (a later one doesn't override it).
   const date = doc.items.length === 0 && scan.date ? scan.date : doc.date;
+  // The shop's name becomes the title, unless the user already typed one.
+  const title = !doc.title.trim() && scan.merchant ? scan.merchant : doc.title;
+  if (title !== doc.title) notes.push(`Title set to "${title}" from the receipt.`);
   if (date !== doc.date)
     notes.push(`Date set to ${billDate({ date: date!, createdAt: doc.createdAt }).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} from the receipt.`);
   const m = (v: number | null) => (v === null ? null : parseMoney(v, currency));
@@ -139,6 +142,7 @@ export function applyScan(
     ...doc,
     currency,
     date,
+    title,
     items: [...doc.items, ...items],
     receipt: {
       subtotal: doc.items.length === 0 ? subtotal : null,

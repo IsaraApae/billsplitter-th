@@ -266,3 +266,22 @@ describe("friends' last split date", () => {
     expect(last.has("boss")).toBe(false);
   });
 });
+
+describe("receipt merchant name", () => {
+  const scan = { items: [{ name: "Rice", qty: 1, price: 50 }], subtotal: null, serviceCharge: null, vat: null, vatIncluded: false, discount: null, total: null, currency: "THB", merchant: "Yoshinoya Chamchuree Square" };
+
+  it("becomes the title when none was typed", () => {
+    const r = applyScan(newDoc(), scan);
+    expect(r.doc.title).toBe("Yoshinoya Chamchuree Square");
+    expect(r.notes.join(" ")).toContain("Title set to");
+  });
+
+  it("doesn't replace a title the user typed", () => {
+    expect(applyScan({ ...newDoc(), title: "Lunch with Mint" }, scan).doc.title).toBe("Lunch with Mint");
+  });
+
+  it("is cleaned up by sanitizeScan", () => {
+    expect(sanitizeScan({ items: [], merchant: "  Yoshinoya \n Chamchuree  " }).merchant).toBe("Yoshinoya Chamchuree");
+    expect(sanitizeScan({ items: [], merchant: "" }).merchant).toBeNull();
+  });
+});
