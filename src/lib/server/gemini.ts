@@ -11,7 +11,14 @@ import { getModelCooldowns, setModelCooldown } from "./redis";
  * of quota or overloaded the next one can still answer.
  * Override with GEMINI_MODELS="model-a,model-b,…".
  */
-const DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"];
+const DEFAULT_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+];
 const MODELS = (process.env.GEMINI_MODELS ?? "")
   .split(",")
   .map((m) => m.trim())
@@ -120,6 +127,8 @@ async function callModel(req: ImageJsonRequest, model: string, key: string, time
         return { ...done(429, "quota"), cooldownSec: seconds(g.retryDelay) ?? (daily ? 3600 : 60) };
       }
       if (res.status === 500 || res.status === 503 || res.status === 504) return done(res.status, "busy");
+      // Unknown or retired model name: skip it for a day and try the next one.
+      if (res.status === 404) return { ...done(404, "network"), cooldownSec: 86_400 };
       return done(res.status, "api_error"); // 400 etc.: bad image or blocked — another model won't help
     }
     const json = (await res.json()) as {
