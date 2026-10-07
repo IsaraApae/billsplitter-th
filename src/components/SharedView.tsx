@@ -12,7 +12,7 @@ import { billDate } from "@/lib/draft";
 import { ME_ID, organiserFirstByName } from "@/lib/friends";
 import { formatStep, wholeUnitName } from "@/lib/money";
 import { splitVersion } from "@/lib/shareVersion";
-import { formatPromptPayId } from "@/lib/promptpay";
+import { accountNumber, formatPromptPayId } from "@/lib/promptpay";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
 import { PayQr, type PayQrSource } from "./PayQr";
@@ -278,7 +278,7 @@ export function SharedView({
             {doc.payment.note && (
               <div className="flex items-start justify-between gap-2 py-3 pr-3 pl-5">
                 <p className="pt-2 break-words whitespace-pre-wrap">{doc.payment.note}</p>
-                <button type="button" className="btn-secondary min-h-10 shrink-0 px-4 text-[15px]" onClick={() => copy(doc.payment.note, "note")}>
+                <button type="button" className="btn-secondary min-h-10 shrink-0 px-4 text-[15px]" onClick={() => copy(accountNumber(doc.payment.note) ?? doc.payment.note, "note")}>
                   {copied === "note" ? <Check size={18} {...ICON} /> : <Copy size={18} {...ICON} />} {copied === "note" ? "Copied" : "Copy"}
                 </button>
               </div>
