@@ -164,15 +164,17 @@ async function callModel(
   }
 }
 
-/** If the model being asked hasn't answered by then, the next one starts too. */
-const HEDGE_MS = 6_000;
+/** Models asked straight away (the best ones), so one slow or busy model doesn't hold the scan up. */
+const START_WITH = 2;
+/** If none has answered by then, the next one starts too. */
+const HEDGE_MS = 4_000;
 /** Most models asked at the same time. */
 const MAX_PARALLEL = 3;
 
 /**
- * Asks the model chain to read one image, racing for speed: the best model
- * goes first; if it fails (busy, out of quota, timed out) the next one
- * starts at once, and if it's merely slow the next one starts after
+ * Asks the model chain to read one image, racing for speed: the two best
+ * models start together; when one fails (busy, out of quota, timed out)
+ * the next starts at once, and if they're merely slow another starts after
  * HEDGE_MS. The first good answer wins and the others are cancelled. A 400
  * (bad image) stops everything. Models that recently ran out of quota,
  * timed out or were busy go last.
@@ -222,6 +224,6 @@ export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonRes
         launch(); // failed: ask the next model now
       });
     };
-    launch();
+    for (let i = 0; i < START_WITH; i++) launch();
   });
 }
