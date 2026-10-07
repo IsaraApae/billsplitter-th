@@ -37,7 +37,7 @@ export interface ImageJsonRequest {
   mime: string;
   /** base64 image */
   data: string;
-  /** ~20 s per call and ~55 s overall by default */
+  /** ~15 s per call and ~55 s overall by default */
   attemptMs?: number;
   totalMs?: number;
 }
@@ -96,7 +96,13 @@ type CallResult = { attempt: ScanAttempt; text?: string; cooldownSec?: number };
 const seconds = (delay: unknown) => (typeof delay === "string" && /^\d+(\.\d+)?s$/.test(delay) ? parseFloat(delay) : undefined);
 
 /** One Gemini call. A 400 means our request shape was rejected: retried once in the legacy shape. */
-async function callModel(req: ImageJsonRequest, model: string, key: string, timeoutMs: number): Promise<CallResult> {
+async function callModel(
+  req: ImageJsonRequest,
+  model: string,
+  key: string,
+  timeoutMs: number,
+  signal: AbortSignal,
+): Promise<CallResult> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   const started = Date.now();
   const done = (status: number, outcome: ScanAttempt["outcome"], text?: string): CallResult => ({
@@ -105,6 +111,8 @@ async function callModel(req: ImageJsonRequest, model: string, key: string, time
   });
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Another model already answered: stop this one.
+  signal.addEventListener("abort", () => controller.abort());
   const call = (legacy: boolean) =>
     fetch(url, {
       method: "POST",
@@ -126,7 +134,8 @@ async function callModel(req: ImageJsonRequest, model: string, key: string, time
         const daily = Array.isArray(g.quota) && g.quota.some((q) => /PerDay/i.test(String(q)));
         return { ...done(429, "quota"), cooldownSec: seconds(g.retryDelay) ?? (daily ? 3600 : 60) };
       }
-      if (res.status === 500 || res.status === 503 || res.status === 504) return done(res.status, "busy");
+      // Overloaded: skip it for a minute so the next scans don't wait on it.
+      if (res.status === 500 || res.status === 503 || res.status === 504) return { ...done(res.status, "busy"), cooldownSec: 60 };
       // Unknown or retired model name: skip it for a day and try the next one.
       if (res.status === 404) return { ...done(404, "network"), cooldownSec: 86_400 };
       return done(res.status, "api_error"); // 400 etc.: bad image or blocked — another model won't help
@@ -155,13 +164,18 @@ async function callModel(req: ImageJsonRequest, model: string, key: string, time
   }
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** If the model being asked hasn't answered by then, the next one starts too. */
+const HEDGE_MS = 6_000;
+/** Most models asked at the same time. */
+const MAX_PARALLEL = 3;
 
 /**
- * Asks the model chain to read one image. Busy (500/503) gets one retry on
- * the same model after 1–2 s; quota (429) or a timeout moves straight to the
- * next model; a 400 stops the chain. Models that recently ran out of quota,
- * timed out or kept returning 503 go last.
+ * Asks the model chain to read one image, racing for speed: the best model
+ * goes first; if it fails (busy, out of quota, timed out) the next one
+ * starts at once, and if it's merely slow the next one starts after
+ * HEDGE_MS. The first good answer wins and the others are cancelled. A 400
+ * (bad image) stops everything. Models that recently ran out of quota,
+ * timed out or were busy go last.
  */
 export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonResult> {
   const key = process.env.GEMINI_API_KEY;
@@ -173,19 +187,41 @@ export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonRes
 
   const cooling = await getModelCooldowns(CHAIN);
   const order = [...CHAIN.filter((m) => !cooling.has(m)), ...CHAIN.filter((m) => cooling.has(m))];
+  const stopAll = new AbortController();
 
-  for (const m of order) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (left() < 5_000) return { ok: false, reason: summariseFailure(attempts), attempts };
-      const r = await callModel(req, m, key, Math.min(req.attemptMs ?? 20_000, left()));
-      attempts.push(r.attempt);
-      const busyTwice = r.attempt.outcome === "busy" && attempt === 1;
-      if (r.cooldownSec || busyTwice) await setModelCooldown(m, r.cooldownSec ?? 120);
-      if (r.attempt.outcome === "ok" && r.text !== undefined) return { ok: true, text: r.text, model: m, attempts };
-      if (r.attempt.outcome === "api_error") return { ok: false, reason: summariseFailure(attempts), attempts };
-      if (r.attempt.outcome !== "busy" || attempt === 1) break;
-      await sleep(1000 + Math.random() * 1000);
-    }
-  }
-  return { ok: false, reason: summariseFailure(attempts), attempts };
+  return new Promise<ImageJsonResult>((resolve) => {
+    let next = 0;
+    let running = 0;
+    let finished = false;
+    let hedge: ReturnType<typeof setTimeout> | undefined;
+    const fail = (): ImageJsonResult => ({ ok: false, reason: summariseFailure(attempts), attempts });
+    const finish = (r: ImageJsonResult) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(hedge);
+      stopAll.abort();
+      resolve(r);
+    };
+    const launch = () => {
+      if (finished || running >= MAX_PARALLEL) return;
+      if (next >= order.length || left() < 4_000) {
+        if (running === 0) finish(fail());
+        return;
+      }
+      const m = order[next++];
+      running++;
+      clearTimeout(hedge);
+      hedge = setTimeout(launch, HEDGE_MS);
+      void callModel(req, m, key, Math.min(req.attemptMs ?? 15_000, left()), stopAll.signal).then((r) => {
+        running--;
+        if (finished) return; // cancelled after another model answered
+        attempts.push(r.attempt);
+        if (r.cooldownSec) void setModelCooldown(m, r.cooldownSec);
+        if (r.attempt.outcome === "ok" && r.text !== undefined) return finish({ ok: true, text: r.text, model: m, attempts });
+        if (r.attempt.outcome === "api_error") return finish(fail());
+        launch(); // failed: ask the next model now
+      });
+    };
+    launch();
+  });
 }
