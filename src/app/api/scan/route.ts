@@ -34,6 +34,7 @@ FIELDS (plain numbers: no currency symbols, no thousands separators; null when n
 - vatIncluded: true when the receipt says prices already include VAT (e.g. "VAT incl.", "VAT INCLUDED", "รวมภาษีมูลค่าเพิ่มแล้ว", "ราคารวม VAT"); otherwise false.
 - total: the final amount paid.
 - currency: ISO 4217 code from symbols or context (฿ / บาท / Thai receipt → THB). Default to THB for Thai receipts.
+- merchant: the shop or restaurant name printed at the top (brand plus branch if shown, e.g. "Yoshinoya Chamchuree Square"), as printed, Thai or English; not the company's legal name (CO.,LTD / บริษัท) unless that's all there is. null if none.
 - date: the date printed on the receipt as YYYY-MM-DD (Gregorian). Thai receipts often print the Buddhist year (พ.ศ.): 2569 or "69" means 2026 — convert it. Thai receipts put the day before the month (05/10/26 = 5 October). null if no date is printed.
 If the photo is not a receipt, return an empty items array.`;
 
@@ -65,8 +66,9 @@ const JSON_SCHEMA = {
     total: nullableNumber,
     currency: { type: ["string", "null"] },
     date: { type: ["string", "null"], description: "YYYY-MM-DD, Gregorian year" },
+    merchant: { type: ["string", "null"], description: "Shop or restaurant name" },
   },
-  required: ["items", "subtotal", "discount", "serviceCharge", "vat", "vatIncluded", "total", "currency", "date"],
+  required: ["items", "subtotal", "discount", "serviceCharge", "vat", "vatIncluded", "total", "currency", "date", "merchant"],
 };
 
 // Older OpenAPI-style schema, used only if a model rejects the request above.
@@ -89,6 +91,7 @@ const LEGACY_SCHEMA = {
     total: { type: "NUMBER", nullable: true },
     currency: { type: "STRING", nullable: true },
     date: { type: "STRING", nullable: true },
+    merchant: { type: "STRING", nullable: true },
   },
   required: ["items", "vatIncluded"],
 };
