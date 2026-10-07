@@ -5,7 +5,7 @@ import { calculate } from "./calc";
 import { formatMoney, parseMoney, percentToBp } from "./money";
 import { parseSplitDoc } from "./schema";
 import { splitVersion } from "./shareVersion";
-import { isValidPromptPayId, normalizePromptPayInput } from "./promptpay";
+import { accountNumber, isValidPromptPayId, normalizePromptPayInput } from "./promptpay";
 
 describe("money", () => {
   it("parses user input into minor units", () => {
@@ -183,5 +183,18 @@ describe("share link version", () => {
     const doc = { ...newDoc(), title: "Dinner", people: [{ id: "me", name: "Me" }] };
     expect(splitVersion(doc)).toBe(splitVersion({ ...doc }));
     expect(splitVersion({ ...doc, title: "Dinner at Baan Suan" })).not.toBe(splitVersion(doc));
+  });
+});
+
+describe("copying bank details", () => {
+  it("copies just the account number's digits", () => {
+    expect(accountNumber("KBank 181-1-91964-7")).toBe("1811919647");
+    expect(accountNumber("กสิกร 181 1 91964 7 อิสรา")).toBe("1811919647");
+    expect(accountNumber("SCB 123-456789-0\nor cash")).toBe("1234567890");
+  });
+
+  it("leaves notes without an account number alone", () => {
+    expect(accountNumber("Pay me in cash")).toBeNull();
+    expect(accountNumber("Table 14, 2 people")).toBeNull();
   });
 });

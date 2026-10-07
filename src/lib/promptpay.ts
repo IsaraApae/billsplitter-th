@@ -51,3 +51,16 @@ export function effectiveQrMode(p: PaymentInfo, currency: string): QrMode {
   if (mode === "upload" && !p.ownerId) return "none";
   return mode;
 }
+
+/**
+ * The account number in bank details, digits only, ready to paste into a
+ * banking app: "KBank 181-1-91964-7" → "1811919647". Null if there isn't one
+ * (8–20 digits, optionally split by dashes or spaces).
+ */
+export function accountNumber(note: string): string | null {
+  for (const m of note.matchAll(/\d[\d\s-]*\d/g)) {
+    const digits = m[0].replace(/\D/g, "");
+    if (digits.length >= 8 && digits.length <= 20) return digits;
+  }
+  return null;
+}
