@@ -36,3 +36,22 @@ Every result: 10 items, ฿1,500 subtotal, ฿225 discount, VAT included, ฿1,2
 Cooldowns (shared via Redis): a model out of quota is tried last until Google's
 `retryDelay` (capped at 6 h); a timeout or a repeated 503 sends it to the back for 2 min.
 When 3.8's daily quota resets, it automatically becomes first again.
+
+## Latest (2026-10-07): six models, raced
+
+Chain `gemini-3.8-flash → 3.7-flash → 3.6-flash → 3.5-flash → 3.5-flash-lite → 3.1-flash-lite`
+(code in `src/lib/server/gemini.ts`). The two best available models start together; a
+third starts after 4 s if neither has answered, and any failure (busy, quota, timeout)
+starts the next one at once. The first good answer wins and the rest are cancelled
+(at most 3 at a time). 15 s per call, ~55 s overall. Busy models cool down for 60 s,
+timeouts for 2 min, quota until Google's `retryDelay`, unknown model names for a day.
+
+Same receipt, app-sized (2048 px, 564 KB), 10 requests 5 s apart:
+
+| Success | Median | Answered by |
+|---|---|---|
+| **10/10** | **7.3 s** (4.3–18.3 s) | 3.5-flash ×6, 3.6-flash ×1, 3.7-flash ×1, 3.1-flash-lite ×2 |
+
+Every result: 10 items, ฿1,500 subtotal. The slow ones (12–18 s) had several models busy
+(503) or out of quota at once on the free tier; with a paid key the top models are
+answered first and faster.

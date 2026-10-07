@@ -1,48 +1,84 @@
 # Bill Splitter
 
-Mobile-first bill splitter with a "Liquid Glass" UI: scan a receipt (Thai/English), split it equally or by item, add discount / service charge / VAT, share one link, and track who has paid — with PromptPay QR codes and saved friends.
+Split a restaurant bill with friends in Thailand: scan the receipt, tick who had what, share one link, and see who has paid. PromptPay QR codes, transfer-slip checking, "big bills" for a whole night out, and an iOS-style "Liquid Glass" look in light and dark.
 
-Next.js (App Router) · TypeScript · Tailwind v4 · Upstash Redis · Vercel Blob · Gemini (receipt scanning).
+**Live:** https://billsplitter-th.vercel.app
 
-## Scripts
+<p>
+  <img src="docs/screenshots/1-items.jpg" alt="Items step" width="380">
+  <img src="docs/screenshots/9-shared.jpg" alt="Shared bill" width="380">
+</p>
+
+More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots).
+
+## Features
+
+**Making a split**
+- **Scan a receipt** (Thai or English) with Gemini: items, quantities, per-item discounts, receipt-wide discount, service charge, VAT, the date (Buddhist-era years converted) and the shop's name as the title. Warns when the items don't add up to the printed total.
+- **Split equally or by item.** Items can be shared unevenly ("Mint had 2 of the 3 beers") or split into separate lines ("2× Water" → two bottles shared by different people).
+- **Discount, service charge, VAT** (off by default), and **round to whole baht**: friends pay whole amounts and together never less than their exact shares, so the organiser never loses money. With "split equally", everyone's share is the same whole amount.
+- **Paid upfront:** a friend who paid part of the bill (e.g. the drinks) pays that much less, or gets money back.
+- **Bill date** with the app's own calendar (defaults to today; a scanned receipt sets it).
+- **Friends and groups** saved on the phone; "Who's eating with you?" and "Same as last time" pick them quickly.
+
+**Sharing and getting paid**
+- **One link per bill**, with a link preview (title, total, people) that refreshes when the bill is edited.
+- **PromptPay:** upload your bank's QR, or generate one from your PromptPay number with each person's exact amount. Bank details copy as just the account number.
+- **Big tick / small tick:** the organiser marks people paid in full, paid part (with the amount; "left to pay" shows what's still owed), or not paid. The organiser is never counted as unpaid.
+- **Transfer slips:** a friend uploads their slip; it's read with Gemini and checked (a transfer slip, dated on or after the bill, paid to the organiser, never used before) and they're ticked automatically, with a progress bar. The organiser can look over every slip.
+- **Big bills:** combine several bills from one outing (Food 1, Karaoke, Food 2) into one page with one total and one payment per friend. Payments are spread over the bills; single bills can still be ticked on their own.
+- **Receipt photo** on the shared page (zoomable).
+
+**History and the phone**
+- **History**, newest bill date first, with big bills holding their bills; tap a person to see their splits and what they owe you (or you owe them). Tap yourself to see what you spent.
+- **Friends** page: tap a friend to see their splits. Renaming a friend (or yourself) updates the bills you've shared.
+- **Backup and restore** (Me page) to move splits, friends and edit rights to a new phone.
+
+## Tech
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · Redis (Redis Cloud over TCP, or Upstash REST) · Vercel Blob · Google Gemini (REST) · Vitest. Hosted on Vercel.
+
+## Running it
 
 ```bash
 npm install
 npm run dev              # http://localhost:3000  (add `-- -H 0.0.0.0` to open it from a phone on the same Wi-Fi)
-npm test                 # Vitest: money maths, scan clean-up, EXIF, PromptPay, friends
+npm test                 # Vitest: money maths, rounding, scan clean-up, slips, big bills, PromptPay, backup…
+npm run lint
 npm run build
-node scripts/scan-reliability.mts   # sends a receipt to /api/scan 10× and reports success rate + median time
 ```
 
-Without Redis/Blob env vars, `npm run dev` uses in-memory stores so sharing and QR uploads work locally (lost on restart). Production requires them.
+Without Redis/Blob settings, `npm run dev` uses in-memory stores, so sharing and uploads work locally (lost on restart). Without `GEMINI_API_KEY`, scanning says it isn't set up and items are added by hand.
+
+Scripts:
+
+```bash
+node scripts/scan-reliability.mts [--url …] [--image receipt.jpg] [--n 10] [--gap 5]   # success rate + timing of /api/scan
+node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]          # live end-to-end check
+```
 
 ## Environment variables
 
-| Name | Where it comes from | Required |
+| Name | What it's for | Required |
 | --- | --- | --- |
-| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Added automatically when you connect **Upstash for Redis** (Vercel Marketplace) | yes |
-| `BLOB_READ_WRITE_TOKEN` | Added automatically when you connect a **Vercel Blob** store (public access) | for uploaded PromptPay QR images |
-| `GEMINI_API_KEY` | https://aistudio.google.com/apikey — server-only | yes for scanning — without it the app asks for items by hand |
-| `GEMINI_MODELS` | Comma-separated models to try in order (default `gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash-lite`) | no |
-| `NEXT_PUBLIC_SITE_URL` | Absolute URL for Open Graph images with a custom domain | no |
-
-`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are also accepted instead of the `KV_*` names.
+| `REDIS_URL` | Redis over TCP (e.g. Redis Cloud from the Vercel Marketplace) | one Redis option in production |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Upstash Redis over REST instead (`UPSTASH_REDIS_REST_*` also accepted) | one Redis option in production |
+| `BLOB_STORE_ID` or `BLOB_READ_WRITE_TOKEN` | Vercel Blob for QR images, receipt photos and slips (`BLOB_STORE_ID` uses Vercel's automatic OIDC token) | for uploads |
+| `GEMINI_API_KEY` | Receipt scanning and slip reading — https://aistudio.google.com/apikey (server only) | for scanning |
+| `GEMINI_MODELS` | Comma-separated model list to use instead of the built-in chain | no |
+| `NEXT_PUBLIC_SITE_URL` | Absolute site URL for link previews on a custom domain | no |
+| `CRON_SECRET` | Lets only Vercel Cron run the daily photo clean-up | no |
 
 ## How it works
 
-- **Maths** — `src/lib/calc.ts`, pure and integer-only (satang/cents). Items → discount → service charge on the discounted subtotal → VAT on (subtotal + service). Largest-remainder allocation, so person totals always sum exactly to the grand total.
-- **Scanning** — the client fixes EXIF rotation and POSTs a ~2048px JPEG (quality 0.85) as FormData `image` to `POST /api/scan`. The route tries Gemini models in order (`GEMINI_MODELS`, default `gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash-lite`): a 500/503 gets one retry on the same model after 1–2 s with jitter; a 429 or timeout moves to the next model; a 400 stops. ~20 s per attempt, ~55 s in total (`maxDuration` 60; the client gives up at 62 s). Temperature 0, lowest thinking level, strict JSON schema matching `applyScan`. The response includes `model` and `attempts`; every attempt is logged with Google's raw status. If all attempts fail, the app shows the reason with **Try again** and **Add by hand** (no offline OCR). Scanned items go through `src/lib/scanFilter.ts` (drops price-less lines and lines whose whole name is a summary keyword; keeps negative per-item discounts), and the Items step warns when items − discount + service + VAT don't match the printed total (±1 unit). `node scripts/scan-reliability.mts` measures success rate and timing.
-- **Sharing** — `POST /api/splits` → `{ id, token }` stored at `split:{id}` (90-day TTL, refreshed on activity). Only a SHA-256 of the edit token is stored. `GET|POST /api/splits/{id}/paid` for paid ticks.
-- **PromptPay** — "Me" page: upload your bank's QR (compressed, stored in Vercel Blob via `POST /api/qr`, owned by a device token) or generate one from your PromptPay number (`promptpay-qr` + `qrcode`, amount included per person). Shared splits always show your *current* uploaded QR via `GET /api/qr/{owner}`.
-- **Friends** — saved on the device (`localStorage`): friends (name, emoji, colour), groups, and the last crew for "Same as last time".
-- All API routes are validated (zod) and rate limited per IP (`@upstash/ratelimit`).
+- **Maths** — `src/lib/calc.ts`, pure and integer-only (satang). Items → discount → service charge on the discounted subtotal → VAT on (subtotal + service). Shares use largest-remainder allocation, so everyone's amounts always add up exactly; uneven shares are weights on the same allocation. Rounding, paid-upfront and the organiser's share are applied on top, never letting the organiser lose money.
+- **Scanning** — the phone fixes the photo's rotation and sends a ~2048 px JPEG to `POST /api/scan`. `src/lib/server/gemini.ts` races a chain of Gemini models (best first: 3.8 Flash, 3.7 Flash, 3.6 Flash, 3.5 Flash, 3.5 Flash-Lite, 3.1 Flash-Lite): the two best start together, others join when one fails or is slow, the first good answer wins. Busy, out-of-quota or timed-out models cool down (shared via Redis). Strict JSON schema, temperature 0, lowest thinking level. Results go through `src/lib/scanFilter.ts` and `applyScan`. See [`docs/scan-reliability.md`](docs/scan-reliability.md).
+- **Sharing** — `POST /api/splits` → `{ id, token }`; only a SHA-256 of the edit token is stored. Splits live 90 days after the last activity. `/api/splits/{id}/paid` records payments (full, part or none; organiser only). Shared links carry `?v=` so chat apps refresh their preview after an edit; preview images come from `/api/og/s|e/{id}`.
+- **Slips** — `POST /api/splits/{id}/slip` (and `/api/events/{id}/slip`): read with Gemini, checked by `src/lib/slip.ts`, each slip reference can be used once.
+- **Big bills** — `/api/events`: a title, a date and a list of bills you own (checked with their edit tokens); `src/lib/event.ts` merges people across the bills and spreads payments.
+- **Storage** — the phone keeps History, friends, groups, edit tokens and the draft in `localStorage` (backup/restore on the Me page). The server keeps splits, payments, big bills, slip records and model cool-downs in Redis, and pictures in Vercel Blob. A daily Vercel Cron job deletes receipt photos no split uses and old slip pictures.
+- All API routes are validated (zod) and rate limited per IP.
 
-## Deploy / redeploy
+## Deploying
 
-The code lives in a private GitHub repo (`IsaraApae/billsplitter-th`) connected to the Vercel project:
-
-- Push to `main` → production deploy (https://billsplitter-th.vercel.app).
-- Push any other branch → preview deploy with its own URL.
-
-Manual deploy (still works): `npx vercel deploy --prod`.
-Live check after a deploy: `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]`.
+The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
