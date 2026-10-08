@@ -41,6 +41,19 @@ export interface Prepaid {
 export interface Rate {
   enabled: boolean;
   rateBp: number;
+  /**
+   * The amount exactly as printed on the scanned receipt (restaurants often
+   * round it). Used instead of the percentage while the discounted subtotal
+   * is still `base`, i.e. until the items change.
+   */
+  amount?: number;
+  base?: number;
+}
+
+/** A receipt's own rounding line ("Rounding", "ปัดเศษ"), kept while the subtotal is still `base`. */
+export interface ReceiptRounding {
+  amount: number;
+  base: number;
 }
 
 /**
@@ -86,6 +99,8 @@ export interface SplitDoc {
   roundUp?: boolean;
   /** Friends who paid part of the bill themselves; the organiser paid the rest. */
   prepaid?: Prepaid[];
+  /** The receipt's printed rounding adjustment, if it had one. */
+  receiptRounding?: ReceiptRounding;
   /** Stored receipt photo (see /api/receipt), shown on the shared page. */
   photo?: string;
 }

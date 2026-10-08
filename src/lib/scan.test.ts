@@ -5,6 +5,7 @@ import { readJpegInfo, swapsAxes } from "./jpeg";
 import { receiptDate, sanitizeScan, summariseFailure, type ScanAttempt } from "./scanResult";
 import { promptPayPayload } from "./promptpay";
 import { cleanScannedItems, isSummaryLine } from "./scanFilter";
+import { calculate } from "./calc";
 import { applyScan, newDoc, totalMismatch } from "./draft";
 
 /** Independent CRC-16/CCITT-FALSE reference to check the library's output. */
@@ -283,5 +284,28 @@ describe("receipt merchant name", () => {
   it("is cleaned up by sanitizeScan", () => {
     expect(sanitizeScan({ items: [], merchant: "  Yoshinoya \n Chamchuree  " }).merchant).toBe("Yoshinoya Chamchuree");
     expect(sanitizeScan({ items: [], merchant: "" }).merchant).toBeNull();
+  });
+});
+
+describe("printed service charge, VAT and rounding", () => {
+  it("are kept exactly as on the receipt", () => {
+    const r = applyScan(
+      { ...newDoc(), people: [{ id: "me", name: "Me" }] },
+      {
+        items: [{ name: "Set", qty: 1, price: 850.45 }],
+        subtotal: 850.45,
+        serviceCharge: 85,
+        vat: 65,
+        vatIncluded: false,
+        discount: null,
+        total: 1000,
+        currency: "THB",
+        rounding: -0.45,
+      },
+    );
+    expect(r.doc.service).toMatchObject({ enabled: true, amount: 8500, base: 85045 });
+    expect(r.doc.vat).toMatchObject({ enabled: true, amount: 6500, base: 85045 });
+    expect(r.doc.receiptRounding).toEqual({ amount: -45, base: 85045 });
+    expect(totalMismatch(calculate(r.doc).total, r.doc.receipt.total, "THB")).toBeNull();
   });
 });

@@ -98,6 +98,12 @@ export function PersonCard({
             {person.discount > 0 && <Row k="Discount" v={<Money value={person.discount} currency={currency} tone="negative" />} />}
             {person.service > 0 && <Row k="Service charge" v={<Money value={person.service} currency={currency} />} />}
             {person.vat > 0 && <Row k="VAT" v={<Money value={person.vat} currency={currency} />} />}
+            {person.rounding !== 0 && (
+              <Row
+                k="Receipt rounding"
+                v={<Money value={person.rounding} currency={currency} tone={person.rounding < 0 ? "negative" : undefined} />}
+              />
+            )}
             {person.prepaid > 0 && (
               <>
                 <Row k="Share" v={<Money value={person.total} currency={currency} />} />

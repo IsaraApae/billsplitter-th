@@ -32,6 +32,7 @@ FIELDS (plain numbers: no currency symbols, no thousands separators; null when n
 - serviceCharge: service charge amount (Service Charge / ค่าบริการ).
 - vat: VAT amount when it is added on top (VAT / ภาษีมูลค่าเพิ่ม).
 - vatIncluded: true when the receipt says prices already include VAT (e.g. "VAT incl.", "VAT INCLUDED", "รวมภาษีมูลค่าเพิ่มแล้ว", "ราคารวม VAT"); otherwise false.
+- rounding: a rounding adjustment line if printed ("Rounding", "Round adj.", "ปัดเศษ"), signed (e.g. -0.45 or 0.55); null if none.
 - total: the final amount paid.
 - currency: ISO 4217 code from symbols or context (฿ / บาท / Thai receipt → THB). Default to THB for Thai receipts.
 - merchant: the shop or restaurant name printed at the top (brand plus branch if shown, e.g. "Yoshinoya Chamchuree Square"), as printed, Thai or English; not the company's legal name (CO.,LTD / บริษัท) unless that's all there is. null if none.
@@ -67,8 +68,9 @@ const JSON_SCHEMA = {
     currency: { type: ["string", "null"] },
     date: { type: ["string", "null"], description: "YYYY-MM-DD, Gregorian year" },
     merchant: { type: ["string", "null"], description: "Shop or restaurant name" },
+    rounding: { type: ["number", "null"], description: "Printed rounding adjustment, signed" },
   },
-  required: ["items", "subtotal", "discount", "serviceCharge", "vat", "vatIncluded", "total", "currency", "date", "merchant"],
+  required: ["items", "subtotal", "discount", "serviceCharge", "vat", "vatIncluded", "total", "currency", "date", "merchant", "rounding"],
 };
 
 // Older OpenAPI-style schema, used only if a model rejects the request above.
@@ -92,6 +94,7 @@ const LEGACY_SCHEMA = {
     currency: { type: "STRING", nullable: true },
     date: { type: "STRING", nullable: true },
     merchant: { type: "STRING", nullable: true },
+    rounding: { type: "NUMBER", nullable: true },
   },
   required: ["items", "vatIncluded"],
 };

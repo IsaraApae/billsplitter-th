@@ -1,6 +1,6 @@
 // Draft helpers used by the editor. Pure (ids come from crypto but no I/O).
 
-import { itemsSubtotal } from "./calc";
+import { calculate, itemsSubtotal } from "./calc";
 import { currencyExponent, parseMoney } from "./money";
 import type { ScanResult } from "./scanResult";
 import { cleanScannedItems, type DroppedLine } from "./scanFilter";
@@ -159,8 +159,8 @@ export function applyScan(
     }
     if (service !== null && service > 0) {
       const bp = inferRateBp(service, base);
-      next.service = { enabled: true, rateBp: bp ?? doc.service.rateBp };
-      notes.push(`Service charge found on receipt (${(next.service.rateBp / 100).toString()}%).`);
+      next.service = { enabled: true, rateBp: bp ?? doc.service.rateBp, amount: service };
+      notes.push(`Service charge found on receipt (${(next.service.rateBp / 100).toString()}%) — using the printed amount.`);
     } else if (doc.service.enabled && (subtotal !== null || scan.total !== null)) {
       next.service = { ...doc.service, enabled: false };
       notes.push("No service charge on the receipt — turned it off (you can change this in Extras).");
@@ -171,11 +171,22 @@ export function applyScan(
     } else if (vat !== null && vat > 0) {
       const svc = next.service.enabled ? (service ?? 0) : 0;
       const bp = inferRateBp(vat, base + svc);
-      next.vat = { enabled: true, rateBp: bp ?? doc.vat.rateBp };
-      notes.push(`VAT found on receipt (${(next.vat.rateBp / 100).toString()}%).`);
+      next.vat = { enabled: true, rateBp: bp ?? doc.vat.rateBp, amount: vat };
+      notes.push(`VAT found on receipt (${(next.vat.rateBp / 100).toString()}%) — using the printed amount.`);
     } else if (doc.vat.enabled && (subtotal !== null || scan.total !== null)) {
       notes.push("No VAT line found — check the VAT setting in Extras.");
     }
+    const rounding = scan.rounding ? m(Math.abs(scan.rounding)) : null;
+    if (rounding) {
+      next.receiptRounding = { amount: scan.rounding! < 0 ? -rounding : rounding, base: 0 };
+      notes.push("The receipt rounds its total — included the same rounding.");
+    }
+    // Printed amounts apply to this exact bill: tie them to its discounted
+    // subtotal so they fall back to percentages if the items change later.
+    const ds = calculate(next).discountedSubtotal;
+    if (next.service.amount !== undefined) next.service = { ...next.service, base: ds };
+    if (next.vat.amount !== undefined) next.vat = { ...next.vat, base: ds };
+    if (next.receiptRounding) next.receiptRounding = { ...next.receiptRounding, base: ds };
   }
   return { doc: next, notes, added: items.length, dropped };
 }

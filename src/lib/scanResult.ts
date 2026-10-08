@@ -23,6 +23,8 @@ export interface ScanResult {
   date?: string | null;
   /** shop or restaurant name, for the split's title */
   merchant?: string | null;
+  /** the receipt's printed rounding adjustment (signed, major units) */
+  rounding?: number | null;
   /** model that produced the result */
   model?: string;
   /** every Gemini call made for this scan, in order */
@@ -99,6 +101,10 @@ export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
     total: num(o.total),
     currency,
     date: receiptDate(o.date, now),
+    rounding: (() => {
+      const r = num(o.rounding, true);
+      return r !== null && r !== 0 && Math.abs(r) < 100 ? r : null;
+    })(),
     merchant: typeof o.merchant === "string" && o.merchant.trim() ? o.merchant.replace(/\s+/g, " ").trim().slice(0, 60) : null,
   };
 }

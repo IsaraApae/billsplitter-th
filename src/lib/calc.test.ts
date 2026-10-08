@@ -457,3 +457,32 @@ describe("uneven shares of one item", () => {
     for (const p of r.people) expect(p.discount).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("service / VAT / rounding as printed on the receipt", () => {
+  const its = [item("a", 85045, ["a", "b"])]; // ฿850.45 discounted subtotal
+  it("uses the printed amounts while the subtotal is unchanged", () => {
+    const r = calculate(
+      base({
+        items: its,
+        service: { enabled: true, rateBp: 1000, amount: 8500, base: 85045 }, // 10% = 85.05, printed 85.00
+        vat: { enabled: true, rateBp: 700, amount: 6500, base: 85045 }, // printed 65.00
+        receiptRounding: { amount: -45, base: 85045 },
+      }),
+    );
+    expect([r.service, r.vat, r.rounding, r.total]).toEqual([8500, 6500, -45, 85045 + 8500 + 6500 - 45]);
+    expect(sum(totals(r))).toBe(r.total);
+    expect(sum(r.people.map((p) => p.rounding))).toBe(-45);
+  });
+
+  it("falls back to percentages once the items change", () => {
+    const r = calculate(
+      base({
+        items: [item("a", 90000, ["a"])],
+        service: { enabled: true, rateBp: 1000, amount: 8500, base: 85045 },
+        vat: { enabled: true, rateBp: 700, amount: 6500, base: 85045 },
+        receiptRounding: { amount: -45, base: 85045 },
+      }),
+    );
+    expect([r.service, r.vat, r.rounding]).toEqual([9000, 6930, 0]);
+  });
+});

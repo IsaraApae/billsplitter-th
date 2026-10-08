@@ -7,7 +7,7 @@
 // method on integers), so the parts always sum exactly to the whole.
 
 import { currencyExponent } from "./money";
-import type { Discount, Item, Person, Prepaid, Rate, SplitMode } from "./types";
+import type { Discount, Item, Person, Prepaid, Rate, ReceiptRounding, SplitMode } from "./types";
 
 export interface CalcInput {
   mode: SplitMode;
@@ -22,6 +22,8 @@ export interface CalcInput {
   roundUp?: boolean;
   /** Friends who paid part of the bill themselves (ignored for the organiser). */
   prepaid?: Prepaid[];
+  /** The receipt's printed rounding line, used while the subtotal still matches. */
+  receiptRounding?: ReceiptRounding;
 }
 
 /** Smallest whole-unit step for a currency, in minor units (THB → 100 satang, JPY → 1). */
@@ -89,6 +91,8 @@ export interface PersonResult {
   discounted: number;
   service: number;
   vat: number;
+  /** share of the receipt's own rounding line (usually 0) */
+  rounding: number;
   /** exact share of the bill */
   total: number;
   /** what they paid towards the bill themselves (friends only; needs an organiser) */
@@ -109,6 +113,8 @@ export interface CalcResult {
   discountedSubtotal: number;
   service: number;
   vat: number;
+  /** the receipt's own rounding line, when used (usually 0) */
+  rounding: number;
   total: number;
   people: PersonResult[];
   /** sum of everyone's `payable` (with rounding: the bill to the nearest whole unit) */
@@ -195,9 +201,13 @@ export function calculate(input: CalcInput): CalcResult {
   const itemsSub = lines.reduce((s, l) => s + l.lineTotal, 0);
   const discount = lines.reduce((s, l) => s + l.discount, 0);
   const discountedSubtotal = itemsSub - discount;
-  const service = input.service.enabled ? applyBp(discountedSubtotal, input.service.rateBp) : 0;
-  const vat = input.vat.enabled ? applyBp(discountedSubtotal + service, input.vat.rateBp) : 0;
-  const total = discountedSubtotal + service + vat;
+  // As printed on the receipt while the bill is unchanged, else by percentage.
+  const asPrinted = (r: Rate) => (r.amount !== undefined && r.base === discountedSubtotal ? r.amount : null);
+  const service = input.service.enabled ? (asPrinted(input.service) ?? applyBp(discountedSubtotal, input.service.rateBp)) : 0;
+  const vat = input.vat.enabled ? (asPrinted(input.vat) ?? applyBp(discountedSubtotal + service, input.vat.rateBp)) : 0;
+  const rounding =
+    input.receiptRounding && input.receiptRounding.base === discountedSubtotal ? input.receiptRounding.amount : 0;
+  const total = discountedSubtotal + service + vat + rounding;
 
   const n = people.length;
   const personIndex = new Map(people.map((p, i) => [p.id, i]));
@@ -215,6 +225,7 @@ export function calculate(input: CalcInput): CalcResult {
     discounted: 0,
     service: 0,
     vat: 0,
+    rounding: 0,
     total: 0,
     prepaid: 0,
     payable: 0,
@@ -230,6 +241,7 @@ export function calculate(input: CalcInput): CalcResult {
       const offSc = discountedSubtotal % n;
       const sc = allocate(service, ones, offSc);
       const vt = allocate(vat, ones, (offSc + (service % n)) % n);
+      const rd = allocate(rounding, ones, (offSc + (service % n) + (((vat % n) + n) % n)) % n);
       const sub = allocate(itemsSub, ones, 0);
       results.forEach((r, i) => {
         r.subtotal = sub[i];
@@ -237,6 +249,7 @@ export function calculate(input: CalcInput): CalcResult {
         r.discount = sub[i] - ds[i];
         r.service = sc[i];
         r.vat = vt[i];
+        r.rounding = rd[i];
         r.items = items.map((it) => ({ itemId: it.id, name: it.name, sharedBy: n, shares: 1, totalShares: n, amount: 0 }));
       });
       // Show each person's even share of every line.
@@ -268,12 +281,14 @@ export function calculate(input: CalcInput): CalcResult {
       const weights = results.map((r) => r.discounted);
       const sc = allocate(service, weights);
       const vt = allocate(vat, weights);
+      const rd = allocate(rounding, weights);
       results.forEach((r, i) => {
         r.service = sc[i];
         r.vat = vt[i];
+        r.rounding = rd[i];
       });
     }
-    results.forEach((r) => (r.total = r.discounted + r.service + r.vat));
+    results.forEach((r) => (r.total = r.discounted + r.service + r.vat + r.rounding));
   }
 
   const organiser = results.find((r) => r.personId === ORGANISER_ID);
@@ -326,6 +341,7 @@ export function calculate(input: CalcInput): CalcResult {
     discountedSubtotal,
     service,
     vat,
+    rounding,
     total,
     people: results,
     collected,
