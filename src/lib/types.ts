@@ -79,8 +79,6 @@ export interface PaymentInfo {
   note: string; // free text, e.g. bank + account
   qrMode?: QrMode;
   ownerId?: string; // creator's device profile id (for the uploaded QR)
-  /** name on the organiser's bank account, to check who a slip was paid to */
-  slipName?: string;
 }
 
 /** Figures printed on a scanned receipt, used only for mismatch warnings. */

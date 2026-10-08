@@ -196,7 +196,7 @@ function SlipList({ slips, currency }: { slips: SlipInfo[]; currency: string }) 
                   <Money value={s.amount} currency={currency} /> · {s.date}
                 </span>
                 <span className="block truncate text-[13px] text-ink-2">
-                  {s.receiver === "match" ? "Paid to you ✓" : "Receiver not checked"}
+                  {s.receiver === "match" ? "Receiver's PromptPay matches ✓" : "Receiver not checked"}
                   {s.senderName ? ` · from ${s.senderName}` : ""}
                 </span>
               </span>

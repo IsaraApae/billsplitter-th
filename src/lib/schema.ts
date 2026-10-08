@@ -58,7 +58,6 @@ export const splitDocSchema = z
       note: z.string().max(300).default(""),
       qrMode: z.enum(["none", "upload", "generate"]).optional(),
       ownerId: z.string().regex(/^[\w-]{16}$/).optional(),
-      slipName: z.string().trim().max(80).optional(),
     }),
     receipt: z.object({ subtotal: money.nullable(), total: money.nullable() }),
     roundUp: z.boolean().optional(),
