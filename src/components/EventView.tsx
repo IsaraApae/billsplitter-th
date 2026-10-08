@@ -125,7 +125,7 @@ export function EventView({
       const r = await fetch(`/api/splits/${bill.splitId}/paid`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-edit-token": token },
-        body: JSON.stringify({ personId: bill.personId, ...input }),
+        body: JSON.stringify({ personId: bill.key, ...input }),
       });
       const data = await r.json().catch(() => null);
       if (!r.ok) throw new Error(data?.message ?? "Couldn't save.");

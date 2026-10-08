@@ -9,9 +9,11 @@ import { totalMismatch } from "@/lib/draft";
 import { wholeUnitName } from "@/lib/money";
 import { organiserFirstByName } from "@/lib/friends";
 import { formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
+import { settlesDirectly, transfers } from "@/lib/settle";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
 import { PersonCard } from "../PersonCard";
+import { asShare, TransferRow } from "../Transfers";
 import { Callout, ICON, Money, Section } from "../ui";
 import type { SetDoc } from "./Wizard";
 
@@ -28,6 +30,7 @@ export function ReviewStep({
 }) {
   const [profile] = useState(getProfile);
   const printedTotal = doc.receipt.total;
+  const direct = settlesDirectly(doc);
 
   return (
     <div className="space-y-6">
@@ -77,11 +80,16 @@ export function ReviewStep({
               (x) => x.p.personId,
               (x) => x.p.name,
             ).map(({ p, profile }) => (
-              <PersonCard key={p.personId} person={p} profile={profile} currency={doc.currency} mode={doc.mode} />
+              <PersonCard key={p.personId} person={direct ? asShare(p) : p} profile={profile} currency={doc.currency} mode={doc.mode} />
             ))}
           </ul>
           <p className="px-5 text-[13px] text-ink-2">
-            {doc.roundUp ? (
+            {direct ? (
+              <>
+                Each person&apos;s share of the bill. Who pays whom is below
+                {doc.roundUp && <>, rounded up to whole {wholeUnitName(doc.currency)}</>}.
+              </>
+            ) : doc.roundUp ? (
               <>
                 Everyone&apos;s share is in whole {wholeUnitName(doc.currency)}, yours too. Friends
                 together never pay less than their exact shares, so you never lose money
@@ -99,6 +107,20 @@ export function ReviewStep({
               </>
             )}
           </p>
+        </Section>
+      )}
+
+      {direct && calc.complete && (
+        <Section title="Who pays whom">
+          <ul className="card rows overflow-hidden">
+            {transfers(doc, calc).map((t) => {
+              const from = doc.people.find((p) => p.id === t.from);
+              const to = doc.people.find((p) => p.id === t.to);
+              return from && to ? (
+                <TransferRow key={`${t.from}>${t.to}`} from={from} to={to} amount={t.amount} currency={doc.currency} you />
+              ) : null;
+            })}
+          </ul>
         </Section>
       )}
 

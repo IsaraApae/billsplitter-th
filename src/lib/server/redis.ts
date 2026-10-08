@@ -3,6 +3,7 @@ import { Redis } from "@upstash/redis";
 import { createClient, type RedisClientType } from "redis";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eventPeople, spreadPayment, type EventBill, type EventMeta } from "../event";
+import { paymentKeys } from "../settle";
 import type { SplitDoc } from "../types";
 
 // Two supported backends:
@@ -285,9 +286,9 @@ export interface PaidState {
   partial: Record<string, number>;
 }
 
-/** Current payments of a split's people (ignoring people no longer in it). */
+/** Current payments of a split's people, or transfers when settling directly (ignoring ones no longer in it). */
 export async function getPaidState(id: string, doc: SplitDoc): Promise<PaidState> {
-  const ids = new Set(doc.people.map((p) => p.id));
+  const ids = paymentKeys(doc);
   const [paid, partial] = await Promise.all([getPaid(id), getPartial(id)]);
   return {
     paid: paid.filter((p) => ids.has(p)),
@@ -320,7 +321,7 @@ export async function setPayment(
   token: string | null,
 ): Promise<PaidState | "not_found" | "forbidden"> {
   const s = await db().get<StoredSplit>(docKey(id));
-  if (!s || !s.doc.people.some((p) => p.id === personId)) return "not_found";
+  if (!s || !paymentKeys(s.doc).has(personId)) return "not_found";
   if (!(token && tokenMatches(token, s.editHash))) return "forbidden";
   await writePayment(id, s.doc, personId, payment);
   return getPaidState(id, s.doc);
@@ -384,7 +385,7 @@ export async function canEditSplit(id: string, token: string | null): Promise<bo
 /** Records a payment without an edit token — only after a slip has been checked. */
 export async function recordCheckedPayment(id: string, personId: string, payment: Payment): Promise<PaidState | "not_found"> {
   const s = await db().get<StoredSplit>(docKey(id));
-  if (!s || !s.doc.people.some((p) => p.id === personId)) return "not_found";
+  if (!s || !paymentKeys(s.doc).has(personId)) return "not_found";
   await writePayment(id, s.doc, personId, payment);
   return getPaidState(id, s.doc);
 }

@@ -14,10 +14,10 @@ More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots).
 ## Features
 
 **Making a split**
-- **Scan a receipt** (Thai or English) with Gemini: items, quantities, per-item discounts, receipt-wide discount, service charge, VAT, the date (Buddhist-era years converted) and the shop's name as the title. Warns when the items don't add up to the printed total.
+- **Scan a receipt** (Thai or English) with Gemini: items, quantities, per-item discounts, receipt-wide discount, service charge, VAT, the date (Buddhist-era years converted) and the shop's name as the title. Service charge, VAT and any "rounding / ปัดเศษ" line are used exactly as printed, so the total matches the receipt. Warns when the items don't add up to the printed total.
 - **Split equally or by item.** Items can be shared unevenly ("Mint had 2 of the 3 beers") or split into separate lines ("2× Water" → two bottles shared by different people).
 - **Discount, service charge, VAT** (off by default), and **round to whole baht**: friends pay whole amounts and together never less than their exact shares, so the organiser never loses money. With "split equally", everyone's share is the same whole amount.
-- **Paid upfront:** a friend who paid part of the bill (e.g. the drinks) pays that much less, or gets money back.
+- **Several payers:** a friend who paid part of the bill (e.g. the drinks) either settles with you (pays that much less, or gets money back), or everyone pays each payer directly: the app works out the fewest transfers ("Ploy → Mint ฿150"), each with the payer's own PromptPay QR, its own tick and slip check.
 - **Bill date** with the app's own calendar (defaults to today; a scanned receipt sets it).
 - **Friends and groups** saved on the phone; "Who's eating with you?" and "Same as last time" pick them quickly.
 
@@ -71,6 +71,7 @@ node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]    
 
 ## How it works
 
+- **Several payers** — `src/lib/settle.ts`: what each person paid at the table minus their share, then the fewest transfers (largest debts to largest credits). Transfer payments are recorded under `t:{from}:{to}` keys; History and big bills use each friend's money with the organiser.
 - **Maths** — `src/lib/calc.ts`, pure and integer-only (satang). Items → discount → service charge on the discounted subtotal → VAT on (subtotal + service). Shares use largest-remainder allocation, so everyone's amounts always add up exactly; uneven shares are weights on the same allocation. Rounding, paid-upfront and the organiser's share are applied on top, never letting the organiser lose money.
 - **Scanning** — the phone fixes the photo's rotation and sends a ~2048 px JPEG to `POST /api/scan`. `src/lib/server/gemini.ts` races a chain of Gemini models (best first: 3.8 Flash, 3.7 Flash, 3.6 Flash, 3.5 Flash, 3.5 Flash-Lite, 3.1 Flash-Lite): the two best start together, others join when one fails or is slow, the first good answer wins. Busy, out-of-quota or timed-out models cool down (shared via Redis). Strict JSON schema, temperature 0, lowest thinking level. Results go through `src/lib/scanFilter.ts` and `applyScan`. See [`docs/scan-reliability.md`](docs/scan-reliability.md).
 - **Sharing** — `POST /api/splits` → `{ id, token }`; only a SHA-256 of the edit token is stored. Splits live 90 days after the last activity. `/api/splits/{id}/paid` records payments (full, part or none; organiser only). Shared links carry `?v=` so chat apps refresh their preview after an edit; preview images come from `/api/og/s|e/{id}`.

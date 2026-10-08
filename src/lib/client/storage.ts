@@ -5,6 +5,7 @@
 
 import { calculate } from "../calc";
 import { billDate } from "../draft";
+import { organiserLines, settlesDirectly } from "../settle";
 import type { Person, SplitDoc } from "../types";
 
 export function load<T>(key: string, fallback: T): T {
@@ -63,6 +64,8 @@ export interface HistoryEntry {
   paidIds?: string[];
   /** part-payments so far: personId → amount paid (minor units) */
   partialPaid?: Record<string, number>;
+  /** friends pay each payer directly: progress counts transfers, so refresh from the whole split */
+  direct?: boolean;
 }
 
 /**
@@ -75,14 +78,18 @@ export function paidProgress(personIds: string[], paidIds: string[]): { people: 
 }
 
 /** What History keeps from a saved split besides its title and totals. */
-export function historyFromDoc(doc: SplitDoc): Pick<HistoryEntry, "createdAt" | "total" | "personIds" | "members"> {
+export function historyFromDoc(doc: SplitDoc): Pick<HistoryEntry, "createdAt" | "total" | "personIds" | "members" | "direct"> {
   const calc = calculate(doc);
+  // A friend's amount is their money with the organiser (when friends pay
+  // each payer directly, only what goes to or from the organiser).
   const amounts = new Map(calc.people.map((p) => [p.personId, p.payable]));
+  for (const l of organiserLines(doc, { paid: [], partial: {} }, calc)) amounts.set(l.personId, l.amount);
   return {
     createdAt: billDate(doc).toISOString(),
     total: calc.total,
     personIds: doc.people.map((p) => p.id),
     members: doc.people.map(({ id, name, emoji, color }) => ({ id, name, emoji, color, amount: amounts.get(id) ?? 0 })),
+    direct: settlesDirectly(doc) || undefined,
   };
 }
 
