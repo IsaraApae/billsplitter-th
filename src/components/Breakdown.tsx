@@ -25,6 +25,7 @@ export function Breakdown({
   }
   if (doc.service.enabled) rows.push({ k: `Service charge ${pct(doc.service.rateBp)}`, v: <Money value={calc.service} currency={c} /> });
   if (doc.vat.enabled) rows.push({ k: `VAT ${pct(doc.vat.rateBp)}`, v: <Money value={calc.vat} currency={c} /> });
+  if (calc.rounding) rows.push({ k: "Rounding (as on the receipt)", v: <Money value={calc.rounding} currency={c} tone={calc.rounding < 0 ? "negative" : undefined} /> });
   return (
     <dl className="card rows">
       {rows.map(({ k, v }) => (

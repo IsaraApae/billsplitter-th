@@ -16,6 +16,9 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
   const setDiscount = (patch: Partial<Discount>) => setDoc((x) => ({ ...x, discount: { ...x.discount, ...patch } }));
   const currency = doc.currency;
   const selectedCount = d.itemIds.length;
+  // Service / VAT taken exactly as printed on the scanned receipt (while the items are unchanged).
+  const printedService = doc.service.amount !== undefined && doc.service.base === calc.discountedSubtotal;
+  const printedVat = doc.vat.amount !== undefined && doc.vat.base === calc.discountedSubtotal;
 
   return (
     <div className="space-y-6">
@@ -86,7 +89,15 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
             <div className="min-w-0 flex-1">
               <Toggle
                 label="Service charge"
-                hint="On the discounted subtotal"
+                hint={
+                  printedService ? (
+                    <>
+                      <Money value={calc.service} currency={currency} /> as printed on the receipt
+                    </>
+                  ) : (
+                    "On the discounted subtotal"
+                  )
+                }
                 checked={doc.service.enabled}
                 onChange={(enabled) => setDoc((x) => ({ ...x, service: { ...x.service, enabled } }))}
               />
@@ -95,7 +106,8 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
               <PercentInput
                 ariaLabel="Service charge percent"
                 bp={doc.service.rateBp}
-                onChange={(rateBp) => setDoc((x) => ({ ...x, service: { ...x.service, rateBp } }))}
+                // Typing a percentage replaces the receipt's printed amount.
+                onChange={(rateBp) => setDoc((x) => ({ ...x, service: { ...x.service, rateBp, amount: undefined, base: undefined } }))}
               />
             )}
           </div>
@@ -103,7 +115,15 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
             <div className="min-w-0 flex-1">
               <Toggle
                 label="VAT"
-                hint="On subtotal + service"
+                hint={
+                  printedVat ? (
+                    <>
+                      <Money value={calc.vat} currency={currency} /> as printed on the receipt
+                    </>
+                  ) : (
+                    "On subtotal + service"
+                  )
+                }
                 checked={doc.vat.enabled}
                 onChange={(enabled) => setDoc((x) => ({ ...x, vat: { ...x.vat, enabled } }))}
               />
@@ -112,7 +132,7 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
               <PercentInput
                 ariaLabel="VAT percent"
                 bp={doc.vat.rateBp}
-                onChange={(rateBp) => setDoc((x) => ({ ...x, vat: { ...x.vat, rateBp } }))}
+                onChange={(rateBp) => setDoc((x) => ({ ...x, vat: { ...x.vat, rateBp, amount: undefined, base: undefined } }))}
               />
             )}
           </div>

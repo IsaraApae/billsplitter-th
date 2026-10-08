@@ -50,8 +50,9 @@ export const splitDocSchema = z
       scope: z.enum(["all", "selected"]),
       itemIds: z.array(id).max(300),
     }),
-    service: z.object({ enabled: z.boolean(), rateBp: bp }),
-    vat: z.object({ enabled: z.boolean(), rateBp: bp }),
+    service: z.object({ enabled: z.boolean(), rateBp: bp, amount: money.optional(), base: z.number().int().optional() }),
+    vat: z.object({ enabled: z.boolean(), rateBp: bp, amount: money.optional(), base: z.number().int().optional() }),
+    receiptRounding: z.object({ amount: z.number().int().min(-10_000).max(10_000), base: z.number().int() }).optional(),
     payment: z.object({
       promptpay: z.string().regex(/^\d{0,15}$/).default(""),
       note: z.string().max(300).default(""),
