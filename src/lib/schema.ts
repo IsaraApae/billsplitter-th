@@ -62,7 +62,11 @@ export const splitDocSchema = z
     }),
     receipt: z.object({ subtotal: money.nullable(), total: money.nullable() }),
     roundUp: z.boolean().optional(),
-    prepaid: z.array(z.object({ personId: id, amount: money })).max(50).optional(),
+    prepaid: z
+      .array(z.object({ personId: id, amount: money, promptpay: z.string().regex(/^\d{0,15}$/).optional() }))
+      .max(50)
+      .optional(),
+    settle: z.enum(["organiser", "direct"]).optional(),
     photo: z.string().max(300).regex(RECEIPT_PHOTO_RE).optional(),
   })
   .superRefine((doc, ctx) => {

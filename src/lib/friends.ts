@@ -9,6 +9,8 @@ export interface Friend {
   emoji?: string;
   color?: PersonColor;
   lastUsed: number; // epoch ms, 0 = never
+  /** their PromptPay, remembered from bills they paid part of */
+  promptpay?: string;
 }
 
 export interface FriendGroup {

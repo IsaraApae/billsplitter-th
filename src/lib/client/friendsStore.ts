@@ -2,7 +2,7 @@
 
 import { uid } from "../draft";
 import { addFriend, markUsed, ME_ID, type Friend, type FriendGroup } from "../friends";
-import type { Person, PersonColor } from "../types";
+import type { Person, PersonColor, Prepaid } from "../types";
 import { load, save } from "./storage";
 
 const FRIENDS = "bs:friends";
@@ -56,3 +56,13 @@ export function rememberPeople(people: Person[]): void {
   saveFriends(markUsed(friends, ids, Date.now()));
   save(LAST, ids);
 }
+
+/** Remembers the PromptPay of friends who paid part of a bill, for next time. */
+export function rememberPromptPays(prepaid: Prepaid[] = []): void {
+  const pps = new Map(prepaid.filter((p) => p.promptpay).map((p) => [p.personId, p.promptpay!]));
+  if (pps.size === 0) return;
+  saveFriends(getFriends().map((f) => (pps.has(f.id) ? { ...f, promptpay: pps.get(f.id) } : f)));
+}
+
+/** A friend's remembered PromptPay, if any. */
+export const friendPromptPay = (id: string) => getFriends().find((f) => f.id === id)?.promptpay;

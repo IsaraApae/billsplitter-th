@@ -3,6 +3,7 @@
 
 import { calculate, ORGANISER_ID } from "./calc";
 import { organiserFirstByName } from "./friends";
+import { organiserLines } from "./settle";
 import type { PersonColor, SplitDoc } from "./types";
 
 export interface EventMeta {
@@ -27,6 +28,8 @@ export interface EventPersonBill {
   title: string;
   /** this person's id in that bill */
   personId: string;
+  /** where their payment for that bill is recorded (their id, or a transfer key) */
+  key: string;
   /** what they're asked to pay for that bill (negative = owed back) */
   amount: number;
   paidSoFar: number;
@@ -67,6 +70,9 @@ export function eventPeople(bills: EventBill[]): EventPerson[] {
 
   for (const bill of byTitle(bills, (b) => b.doc.title)) {
     const calc = calculate(bill.doc);
+    // Each friend's money with the organiser (when friends paid each other
+    // directly, only what goes to or from the organiser counts here).
+    const lines = new Map(organiserLines(bill.doc, bill, calc).map((l) => [l.personId, l]));
     bill.doc.people.forEach((p, i) => {
       const r = calc.people[i];
       let person = byId.get(p.id) ?? (p.id === ORGANISER_ID ? undefined : byName.get(norm(p.name)));
@@ -87,17 +93,20 @@ export function eventPeople(bills: EventBill[]): EventPerson[] {
       }
       byId.set(p.id, person);
       // The organiser paid the bills: never ticked (older splits may still hold a tick for "me").
-      const organiser = p.id === ORGANISER_ID;
-      const full = !organiser && bill.paid.includes(p.id);
-      const part = full || organiser ? 0 : (bill.partial[p.id] ?? 0);
-      person.bills.push({
-        splitId: bill.id,
-        title: bill.doc.title,
-        personId: p.id,
-        amount: r.payable,
-        paidSoFar: full ? Math.max(0, r.payable) : part,
-        status: full ? "full" : part > 0 ? "part" : "none",
-      });
+      const line = lines.get(p.id);
+      if (!line) {
+        person.bills.push({ splitId: bill.id, title: bill.doc.title, personId: p.id, key: p.id, amount: r.payable, paidSoFar: 0, status: "none" });
+      } else {
+        person.bills.push({
+          splitId: bill.id,
+          title: bill.doc.title,
+          personId: p.id,
+          key: line.key,
+          amount: line.amount,
+          paidSoFar: line.status === "full" ? Math.max(0, line.amount) : line.paidSoFar,
+          status: line.status,
+        });
+      }
     });
   }
 
@@ -118,6 +127,7 @@ export function eventPeople(bills: EventBill[]): EventPerson[] {
 }
 
 /** What to record in each bill when the organiser records a payment for the whole event. */
+/** `personId` is the payment key in that bill (their id, or a transfer key). */
 export type BillPayment = { splitId: string; personId: string } & (
   | { kind: "full" }
   | { kind: "part"; amount: number }
@@ -134,13 +144,13 @@ export function spreadPayment(
   payment: { kind: "full" } | { kind: "none" } | { kind: "part"; amount: number },
 ): BillPayment[] {
   if (payment.kind !== "part") {
-    return person.bills.map((b) => ({ splitId: b.splitId, personId: b.personId, kind: payment.kind }));
+    return person.bills.map((b) => ({ splitId: b.splitId, personId: b.key, kind: payment.kind }));
   }
   let left = payment.amount;
   return person.bills
     .filter((b) => b.amount > 0)
     .map((b): BillPayment => {
-      const base = { splitId: b.splitId, personId: b.personId };
+      const base = { splitId: b.splitId, personId: b.key };
       if (left >= b.amount) {
         left -= b.amount;
         return { ...base, kind: "full" };

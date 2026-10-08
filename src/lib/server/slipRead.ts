@@ -64,7 +64,7 @@ export async function readSlipUpload(req: Request, field: "personId" | "personKe
     const form = await req.formData();
     const f = form.get("image");
     file = f instanceof File ? f : null;
-    personRef = String(form.get(field) ?? "").slice(0, 40);
+    personRef = String(form.get(field) ?? "").slice(0, 100);
   } catch {
     /* handled below */
   }

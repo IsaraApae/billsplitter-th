@@ -1,5 +1,6 @@
 import { calculate, ORGANISER_ID } from "@/lib/calc";
 import { billDay } from "@/lib/draft";
+import { findTransfer, payerPromptPay, settlesDirectly } from "@/lib/settle";
 import { checkSlip } from "@/lib/slip";
 import { jsonError, safely } from "@/lib/server/http";
 import { storeReceiptImage } from "@/lib/server/qrStore";
@@ -17,10 +18,11 @@ import { readSlipUpload } from "@/lib/server/slipRead";
 export const maxDuration = 60;
 
 /**
- * A friend uploads their transfer slip (multipart: image, personId). If it
- * checks out — a real-looking slip, dated on or after the bill, paid to the
- * organiser as far as can be told, never used before — they're ticked:
- * the big tick if it covers what's left, otherwise the small tick.
+ * A friend uploads their transfer slip (multipart: image, personId — or a
+ * transfer key when friends pay each payer directly). If it checks out — a
+ * real-looking slip, dated on or after the bill, paid to the right person as
+ * far as can be told, never used before — they're ticked: the big tick if it
+ * covers what's left, otherwise the small tick.
  */
 export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/slip">) {
   const limited = await rateLimit(req, "scan");
@@ -33,10 +35,23 @@ export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/sli
     const upload = await readSlipUpload(req, "personId");
     if (!upload.ok) return jsonError(upload.status, upload.code, upload.message);
     const personId = upload.personRef;
-    const i = s.doc.people.findIndex((p) => p.id === personId);
-    if (i < 0 || personId === ORGANISER_ID) return jsonError(404, "not_found", "That person isn't in this split.");
-
-    const owed = calculate(s.doc).people[i].payable;
+    const calc = calculate(s.doc);
+    let owed: number;
+    // Who the money should have gone to.
+    let payee: { slipName?: string; promptpay?: string } = {
+      slipName: s.doc.payment.slipName,
+      promptpay: s.doc.payment.promptpay,
+    };
+    if (settlesDirectly(s.doc)) {
+      const t = findTransfer(s.doc, personId, calc);
+      if (!t) return jsonError(404, "not_found", "That payment isn't in this split.");
+      owed = t.amount;
+      if (t.to !== ORGANISER_ID) payee = { promptpay: payerPromptPay(s.doc, t.to) };
+    } else {
+      const i = s.doc.people.findIndex((p) => p.id === personId);
+      if (i < 0 || personId === ORGANISER_ID) return jsonError(404, "not_found", "That person isn't in this split.");
+      owed = calc.people[i].payable;
+    }
     const state = await getPaidState(id, s.doc);
     if (state.paid.includes(personId)) return jsonError(409, "already_paid", "You're already marked as paid.");
     if (owed <= 0) return jsonError(409, "nothing_owed", "You don't owe anything on this split.");
@@ -44,7 +59,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/sli
     const verdict = checkSlip(upload.slip, {
       billDay: billDay(s.doc),
       currency: s.doc.currency,
-      organiser: { slipName: s.doc.payment.slipName, promptpay: s.doc.payment.promptpay },
+      organiser: payee,
     });
     if (!verdict.ok) return jsonError(422, "slip_rejected", verdict.reason);
     if (!(await claimSlipReference(verdict.reference, `${id}:${personId}`))) {

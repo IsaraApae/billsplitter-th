@@ -36,7 +36,16 @@ export interface Discount {
 export interface Prepaid {
   personId: string;
   amount: number;
+  /** their PromptPay, so friends can pay them directly (settle = "direct") */
+  promptpay?: string;
 }
+
+/**
+ * When several people paid at the restaurant: everyone pays the organiser,
+ * who pays the others back ("organiser", the default), or friends pay each
+ * payer directly ("direct").
+ */
+export type SettleMode = "organiser" | "direct";
 
 export interface Rate {
   enabled: boolean;
@@ -99,6 +108,8 @@ export interface SplitDoc {
   roundUp?: boolean;
   /** Friends who paid part of the bill themselves; the organiser paid the rest. */
   prepaid?: Prepaid[];
+  /** How money moves when friends paid part of the bill too. Absent = "organiser". */
+  settle?: SettleMode;
   /** The receipt's printed rounding adjustment, if it had one. */
   receiptRounding?: ReceiptRounding;
   /** Stored receipt photo (see /api/receipt), shown on the shared page. */

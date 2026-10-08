@@ -21,6 +21,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/splits/[id]/paid
 /**
  * Body: { personId, paid: true } (paid in full), { personId, paid: false }
  * (not paid), or { personId, amount } (paid part of it, minor units).
+ * When friends pay each payer directly, personId is a transfer key ("t:from:to").
  */
 export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/paid">) {
   const limited = await rateLimit(req, "write");
@@ -30,7 +31,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/pai
   return safely(async () => {
     const body = (await readJson(req, 2_000)) as { personId?: unknown; paid?: unknown; amount?: unknown } | undefined;
     const payment = paymentFrom(body);
-    if (!body || typeof body.personId !== "string" || body.personId.length > 40 || !payment) {
+    if (!body || typeof body.personId !== "string" || body.personId.length > 100 || !payment) {
       return jsonError(400, "bad_request", "Invalid request.");
     }
     const token = req.headers.get("x-edit-token");

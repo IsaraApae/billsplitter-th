@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { calculate } from "@/lib/calc";
-import { rememberPeople } from "@/lib/client/friendsStore";
+import { rememberPeople, rememberPromptPays } from "@/lib/client/friendsStore";
 import { askConfirm } from "@/lib/client/confirm";
 import { hasPendingScan, SCAN_EVENT } from "@/lib/client/pendingScan";
 import { getProfile, paymentFromProfile } from "@/lib/client/profile";
@@ -12,7 +12,6 @@ import {
   getEditToken,
   historyFromDoc,
   load,
-  paidProgress,
   remove,
   save,
   setEditToken,
@@ -20,6 +19,7 @@ import {
 } from "@/lib/client/storage";
 import { billDate, defaultTitle, newDoc, toDay } from "@/lib/draft";
 import { toPeople } from "@/lib/friends";
+import { paymentSummary, settlesDirectly } from "@/lib/settle";
 import type { Person, SplitDoc } from "@/lib/types";
 import { CrewSheet } from "../CrewSheet";
 import { Callout, ICON, Money, cx } from "../ui";
@@ -167,16 +167,14 @@ export function Wizard() {
       const id: string = editing ?? data.id;
       if (!editing) setEditToken(id, data.token);
       rememberPeople(clean.people);
+      if (settlesDirectly(clean)) rememberPromptPays(clean.prepaid);
       upsertHistory({
         id,
         title: clean.title,
         ...historyFromDoc(clean),
         total: calculate(clean).total,
         currency: clean.currency,
-        ...paidProgress(
-          clean.people.map((p) => p.id),
-          [],
-        ),
+        ...paymentSummary(clean, { paid: [], partial: {} }),
       });
       setState({ doc: clean, step: 4, editingId: id });
       window.scrollTo({ top: 0 });

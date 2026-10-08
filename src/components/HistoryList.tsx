@@ -23,6 +23,7 @@ import { ME_ID } from "@/lib/friends";
 import { formatMoney } from "@/lib/money";
 import type { SplitDoc } from "@/lib/types";
 import { byTitle } from "@/lib/event";
+import { paymentSummary } from "@/lib/settle";
 import { EventEditor } from "./EventEditor";
 import { Avatar, ICON, Money, cx } from "./ui";
 
@@ -50,7 +51,8 @@ export function HistoryList() {
       .forEach(async (h) => {
         try {
           // Entries saved before people/amounts were kept load the whole split once.
-          const full = !h.members || h.members.some((m) => m.amount === undefined);
+          // So do bills where friends pay each payer directly (progress counts transfers).
+          const full = !h.members || h.members.some((m) => m.amount === undefined) || h.direct;
           const r = await fetch(full ? `/api/splits/${h.id}` : `/api/splits/${h.id}/paid`, { cache: "no-store" });
           if (r.status === 404) {
             setGone((g) => new Set(g).add(h.id));
@@ -60,13 +62,9 @@ export function HistoryList() {
           let patch: Partial<HistoryEntry>;
           if (full) {
             const data: { doc: SplitDoc; paid: string[]; partial?: Record<string, number> } = await r.json();
-            const ids = data.doc.people.map((p) => p.id);
-            const paidIds = data.paid.filter((p) => ids.includes(p));
             patch = {
               ...historyFromDoc(data.doc),
-              ...paidProgress(ids, paidIds),
-              paidIds,
-              partialPaid: data.partial ?? {},
+              ...paymentSummary(data.doc, { paid: data.paid, partial: data.partial ?? {} }),
             };
           } else {
             const data: { paid: string[]; partial?: Record<string, number> } = await r.json();

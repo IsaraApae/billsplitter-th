@@ -7,18 +7,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate, wholeUnit } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { photoSrc } from "@/lib/client/photo";
-import { getEditToken, getHistory, historyFromDoc, paidProgress, patchHistory } from "@/lib/client/storage";
+import { getEditToken, getHistory, historyFromDoc, patchHistory } from "@/lib/client/storage";
 import { billDate } from "@/lib/draft";
 import { ME_ID, organiserFirstByName } from "@/lib/friends";
 import { formatStep, wholeUnitName } from "@/lib/money";
 import { splitVersion } from "@/lib/shareVersion";
-import { accountNumber, formatPromptPayId } from "@/lib/promptpay";
+import { accountNumber, formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
+import { keyStatus, paidAtRestaurant, payerPromptPay, paymentSummary, settlesDirectly, transferKey, transfers } from "@/lib/settle";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { asShare, TransferRow } from "./Transfers";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { ZoomableImage } from "./ZoomableImage";
 import { Callout, ICON, Money, Section, Sheet, cx } from "./ui";
@@ -65,32 +67,59 @@ export function SharedView({
     pendingRef.current = pending;
   }, [pending]);
 
-  // Progress counts friends only: the organiser paid the bill and never owes themselves.
-  const friendIds = doc.people.map((p) => p.id).filter((pid) => pid !== ME_ID);
-  const { paid: paidCount, people: total } = paidProgress(
-    doc.people.map((p) => p.id),
-    [...paid],
+  // Several people paid at the restaurant and friends pay each of them directly.
+  const direct = settlesDirectly(doc);
+  const moves = useMemo(
+    () =>
+      direct
+        ? transfers(doc, calc).map((t) => ({
+            ...t,
+            key: transferKey(t.from, t.to),
+            fromP: doc.people.find((p) => p.id === t.from)!,
+            toP: doc.people.find((p) => p.id === t.to)!,
+          }))
+        : [],
+    [direct, doc, calc],
   );
+  const paidThere = useMemo(() => paidAtRestaurant(doc, calc), [doc, calc]);
+  // Progress counts friends only (the organiser paid the bill and never owes
+  // themselves) — or the transfers, when friends pay each payer directly.
+  const friendIds = doc.people.map((p) => p.id).filter((pid) => pid !== ME_ID);
+  const { paid: paidCount, people: total } = paymentSummary(doc, { paid: [...paid], partial }, calc);
   const allPaid = paidCount === total;
   // Only money still coming in (less any part-payments); someone who paid
   // upfront may be owed money back instead.
-  const outstanding = calc.people
-    .filter((p) => friendIds.includes(p.personId) && !paid.has(p.personId))
-    .reduce((s, p) => s + Math.max(0, p.payable - (partial[p.personId] ?? 0)), 0);
-  const partCount = friendIds.filter((pid) => !paid.has(pid) && partial[pid]).length;
-  const statusOf = (pid: string): PaidStatus => (paid.has(pid) ? "full" : partial[pid] ? "part" : "none");
+  const outstanding = direct
+    ? moves.filter((t) => !paid.has(t.key)).reduce((s, t) => s + Math.max(0, t.amount - (partial[t.key] ?? 0)), 0)
+    : calc.people
+        .filter((p) => friendIds.includes(p.personId) && !paid.has(p.personId))
+        .reduce((s, p) => s + Math.max(0, p.payable - (partial[p.personId] ?? 0)), 0);
+  const partCount = direct
+    ? moves.filter((t) => !paid.has(t.key) && partial[t.key]).length
+    : friendIds.filter((pid) => !paid.has(pid) && partial[pid]).length;
+  const statusOf = (key: string): PaidStatus => (paid.has(key) ? "full" : partial[key] ? "part" : "none");
   // Not the organiser, and not people the organiser owes money back to (they paid upfront).
-  const waitingOn = doc.people
-    .filter(
-      (p) =>
-        friendIds.includes(p.id) &&
-        !paid.has(p.id) &&
-        (calc.people.find((r) => r.personId === p.id)?.payable ?? 0) >= 0,
-    )
-    .map((p) => p.name);
+  const waitingOn = direct
+    ? [...new Set(moves.filter((t) => !paid.has(t.key)).map((t) => t.fromP.name))]
+    : doc.people
+        .filter(
+          (p) =>
+            friendIds.includes(p.id) &&
+            !paid.has(p.id) &&
+            (calc.people.find((r) => r.personId === p.id)?.payable ?? 0) >= 0,
+        )
+        .map((p) => p.name);
   const pp = doc.payment.promptpay;
-  const payPerson = calc.people.find((p) => p.personId === payFor);
-  const askPerson = calc.people.find((p) => p.personId === askFor);
+  const payPerson = direct ? undefined : calc.people.find((p) => p.personId === payFor);
+  const askPerson = direct ? undefined : calc.people.find((p) => p.personId === askFor);
+  const payMove = moves.find((t) => t.key === payFor);
+  const askMove = moves.find((t) => t.key === askFor);
+  // Paying someone who isn't the organiser: their own PromptPay, if they gave one.
+  const moveQr = (t: { to: string }): PayQrSource | null => {
+    if (t.to === ME_ID) return qr;
+    const p = payerPromptPay(doc, t.to);
+    return p && isValidPromptPayId(p) ? { mode: "generate", promptpay: p } : null;
+  };
 
   useEffect(() => {
     version.current = updatedAt;
@@ -101,13 +130,10 @@ export function SharedView({
     if (getHistory().some((h) => h.id === id))
       patchHistory(id, {
         ...historyFromDoc(doc),
-        paid: paidCount,
-        people: total,
+        ...paymentSummary(doc, { paid: [...paid], partial }, calc),
         total: calc.total,
-        paidIds: [...paid],
-        partialPaid: partial,
       });
-  }, [id, doc, paid, partial, paidCount, total, calc.total]);
+  }, [id, doc, paid, partial, calc]);
 
   // Bumped to re-load slips (after a poll or an upload).
   const [slipsVersion, setSlipsVersion] = useState(0);
@@ -231,7 +257,9 @@ export function SharedView({
           <div className="mb-2 flex items-baseline justify-between gap-2">
             <span className="flex items-center gap-1.5 font-semibold">
               {allPaid && <PartyPopper size={20} {...ICON} className="text-accent" aria-hidden />}
-              {allPaid ? "Everyone has paid" : `${paidCount} of ${total} paid${partCount ? ` · ${partCount} part paid` : ""}`}
+              {allPaid
+                ? "Everyone has paid"
+                : `${paidCount} of ${total} ${direct ? "payments done" : "paid"}${partCount ? ` · ${partCount} part paid` : ""}`}
             </span>
             {!allPaid && (
               <span className="text-[15px] text-ink-2">
@@ -253,13 +281,13 @@ export function SharedView({
       {error && <Callout tone="error">{error}</Callout>}
 
       {(qr || pp || doc.payment.note) && (
-        <Section title="How to pay">
+        <Section title={direct ? `Paying ${doc.people.find((p) => p.id === ME_ID)?.name ?? "the organiser"}` : "How to pay"}>
           <div className="card rows" aria-label="How to pay">
             {qr && (
               <div className="flex items-start gap-3 px-5 py-4 text-[15px] text-ink-2">
                 <QrCode size={22} {...ICON} className="mt-px shrink-0 text-accent" aria-hidden />
                 <p>
-                  Tap <b className="text-ink">Pay</b> next to your name for a PromptPay QR
+                  Tap <b className="text-ink">Pay</b> next to {direct ? "your payment" : "your name"} for a PromptPay QR
                   {qr.mode === "generate" && " with your exact amount"}.
                 </p>
               </div>
@@ -287,114 +315,206 @@ export function SharedView({
         </Section>
       )}
 
-      <Section title="Who owes what">
-        <ul className="card rows overflow-hidden" aria-label="People">
-          {organiserFirstByName(
-            calc.people.map((p, i) => ({ p, profile: doc.people[i] })),
-            (x) => x.p.personId,
-            (x) => x.p.name,
-          ).map(({ p, profile }) => {
-            const isPaid = p.personId !== ME_ID && paid.has(p.personId);
-            const status = statusOf(p.personId);
-            const paidPart = partial[p.personId] ?? 0;
-            const busy = pending.has(p.personId);
-            return (
-              <PersonCard
-                key={p.personId}
-                person={p}
-                profile={profile}
-                currency={doc.currency}
-                mode={doc.mode}
-                highlight={isPaid ? "paid" : "unpaid"}
-                leftToPay={status === "part" ? Math.max(0, p.payable - paidPart) : undefined}
-                leading={
-                  p.personId === ME_ID ? (
-                    // The organiser paid the bill: nothing to tick.
-                    <span className="size-11 shrink-0" aria-hidden />
-                  ) : canEdit ? (
-                    <button
-                      type="button"
-                      className="press grid size-11 shrink-0 place-items-center rounded-full"
-                      disabled={busy}
-                      aria-label={`${p.name}: ${status === "full" ? "paid" : status === "part" ? "paid part" : "not paid"}. Change`}
-                      onClick={() => setAskFor(p.personId)}
-                    >
-                      <PaidMark status={status} busy={busy} />
-                    </button>
-                  ) : (
-                    // Read-only for everyone but the organiser: a status icon, not a control.
-                    <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
-                      {status === "none" ? <span className="size-2.5 rounded-full bg-warn" /> : <PaidMark status={status} />}
-                    </span>
-                  )
-                }
-                badge={
-                  <span
-                    className={cx(
-                      "text-[13px] font-semibold",
-                      p.personId === ME_ID
-                        ? "text-ink-2"
-                        : isPaid || status === "part"
-                          ? "text-accent"
-                          : p.payable < 0
-                            ? "text-positive"
-                            : "text-warn",
-                    )}
-                  >
-                    {p.personId === ME_ID ? (
-                      "Organiser"
-                    ) : p.payable < 0 ? (
-                      isPaid ? (
-                        "Paid back"
+      {direct ? (
+        <>
+          <Section title="Who pays whom">
+            <ul className="card rows overflow-hidden" aria-label="Who pays whom">
+              {moves.map((t) => {
+                const { status, paidSoFar } = keyStatus(t.key, t.amount, { paid: [...paid], partial });
+                const busy = pending.has(t.key);
+                const label = `${t.fromP.name} pays ${t.toP.name}`;
+                return (
+                  <TransferRow
+                    key={t.key}
+                    from={t.fromP}
+                    to={t.toP}
+                    amount={status === "part" ? Math.max(0, t.amount - paidSoFar) : t.amount}
+                    currency={doc.currency}
+                    done={status === "full"}
+                    leading={
+                      canEdit ? (
+                        <button
+                          type="button"
+                          className="press grid size-11 shrink-0 place-items-center rounded-full"
+                          disabled={busy}
+                          aria-label={`${label}: ${status === "full" ? "paid" : status === "part" ? "paid part" : "not paid"}. Change`}
+                          onClick={() => setAskFor(t.key)}
+                        >
+                          <PaidMark status={status} busy={busy} />
+                        </button>
                       ) : (
-                        "Gets money back"
+                        <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
+                          {status === "none" ? <span className="size-2.5 rounded-full bg-warn" /> : <PaidMark status={status} />}
+                        </span>
                       )
-                    ) : isPaid ? (
-                      "Paid"
-                    ) : status === "part" ? (
-                      "Part paid"
+                    }
+                    status={
+                      <span className={cx("block pl-0.5 text-[13px] font-semibold", status === "none" ? "text-warn" : "text-accent")}>
+                        {status === "full" ? "Paid" : status === "part" ? "Part paid · left to pay" : "Unpaid"}
+                      </span>
+                    }
+                    action={
+                      status !== "full" ? (
+                        <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPayFor(t.key)}>
+                          Pay
+                        </button>
+                      ) : null
+                    }
+                  />
+                );
+              })}
+            </ul>
+            <p className="px-5 text-[13px] text-ink-2">
+              {moves.length > 1 || moves.some((t) => t.to !== ME_ID)
+                ? "Several people paid the bill, so everyone pays each of them directly — the fewest transfers possible"
+                : "Pay the person who paid the bill"}
+              {doc.roundUp && <>, rounded up to whole {wholeUnitName(doc.currency)}</>}.{" "}
+              {canEdit ? "Tick the circle when a payment is made. Everyone with the link sees it." : "The organiser ticks payments off."}
+            </p>
+          </Section>
+
+          <Section title="Shares">
+            <ul className="card rows overflow-hidden" aria-label="People">
+              {organiserFirstByName(
+                calc.people.map((p, i) => ({ p, profile: doc.people[i] })),
+                (x) => x.p.personId,
+                (x) => x.p.name,
+              ).map(({ p, profile }) => {
+                const there = paidThere.get(p.personId) ?? 0;
+                return (
+                  <PersonCard
+                    key={p.personId}
+                    person={asShare(p)}
+                    profile={profile}
+                    currency={doc.currency}
+                    mode={doc.mode}
+                    badge={
+                      <span className="text-[13px] font-semibold text-ink-2">
+                        {there > 0 ? (
+                          <>
+                            Paid <Money value={there} currency={doc.currency} /> at the bill
+                          </>
+                        ) : (
+                          "Share of the bill"
+                        )}
+                      </span>
+                    }
+                  />
+                );
+              })}
+            </ul>
+          </Section>
+        </>
+      ) : (
+        <Section title="Who owes what">
+          <ul className="card rows overflow-hidden" aria-label="People">
+            {organiserFirstByName(
+              calc.people.map((p, i) => ({ p, profile: doc.people[i] })),
+              (x) => x.p.personId,
+              (x) => x.p.name,
+            ).map(({ p, profile }) => {
+              const isPaid = p.personId !== ME_ID && paid.has(p.personId);
+              const status = statusOf(p.personId);
+              const paidPart = partial[p.personId] ?? 0;
+              const busy = pending.has(p.personId);
+              return (
+                <PersonCard
+                  key={p.personId}
+                  person={p}
+                  profile={profile}
+                  currency={doc.currency}
+                  mode={doc.mode}
+                  highlight={isPaid ? "paid" : "unpaid"}
+                  leftToPay={status === "part" ? Math.max(0, p.payable - paidPart) : undefined}
+                  leading={
+                    p.personId === ME_ID ? (
+                      // The organiser paid the bill: nothing to tick.
+                      <span className="size-11 shrink-0" aria-hidden />
+                    ) : canEdit ? (
+                      <button
+                        type="button"
+                        className="press grid size-11 shrink-0 place-items-center rounded-full"
+                        disabled={busy}
+                        aria-label={`${p.name}: ${status === "full" ? "paid" : status === "part" ? "paid part" : "not paid"}. Change`}
+                        onClick={() => setAskFor(p.personId)}
+                      >
+                        <PaidMark status={status} busy={busy} />
+                      </button>
                     ) : (
-                      "Unpaid"
-                    )}
-                  </span>
-                }
-                action={
-                  !isPaid && p.payable > 0 && p.personId !== ME_ID ? (
-                    <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPayFor(p.personId)}>
-                      Pay
-                    </button>
-                  ) : null
-                }
-              />
-            );
-          })}
-        </ul>
-        {calc.people.some((p) => p.payable !== p.total - p.prepaid) && (
+                      // Read-only for everyone but the organiser: a status icon, not a control.
+                      <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
+                        {status === "none" ? <span className="size-2.5 rounded-full bg-warn" /> : <PaidMark status={status} />}
+                      </span>
+                    )
+                  }
+                  badge={
+                    <span
+                      className={cx(
+                        "text-[13px] font-semibold",
+                        p.personId === ME_ID
+                          ? "text-ink-2"
+                          : isPaid || status === "part"
+                            ? "text-accent"
+                            : p.payable < 0
+                              ? "text-positive"
+                              : "text-warn",
+                      )}
+                    >
+                      {p.personId === ME_ID ? (
+                        "Organiser"
+                      ) : p.payable < 0 ? (
+                        isPaid ? (
+                          "Paid back"
+                        ) : (
+                          "Gets money back"
+                        )
+                      ) : isPaid ? (
+                        "Paid"
+                      ) : status === "part" ? (
+                        "Part paid"
+                      ) : (
+                        "Unpaid"
+                      )}
+                    </span>
+                  }
+                  action={
+                    !isPaid && p.payable > 0 && p.personId !== ME_ID ? (
+                      <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPayFor(p.personId)}>
+                        Pay
+                      </button>
+                    ) : null
+                  }
+                />
+              );
+            })}
+          </ul>
+          {calc.people.some((p) => p.payable !== p.total - p.prepaid) && (
+            <p className="px-5 text-[13px] text-ink-2">
+              Amounts are rounded to whole {wholeUnitName(doc.currency)}:{" "}
+              {doc.mode === "equal" ? (
+                "everyone's share is the same, rounded up"
+              ) : (
+                <>
+                  friends within {formatStep(wholeUnit(doc.currency), doc.currency)} of their exact shares (some up, some
+                  down), the organiser&apos;s to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
+                </>
+              )}
+              {calc.roundingExtra > 0 && (
+                <>
+                  ; together that&apos;s <Money value={calc.roundingExtra} currency={doc.currency} /> more for{" "}
+                  {doc.people.find((p) => p.id === ME_ID)?.name ?? "whoever paid the bill"}
+                </>
+              )}
+              .
+            </p>
+          )}
           <p className="px-5 text-[13px] text-ink-2">
-            Amounts are rounded to whole {wholeUnitName(doc.currency)}:{" "}
-            {doc.mode === "equal" ? (
-              "everyone's share is the same, rounded up"
-            ) : (
-              <>
-                friends within {formatStep(wholeUnit(doc.currency), doc.currency)} of their exact shares (some up, some
-                down), the organiser&apos;s to the nearest {formatStep(wholeUnit(doc.currency), doc.currency)}
-              </>
-            )}
-            {calc.roundingExtra > 0 && (
-              <>
-                ; together that&apos;s <Money value={calc.roundingExtra} currency={doc.currency} /> more for{" "}
-                {doc.people.find((p) => p.id === ME_ID)?.name ?? "whoever paid the bill"}
-              </>
-            )}
-            .
+            {canEdit
+              ? "Tick the circle when someone has paid you. Everyone with the link sees it."
+              : "The organiser ticks people off as they receive payments."}
           </p>
-        )}
-        <p className="px-5 text-[13px] text-ink-2">
-          {canEdit
-            ? "Tick the circle when someone has paid you. Everyone with the link sees it."
-            : "The organiser ticks people off as they receive payments."}
-        </p>
-      </Section>
+        </Section>
+      )}
 
       <Section title="Bill">
         {doc.photo && !photoBroken && (
@@ -456,7 +576,58 @@ export function SharedView({
         </Sheet>
       )}
 
-      {canEdit && (
+      {canEdit && direct && (
+        <PaymentSheet
+          open={!!askMove}
+          onClose={() => setAskFor(null)}
+          name={askMove?.fromP.name ?? ""}
+          title={askMove ? `Has ${askMove.fromP.name} paid ${askMove.toP.name}?` : undefined}
+          owed={askMove?.amount ?? 0}
+          currency={doc.currency}
+          status={askMove ? statusOf(askMove.key) : "none"}
+          paidSoFar={askMove ? (partial[askMove.key] ?? 0) : 0}
+          slips={askMove ? slips[askMove.key] : undefined}
+          onSave={(input) => askMove && savePayment(askMove.key, input)}
+        />
+      )}
+
+      {direct && (
+        <Sheet
+          open={!!payMove}
+          onClose={() => setPayFor(null)}
+          title={payMove ? `${payMove.fromP.name} pays ${payMove.toP.name}` : "Pay"}
+        >
+          {payMove && (
+            <div className="space-y-4">
+              {(() => {
+                const source = moveQr(payMove);
+                const left = Math.max(0, payMove.amount - (partial[payMove.key] ?? 0));
+                return source && doc.currency === "THB" ? (
+                  <PayQr source={source} amount={left} name={`${payMove.fromP.name} → ${payMove.toP.name}`} />
+                ) : (
+                  <Callout tone="info">
+                    Send <Money value={left} currency={doc.currency} /> to {payMove.toP.name} — ask them for their PromptPay or
+                    bank details.
+                  </Callout>
+                );
+              })()}
+              <SlipUpload<SlipResult & { paid: string[]; partial: Record<string, number> }>
+                endpoint={`/api/splits/${id}/slip`}
+                field="personId"
+                personRef={payMove.key}
+                currency={doc.currency}
+                onAccepted={(r) => {
+                  setPaid(new Set(r.paid));
+                  setPartial(r.partial ?? {});
+                  loadSlips();
+                }}
+              />
+            </div>
+          )}
+        </Sheet>
+      )}
+
+      {canEdit && !direct && (
         <PaymentSheet
           open={!!askPerson}
           onClose={() => setAskFor(null)}
