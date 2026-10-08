@@ -25,7 +25,7 @@ More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots).
 - **One link per bill**, with a link preview (title, total, people) that refreshes when the bill is edited.
 - **PromptPay:** upload your bank's QR, or generate one from your PromptPay number with each person's exact amount. Bank details copy as just the account number.
 - **Big tick / small tick:** the organiser marks people paid in full, paid part (with the amount; "left to pay" shows what's still owed), or not paid. The organiser is never counted as unpaid.
-- **Transfer slips:** a friend uploads their slip; it's read with Gemini and checked (a transfer slip, dated on or after the bill, paid to the organiser, never used before) and they're ticked automatically, with a progress bar. The organiser can look over every slip.
+- **Transfer slips:** a friend uploads their slip; it's read with Gemini and checked (a transfer slip, dated on or after the bill, never used before; the receiver is matched by PromptPay number when the slip shows it) and they're ticked automatically, with a progress bar. The organiser can look over every slip.
 - **Big bills:** combine several bills from one outing (Food 1, Karaoke, Food 2) into one page with one total and one payment per friend. Payments are spread over the bills; single bills can still be ticked on their own.
 - **Receipt photo** on the shared page (zoomable).
 

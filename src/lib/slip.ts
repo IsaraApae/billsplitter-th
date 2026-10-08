@@ -39,39 +39,14 @@ export function sanitizeSlip(raw: unknown, now = new Date()): SlipRead {
 /** Same reference however it was spaced or dashed (for "already used"). */
 export const normaliseReference = (ref: string) => ref.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
 
-const TITLES = /^(นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.|mr|mrs|ms|miss)\.?\s*/i;
-
-/** First name without a title, lower-cased: "นาย อิสรา อ." → "อิสรา". */
-export function firstName(name: string): string {
-  return name.trim().replace(TITLES, "").split(/\s+/)[0]?.replace(/[.,]/g, "").toLocaleLowerCase() ?? "";
-}
-
-const isThai = (s: string) => /[฀-๿]/.test(s);
-
 /**
- * Was the money sent to the organiser?
- * - "match": the name on the slip matches the organiser's bank-account name,
- *   or the receiver's visible digits are part of their PromptPay number
- * - "mismatch": the organiser's bank-account name is set and doesn't match
+ * Was the money sent to the right person?
+ * - "match": the receiver's visible digits are part of their PromptPay number
  * - "unknown": nothing to compare (e.g. only a masked bank account is shown)
  */
-export function receiverCheck(slip: SlipRead, organiser: { slipName?: string; promptpay?: string }): "match" | "mismatch" | "unknown" {
-  if (organiser.slipName?.trim() && slip.receiverName) {
-    // Several spellings allowed ("ISARA A. / อิสรา อ."); compare only names in
-    // the same script as the slip — a Thai name can't be checked against an
-    // English one.
-    const got = firstName(slip.receiverName);
-    const thai = isThai(got);
-    const names = organiser.slipName
-      .split(/[/,|]/)
-      .map(firstName)
-      .filter((n) => n.length >= 2 && isThai(n) === thai);
-    if (names.length > 0 && got.length >= 2) {
-      return names.some((want) => want.startsWith(got) || got.startsWith(want)) ? "match" : "mismatch";
-    }
-  }
+export function receiverCheck(slip: SlipRead, payee: { promptpay?: string }): "match" | "unknown" {
   const digits = (slip.receiverAccount ?? "").replace(/\D/g, "");
-  if (organiser.promptpay && digits.length >= 4 && organiser.promptpay.includes(digits)) return "match";
+  if (payee.promptpay && digits.length >= 4 && payee.promptpay.includes(digits)) return "match";
   return "unknown";
 }
 
@@ -86,7 +61,7 @@ export type SlipVerdict =
  */
 export function checkSlip(
   slip: SlipRead,
-  opts: { billDay: string; currency: string; organiser: { slipName?: string; promptpay?: string } },
+  opts: { billDay: string; currency: string; organiser: { promptpay?: string } },
 ): SlipVerdict {
   if (!slip.isSlip) return { ok: false, reason: "That doesn't look like a bank transfer slip." };
   const amount = slip.amount === null ? null : parseMoney(slip.amount, opts.currency);
@@ -97,6 +72,5 @@ export function checkSlip(
     return { ok: false, reason: "Couldn't read the slip's reference number." };
   }
   const receiver = receiverCheck(slip, opts.organiser);
-  if (receiver === "mismatch") return { ok: false, reason: "This slip was paid to someone else." };
   return { ok: true, amount, reference: normaliseReference(slip.reference), receiver };
 }

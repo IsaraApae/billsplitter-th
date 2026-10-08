@@ -38,10 +38,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/sli
     const calc = calculate(s.doc);
     let owed: number;
     // Who the money should have gone to.
-    let payee: { slipName?: string; promptpay?: string } = {
-      slipName: s.doc.payment.slipName,
-      promptpay: s.doc.payment.promptpay,
-    };
+    let payee: { promptpay?: string } = { promptpay: s.doc.payment.promptpay };
     if (settlesDirectly(s.doc)) {
       const t = findTransfer(s.doc, personId, calc);
       if (!t) return jsonError(404, "not_found", "That payment isn't in this split.");

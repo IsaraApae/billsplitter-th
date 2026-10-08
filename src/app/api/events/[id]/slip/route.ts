@@ -35,7 +35,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/events/[id]/sli
     const verdict = checkSlip(upload.slip, {
       billDay: earliest,
       currency: newest.doc.currency,
-      organiser: { slipName: newest.doc.payment.slipName, promptpay: newest.doc.payment.promptpay },
+      organiser: { promptpay: newest.doc.payment.promptpay },
     });
     if (!verdict.ok) return jsonError(422, "slip_rejected", verdict.reason);
     if (!(await claimSlipReference(verdict.reference, `e:${id}:${person.key}`))) {
