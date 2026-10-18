@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { Segmented } from "./ui";
 
 type Theme = "light" | "dark" | "system";
@@ -25,28 +25,16 @@ function subscribe(cb: () => void) {
   };
 }
 
-function apply(t: Theme) {
-  const dark = t === "dark" || (t === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.classList.toggle("dark", dark);
-}
-
 /** Appearance picker: Auto / Light / Dark (used on the Me page). */
 export function ThemePicker() {
   const theme = useSyncExternalStore(subscribe, read, () => "system" as Theme);
 
-  // Follow the OS setting while in "Auto".
-  useEffect(() => {
-    const mq = matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => apply(read());
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
+  // The theme script in the layout applies it (and follows the system
+  // setting while on "Auto") when it hears this event.
   function set(t: Theme) {
     try {
       localStorage.setItem(KEY, t);
     } catch {}
-    apply(t);
     window.dispatchEvent(new Event(EVENT));
   }
 
