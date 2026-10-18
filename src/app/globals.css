@@ -197,6 +197,11 @@ dialog:focus-visible {
 .app-bg {
   position: fixed;
   inset: 0;
+  /* iOS 26 Safari paints a solid colour under its bottom bar when a fixed
+     element touches the bottom edge (within 3px, 80%+ wide); stopping short
+     lets the page scroll visibly behind the bar. #strip, in the same colour,
+     shows in the gap. */
+  bottom: 6px;
   z-index: -1;
   pointer-events: none;
   background:
