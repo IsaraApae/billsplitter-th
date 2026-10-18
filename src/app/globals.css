@@ -32,6 +32,11 @@
 :root {
   color-scheme: light;
   --bg: #f5f3f7;
+  /* One solid colour for the page's top and bottom edges: the average of the
+     background's top edge (--bg under the first glow). iPhone in-app browsers
+     (LINE, Facebook…) fill the strips behind the status bar and their toolbar
+     with a single solid colour, and fixed layers aren't drawn there. */
+  --edge-solid: #eaf1f2;
   /* The soft green wash the glass blurs (emerald, teal, mint, lime). */
   --blob-1: rgb(52 211 153 / 0.22);
   --blob-2: rgb(20 184 166 / 0.16);
@@ -77,6 +82,7 @@
 .dark {
   color-scheme: dark;
   --bg: #000000;
+  --edge-solid: #04110d;
   --blob-1: rgb(52 211 153 / 0.32);
   --blob-2: rgb(20 184 166 / 0.24);
   --blob-3: rgb(94 234 212 / 0.2);
@@ -130,6 +136,8 @@
     --card: var(--glass-solid);
     --glass-blur: none;
     --panel-blur: none;
+    /* No glow wash here, so the edges are just the background. */
+    --edge-solid: var(--bg);
   }
   .app-bg,
   .edge-blur {
@@ -139,12 +147,15 @@
 
 /* ---------- Base ------------------------------------------------------------ */
 /* Only the root gets the solid colour: an opaque <body> would paint over the
-   fixed glow layer (z-index -1) below it. */
+   fixed glow layer (z-index -1) below it. It's the edge colour, which in-app
+   browsers use for the strips behind the status bar and toolbar. */
 html {
-  background: var(--bg);
+  background-color: var(--edge-solid);
 }
 
 body {
+  position: relative;
+  min-height: 100vh;
   color: var(--ink);
   font-size: 17px;
   line-height: 1.45;
@@ -171,13 +182,26 @@ dialog:focus-visible {
   outline: none;
 }
 
-/* Fixed soft wash of four large green glows behind everything. */
+/* Scrolls with the page behind the fixed wash, in the edge colour: where an
+   in-app browser doesn't draw fixed layers (behind the status bar and its
+   toolbar) this shows instead, so the colour carries on while scrolling. */
+#strip {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: var(--edge-solid);
+}
+
+/* Fixed soft wash of four large green glows behind everything. It starts and
+   ends in the edge colour so the page meets those strips without a seam. */
 .app-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background:
+    linear-gradient(var(--edge-solid), transparent 120px),
+    linear-gradient(transparent calc(100% - 120px), var(--edge-solid)),
     radial-gradient(48% 38% at 10% 4%, var(--blob-1), transparent 72%),
     radial-gradient(44% 36% at 95% 22%, var(--blob-2), transparent 72%),
     radial-gradient(52% 40% at 82% 92%, var(--blob-3), transparent 74%),
@@ -185,24 +209,62 @@ dialog:focus-visible {
     var(--bg);
 }
 
-/* Progressive blur where content slides under floating chrome: a blurred strip
-   whose mask fades it out, instead of a solid bar. */
+/* Blur where content slides under floating chrome, instead of a solid bar. */
 .edge-blur {
   position: fixed;
   left: 0;
   right: 0;
-  z-index: 30;
+  z-index: 30; /* above the page, below the navigation (z-50) */
   pointer-events: none;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
 }
+/* Progressive blur under the bottom navigation, built from stacked layers
+   (each shorter and stronger) because iOS ignores a backdrop-filter that also
+   has a mask-image. */
 .edge-blur-bottom {
   bottom: 0;
-  height: calc(var(--edge-bottom, 112px) + env(safe-area-inset-bottom));
-  -webkit-mask-image: linear-gradient(to top, #000 45%, transparent);
-  mask-image: linear-gradient(to top, #000 45%, transparent);
+  height: calc(env(safe-area-inset-bottom) + 96px);
+  transform: translateZ(0); /* its own layer, above cards and charts */
 }
+.edge-blur-bottom > span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.edge-blur-bottom > span:nth-child(1) {
+  height: 100%;
+  -webkit-backdrop-filter: blur(0.5px);
+  backdrop-filter: blur(0.5px);
+}
+.edge-blur-bottom > span:nth-child(2) {
+  height: 80%;
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+}
+.edge-blur-bottom > span:nth-child(3) {
+  height: 62%;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.edge-blur-bottom > span:nth-child(4) {
+  height: 45%;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.edge-blur-bottom > span:nth-child(5) {
+  height: 30%;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.edge-blur-bottom > span:nth-child(6) {
+  height: 16%;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+/* Desktop (navigation at the top): the masked blur works in desktop browsers. */
 .edge-blur-top {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   top: 0;
   height: 96px;
   -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent);
