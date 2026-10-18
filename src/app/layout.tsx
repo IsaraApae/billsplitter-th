@@ -29,7 +29,7 @@ var d=document.documentElement,mq=matchMedia('(prefers-color-scheme: dark)');
 function pref(){try{return localStorage.getItem('bs:theme')}catch(e){return null}}
 function meta(){var c=getComputedStyle(d).getPropertyValue('--edge-solid').trim()||(d.classList.contains('dark')?'#04110d':'#eaf1f2');var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement('meta');m.name='theme-color';document.head.appendChild(m)}m.setAttribute('content',c)}
 function apply(){var t=pref();d.classList.toggle('dark',t==='dark'||(t!=='light'&&mq.matches));meta()}
-function changed(){apply();setTimeout(function(){meta();document.querySelectorAll('.app-bg').forEach(function(el){el.replaceWith(el.cloneNode(true))})},50)}
+function changed(){apply();setTimeout(function(){meta();document.querySelectorAll('.app-bg,.edge-blur-bottom').forEach(function(el){el.replaceWith(el.cloneNode(true))})},50)}
 apply();
 var auto=function(){var t=pref();if(t!=='light'&&t!=='dark')changed()};
 mq.addEventListener?mq.addEventListener('change',auto):mq.addListener(auto);
@@ -37,9 +37,14 @@ addEventListener('bs-theme',changed);
 addEventListener('storage',function(e){if(e.key==='bs:theme')changed()});
 document.addEventListener('DOMContentLoaded',meta);addEventListener('load',meta);
 }catch(e){}})()`;
-// The fixed wash is outside React's control (static HTML) so the theme script
-// can swap it for a fresh copy safely.
-const appBg = '<div class="app-bg" aria-hidden="true"></div>';
+// The fixed layers are outside React's control (static HTML) so the theme
+// script can swap them for fresh copies safely: the wash, and the progressive
+// blur under the bottom navigation (in-app browsers take the bottom bar's
+// colour from the fixed layer at the bottom edge too).
+const fixedLayers =
+  '<div class="app-bg" aria-hidden="true"></div>' +
+  '<div class="edge-blur edge-blur-bottom md:hidden" aria-hidden="true">' +
+  "<span></span><span></span><span></span><span></span><span></span><span></span></div>";
 const swScript = `if('serviceWorker' in navigator&&location.hostname!=='localhost'){addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -51,16 +56,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-dvh font-sans">
         <div id="strip" aria-hidden />
-        <div dangerouslySetInnerHTML={{ __html: appBg }} />
-        {/* Content blurs progressively under the floating navigation instead of hitting a solid bar. */}
-        <div className="edge-blur edge-blur-bottom md:hidden" aria-hidden>
-          <span />
-          <span />
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
+        {/* The wash, and content blurring progressively under the floating navigation. */}
+        <div dangerouslySetInnerHTML={{ __html: fixedLayers }} />
         <div className="edge-blur edge-blur-top hidden md:block" aria-hidden />
         <div className="pt-[max(16px,env(safe-area-inset-top))] md:pt-24">{children}</div>
         <NavLinks />
