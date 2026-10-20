@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { byTitle, eventPeople, spreadPayment, type EventBill } from "./event";
+import { byTitle, combinedTitle, eventPeople, spreadPayment, type EventBill } from "./event";
 import type { SplitDoc } from "./types";
 
 const me = { id: "me", name: "Isara" };
@@ -74,5 +74,15 @@ describe("the organiser in a big bill", () => {
     const b = bill("b1", "Food", [me, mint], 20000, { paid: ["me"], partial: {} });
     const isara = eventPeople([b]).find((p) => p.organiser)!;
     expect([isara.status, isara.paidSoFar, isara.bills[0].status]).toEqual(["none", 0, "none"]);
+  });
+});
+
+describe("big bill name from its bills", () => {
+  it("joins the bill names A–Z with &", () => {
+    expect(combinedTitle(["Karaoke", "Food 1"])).toBe("Food 1 & Karaoke");
+    expect(combinedTitle(["Karaoke", "Food 2", "Food 1"])).toBe("Food 1, Food 2 & Karaoke");
+    expect(combinedTitle(["Dinner"])).toBe("Dinner");
+    expect(combinedTitle([])).toBe("");
+    expect(combinedTitle(["a".repeat(50), "b".repeat(50)]).length).toBe(80);
   });
 });

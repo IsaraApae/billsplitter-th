@@ -245,13 +245,12 @@ describe("receipt date", () => {
     expect(sanitizeScan({ items: [], date: "2569-10-04" }, now).date).toBe("2026-10-04");
   });
 
-  it("the first receipt sets the split's date; a later one doesn't", () => {
+  it("a receipt doesn't change the split's date (it stays the day the split was made)", () => {
     const scan = { items: [{ name: "Rice", qty: 1, price: 50 }], subtotal: null, serviceCharge: null, vat: null, vatIncluded: false, discount: null, total: null, currency: "THB", date: "2026-09-28" };
-    const first = applyScan(newDoc(), scan);
-    expect(first.doc.date).toBe("2026-09-28");
-    expect(first.notes.join(" ")).toContain("28 Sept 2026");
-    const second = applyScan(first.doc, { ...scan, date: "2026-10-01" });
-    expect(second.doc.date).toBe("2026-09-28");
+    const doc = { ...newDoc(), date: "2026-10-20" };
+    const first = applyScan(doc, scan);
+    expect(first.doc.date).toBe("2026-10-20");
+    expect(first.notes.join(" ")).not.toContain("Date set");
   });
 });
 
