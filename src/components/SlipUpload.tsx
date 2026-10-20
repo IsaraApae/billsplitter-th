@@ -56,6 +56,7 @@ export function SlipUpload<T extends SlipResult>({
   personRef,
   currency,
   onAccepted,
+  bare = false,
 }: {
   /** e.g. /api/splits/<id>/slip */
   endpoint: string;
@@ -63,6 +64,8 @@ export function SlipUpload<T extends SlipResult>({
   personRef: string;
   currency: string;
   onAccepted: (r: T) => void;
+  /** without its own "Already paid?" heading (when the sheet already says it) */
+  bare?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<{ stage: Stage; pct: number } | null>(null);
@@ -124,13 +127,17 @@ export function SlipUpload<T extends SlipResult>({
 
   return (
     <div className="card space-y-3 p-5">
-      <p className="flex items-center gap-2 font-semibold">
-        <ShieldCheck size={20} {...ICON} className="text-accent" aria-hidden /> Already paid?
-      </p>
-      <p className="text-[15px] text-ink-2">
-        Upload your transfer slip. It&apos;s checked (amount, date, who it was paid to) and you&apos;re ticked
-        automatically.
-      </p>
+      {!bare && (
+        <>
+          <p className="flex items-center gap-2 font-semibold">
+            <ShieldCheck size={20} {...ICON} className="text-accent" aria-hidden /> Already paid?
+          </p>
+          <p className="text-[15px] text-ink-2">
+            Upload your transfer slip. It&apos;s checked (amount, date, who it was paid to) and you&apos;re ticked
+            automatically.
+          </p>
+        </>
+      )}
       {progress ? (
         <div className="space-y-2 py-1" aria-live="polite">
           <div className="flex items-baseline justify-between gap-2 text-[15px]">

@@ -20,6 +20,7 @@ import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { SlipCard, type SlipChoice } from "./SlipCard";
 import { TapHint } from "./PersonCard";
 import { asShare, TransferRow } from "./Transfers";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
@@ -115,6 +116,24 @@ export function SharedView({
   const askPerson = direct ? undefined : calc.people.find((p) => p.personId === askFor);
   const payMove = moves.find((t) => t.key === payFor);
   const askMove = moves.find((t) => t.key === askFor);
+  // "I've paid — upload slip" on the page: whoever still owes something.
+  const slipChoices: SlipChoice[] = direct
+    ? moves
+        .filter((t) => !paid.has(t.key) && t.amount > (partial[t.key] ?? 0))
+        .map((t) => ({
+          ref: t.key,
+          person: t.fromP,
+          label: `${t.fromP.name} → ${t.toP.name}`,
+          detail: <Money value={t.amount - (partial[t.key] ?? 0)} currency={doc.currency} />,
+        }))
+    : calc.people
+        .filter((r) => r.personId !== ME_ID && !paid.has(r.personId) && r.payable > (partial[r.personId] ?? 0))
+        .map((r) => ({
+          ref: r.personId,
+          person: doc.people.find((p) => p.id === r.personId) ?? { name: r.name },
+          label: r.name,
+          detail: <Money value={r.payable - (partial[r.personId] ?? 0)} currency={doc.currency} />,
+        }));
   // Paying someone who isn't the organiser: their own PromptPay, if they gave one.
   const moveQr = (t: { to: string }): PayQrSource | null => {
     if (t.to === ME_ID) return qr;
@@ -315,6 +334,18 @@ export function SharedView({
           </div>
         </Section>
       )}
+
+      <SlipCard<SlipResult & { paid: string[]; partial: Record<string, number> }>
+        choices={slipChoices}
+        endpoint={`/api/splits/${id}/slip`}
+        field="personId"
+        currency={doc.currency}
+        onAccepted={(r) => {
+          setPaid(new Set(r.paid));
+          setPartial(r.partial ?? {});
+          loadSlips();
+        }}
+      />
 
       {direct ? (
         <>

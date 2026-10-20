@@ -13,6 +13,7 @@ import { EventEditor } from "./EventEditor";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { SlipCard } from "./SlipCard";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { Avatar, Callout, ICON, Money, Section, Sheet, cx } from "./ui";
 
@@ -188,6 +189,21 @@ export function EventView({
       </header>
 
       {error && <Callout tone="error">{error}</Callout>}
+
+      <SlipCard<SlipResult & { bills: EventBill[] }>
+        choices={people
+          .filter((p) => !p.organiser && p.status !== "full" && p.total > p.paidSoFar)
+          .map((p) => ({
+            ref: p.key,
+            person: p,
+            label: p.name,
+            detail: <Money value={p.total - p.paidSoFar} currency={currency} />,
+          }))}
+        endpoint={`/api/events/${id}/slip`}
+        field="personKey"
+        currency={currency}
+        onAccepted={(r) => setBills(r.bills)}
+      />
 
       <Section title="Who owes what">
         <ul className="card rows overflow-hidden" aria-label="People">
