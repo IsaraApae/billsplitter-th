@@ -22,7 +22,6 @@ export function TransferRow({
   leading,
   action,
   status,
-  done = false,
 }: {
   from: Pick<Person, "id" | "name" | "emoji" | "color">;
   to: Pick<Person, "id" | "name" | "emoji" | "color">;
@@ -34,16 +33,15 @@ export function TransferRow({
   action?: ReactNode;
   /** small line under the names, e.g. "Paid" / "Left to pay ฿50" */
   status?: ReactNode;
-  done?: boolean;
 }) {
   const name = (p: Pick<Person, "id" | "name">) => (you && p.id === ORGANISER_ID ? "You" : p.name);
   return (
-    <li className={cx("flex min-h-[60px] items-center gap-2 py-2 pr-3", leading ? "pl-4" : "pl-5", done && "opacity-70")}>
+    <li className={cx("flex min-h-[60px] items-center gap-2 py-2 pr-3", leading ? "pl-4" : "pl-5")}>
       {leading}
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
           <Avatar person={from} size={28} />
-          <span className={cx("min-w-0 truncate font-semibold", done && "line-through decoration-ink-3")}>{name(from)}</span>
+          <span className="min-w-0 truncate font-semibold">{name(from)}</span>
           <ArrowRight size={16} {...ICON} className="shrink-0 text-ink-3" aria-label="pays" />
           <Avatar person={to} size={28} />
           <span className="min-w-0 truncate font-semibold">{name(to)}</span>
