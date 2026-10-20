@@ -65,6 +65,21 @@ export function LogoMark({ px, bare = false }: { px: number; bare?: boolean }) {
   );
 }
 
-export function iconResponse(px: number) {
-  return new ImageResponse(<LogoMark px={px} />, { width: px, height: px });
+/**
+ * The logo as a PNG. `tile`: on its white tile (for icons that can't be
+ * transparent: Android's maskable icon); otherwise just the receipt on a
+ * transparent background, filling most of the square.
+ */
+export function iconResponse(px: number, { tile = false }: { tile?: boolean } = {}) {
+  return new ImageResponse(
+    tile ? (
+      <LogoMark px={px} />
+    ) : (
+      // Nudged down a little so the receipt (with its scalloped edge) sits in the middle.
+      <div style={{ width: px, height: px, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", paddingTop: px * 0.05 }}>
+        <LogoMark px={px * 1.3} bare />
+      </div>
+    ),
+    { width: px, height: px },
+  );
 }
