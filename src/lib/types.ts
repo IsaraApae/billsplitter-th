@@ -106,6 +106,8 @@ export interface SplitDoc {
   roundUp?: boolean;
   /** Friends who paid part of the bill themselves; the organiser paid the rest. */
   prepaid?: Prepaid[];
+  /** Leftover satang from dividing go to the friends, not the organiser (new splits). */
+  leftoverToFriends?: boolean;
   /** How money moves when friends paid part of the bill too. Absent = "organiser". */
   settle?: SettleMode;
   /** The receipt's printed rounding adjustment, if it had one. */

@@ -24,6 +24,12 @@ export interface CalcInput {
   prepaid?: Prepaid[];
   /** The receipt's printed rounding line, used while the subtotal still matches. */
   receiptRounding?: ReceiptRounding;
+  /**
+   * When an amount doesn't divide evenly, the leftover satang go to the
+   * friends, so the organiser's part is the smaller one (new splits). Off for
+   * older splits, which keep their amounts.
+   */
+  leftoverToFriends?: boolean;
 }
 
 /** Smallest whole-unit step for a currency, in minor units (THB → 100 satang, JPY → 1). */
@@ -140,12 +146,17 @@ export function applyBp(amount: number, bp: number): number {
  * to `amount`. Leftover units go to the largest remainders; ties are broken in
  * index order starting at `offset` (so equal splits can rotate who gets the
  * extra unit). All-zero weights fall back to an equal split.
+ *
+ * `least` (an index) never gets a leftover unit, so its part is the smallest
+ * value (50 / 3 → 16.67, 16.67, 16.66); `most` gets one first, so its part is
+ * the largest. Used to keep the leftovers off the organiser.
  */
-export function allocate(amount: number, weights: number[], offset = 0): number[] {
+export function allocate(amount: number, weights: number[], offset = 0, least = -1, most = -1): number[] {
   const n = weights.length;
   if (n === 0) return [];
-  // Negative amounts (e.g. a discount line) split exactly like positive ones.
-  if (amount < 0) return allocate(-amount, weights, offset).map((x) => (x === 0 ? 0 : -x));
+  // Negative amounts (e.g. a discount line) split exactly like positive ones;
+  // the smallest value is then the largest part.
+  if (amount < 0) return allocate(-amount, weights, offset, most, least).map((x) => (x === 0 ? 0 : -x));
   const w = weights.some((x) => x > 0) ? weights.map((x) => Math.max(0, x)) : weights.map(() => 1);
   const total = BigInt(w.reduce((a, b) => a + b, 0));
   const amt = BigInt(amount);
@@ -158,9 +169,10 @@ export function allocate(amount: number, weights: number[], offset = 0): number[
   }
   let left = amount - parts.reduce((a, b) => a + b, 0);
   const rot = (i: number) => (((i - offset) % n) + n) % n;
+  const rank = (i: number) => (i === most ? 0 : i === least ? 2 : 1);
   const order = parts
     .map((_, i) => i)
-    .sort((a, b) => (rems[a] === rems[b] ? rot(a) - rot(b) : rems[b] > rems[a] ? 1 : -1));
+    .sort((a, b) => rank(a) - rank(b) || (rems[a] === rems[b] ? rot(a) - rot(b) : rems[b] > rems[a] ? 1 : -1));
   for (let k = 0; left > 0; k = (k + 1) % n, left--) parts[order[k]] += 1;
   return parts;
 }
@@ -231,6 +243,9 @@ export function calculate(input: CalcInput): CalcResult {
     payable: 0,
   }));
 
+  // The organiser's index when leftovers are kept off them, else -1.
+  const me = input.leftoverToFriends ? (personIndex.get(ORGANISER_ID) ?? -1) : -1;
+
   if (n > 0) {
     if (mode === "equal") {
       // Chain the equal splits with a rotating start so that, per person,
@@ -254,8 +269,18 @@ export function calculate(input: CalcInput): CalcResult {
       });
       // Show each person's even share of every line.
       lines.forEach((l, li) => {
-        allocate(l.lineTotal, ones, li % n).forEach((a, i) => (results[i].items[li].amount = a));
+        allocate(l.lineTotal, ones, li % n, me).forEach((a, i) => (results[i].items[li].amount = a));
       });
+      if (me >= 0) {
+        // Everyone's share is an equal split of the grand total with the
+        // organiser's the smaller one; the difference goes in their items.
+        const each = allocate(total, ones, 0, me);
+        results.forEach((r, i) => {
+          const delta = each[i] - (r.discounted + r.service + r.vat + r.rounding);
+          r.discounted += delta;
+          r.discount -= delta;
+        });
+      }
     } else {
       items.forEach((it, li) => {
         const who = [...new Set(it.assigned)].filter((id) => personIndex.has(id))
@@ -266,10 +291,12 @@ export function calculate(input: CalcInput): CalcResult {
         const weights = who.map((id) => Math.max(1, Math.round(it.shares?.[id] ?? 1)));
         const totalShares = weights.reduce((a, b) => a + b, 0);
         const off = li % k;
-        const lineShares = allocate(lines[li].lineTotal, weights, off);
+        const mine = who.indexOf(ORGANISER_ID);
+        const lineShares = allocate(lines[li].lineTotal, weights, off, me >= 0 ? mine : -1);
         // Split the line's discount the same way, so nobody's discount is
-        // negative and the shares still sum exactly.
-        const discShares = allocate(lines[li].lineTotal - lines[li].discounted, weights, off);
+        // negative and the shares still sum exactly (the organiser gets the
+        // bigger part of a discount).
+        const discShares = allocate(lines[li].lineTotal - lines[li].discounted, weights, off, -1, me >= 0 ? mine : -1);
         who.forEach((pid, j) => {
           const r = results[personIndex.get(pid)!];
           r.subtotal += lineShares[j];
@@ -279,9 +306,9 @@ export function calculate(input: CalcInput): CalcResult {
         });
       });
       const weights = results.map((r) => r.discounted);
-      const sc = allocate(service, weights);
-      const vt = allocate(vat, weights);
-      const rd = allocate(rounding, weights);
+      const sc = allocate(service, weights, 0, me);
+      const vt = allocate(vat, weights, 0, me);
+      const rd = allocate(rounding, weights, 0, me);
       results.forEach((r, i) => {
         r.service = sc[i];
         r.vat = vt[i];

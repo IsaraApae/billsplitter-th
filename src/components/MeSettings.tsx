@@ -34,7 +34,7 @@ export function MeSettings() {
     if (!look.name.trim() || (was.name === look.name && was.emoji === look.emoji && was.color === look.color)) return;
     synced.current = look;
     setSyncMsg("Updating your name in your shared splits…");
-    void renameEverywhere("me", { ...look, color: look.color ?? "emerald" }).then((n) =>
+    void renameEverywhere("me", { ...look, color: look.color ?? "emerald" }, was.name).then((n) =>
       setSyncMsg(n ? `Updated in ${n} shared ${n === 1 ? "split" : "splits"}.` : null),
     );
   }

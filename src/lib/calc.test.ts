@@ -486,3 +486,40 @@ describe("service / VAT / rounding as printed on the receipt", () => {
     expect([r.service, r.vat, r.rounding]).toEqual([9000, 6930, 0]);
   });
 });
+
+describe("leftover satang go to friends (new splits)", () => {
+  const trio = [
+    { id: "me", name: "Isara" },
+    { id: "m", name: "Mint" },
+    { id: "p", name: "Ploy" },
+  ];
+  const fifty = (over: Partial<CalcInput> = {}) =>
+    calculate(base({ people: trio, items: [item("x", 5000, ["me", "m", "p"])], leftoverToFriends: true, ...over }));
+
+  it("keeps the smaller part for the organiser: 50 / 3 → 16.67, 16.67, 16.66", () => {
+    expect(allocate(5000, [1, 1, 1], 0, 0)).toEqual([1666, 1667, 1667]);
+    // A negative amount (a discount): the organiser gets the bigger part of it.
+    expect(allocate(-5000, [1, 1, 1], 0, 0)).toEqual([-1667, -1667, -1666]);
+    expect(totals(fifty())).toEqual([1666, 1667, 1667]);
+    expect(totals(fifty({ mode: "equal" }))).toEqual([1666, 1667, 1667]);
+  });
+
+  it("whoever is first in the list, also with service charge and VAT", () => {
+    const r = calculate(
+      base({
+        people: [trio[1], trio[0], trio[2]],
+        items: [item("x", 10000, ["m", "me", "p"])],
+        service: { enabled: true, rateBp: 1000 },
+        vat: { enabled: true, rateBp: 700 },
+        leftoverToFriends: true,
+      }),
+    );
+    const mine = r.people[1].total;
+    expect(r.people.every((p) => p.total >= mine)).toBe(true);
+    expect(sum(totals(r))).toBe(r.total);
+  });
+
+  it("older splits keep their amounts", () => {
+    expect(totals(fifty({ leftoverToFriends: undefined }))).toEqual([1667, 1667, 1666]);
+  });
+});
