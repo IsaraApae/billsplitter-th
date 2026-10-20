@@ -18,6 +18,8 @@ export function newDoc(payment: PaymentInfo = { promptpay: "", note: "" }): Spli
     title: "",
     createdAt: new Date().toISOString(),
     currency: "THB",
+    // New splits keep the leftover satang off the organiser.
+    leftoverToFriends: true,
     mode: "itemized",
     people: [],
     items: [],

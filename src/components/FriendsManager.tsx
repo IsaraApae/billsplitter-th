@@ -165,7 +165,7 @@ export function FriendsManager() {
               // Renamed (or new look): update the splits you've shared with them.
               if (before && (before.name !== f.name || before.emoji !== f.emoji || before.color !== f.color)) {
                 setNotice(`Updating ${f.name} in your shared splits…`);
-                void renameEverywhere(f.id, { name: f.name, emoji: f.emoji, color: f.color }).then((n) =>
+                void renameEverywhere(f.id, { name: f.name, emoji: f.emoji, color: f.color }, before.name).then((n) =>
                   setNotice(n ? `Updated ${f.name} in ${n} shared ${n === 1 ? "split" : "splits"}.` : null),
                 );
               }

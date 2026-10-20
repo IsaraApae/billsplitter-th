@@ -66,6 +66,7 @@ export const splitDocSchema = z
       .max(50)
       .optional(),
     settle: z.enum(["organiser", "direct"]).optional(),
+    leftoverToFriends: z.boolean().optional(),
     photo: z.string().max(300).regex(RECEIPT_PHOTO_RE).optional(),
   })
   .superRefine((doc, ctx) => {
