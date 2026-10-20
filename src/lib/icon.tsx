@@ -15,12 +15,8 @@ function Divide({ size, color }: { size: number; color: string }) {
   );
 }
 
-/**
- * The logo: a green receipt with a white ÷ on a white tile with a soft green
- * glow. Full-bleed so it also works as a maskable icon. `bare` leaves out the
- * tile (just the receipt on a transparent background, for the share card).
- */
-export function LogoMark({ px, bare = false }: { px: number; bare?: boolean }) {
+/** The logo: a green receipt with a white ÷, on a transparent background. */
+export function LogoMark({ px }: { px: number }) {
   const w = px * 0.56;
   const h = px * 0.62;
   const bump = w / 4;
@@ -32,12 +28,6 @@ export function LogoMark({ px, bare = false }: { px: number; bare?: boolean }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        ...(bare
-          ? {}
-          : {
-              background:
-                "radial-gradient(circle at 50% 110%, rgba(52,211,153,0.30), rgba(52,211,153,0) 60%), radial-gradient(circle at 0% 0%, rgba(20,184,166,0.14), rgba(20,184,166,0) 50%), #ffffff",
-            }),
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: -px * 0.04 }}>
@@ -65,21 +55,13 @@ export function LogoMark({ px, bare = false }: { px: number; bare?: boolean }) {
   );
 }
 
-/**
- * The logo as a PNG. `tile`: on its white tile (for icons that can't be
- * transparent: Android's maskable icon); otherwise just the receipt on a
- * transparent background, filling most of the square.
- */
-export function iconResponse(px: number, { tile = false }: { tile?: boolean } = {}) {
+/** The logo as a PNG: the receipt filling most of the square, background transparent. */
+export function iconResponse(px: number) {
   return new ImageResponse(
-    tile ? (
-      <LogoMark px={px} />
-    ) : (
-      // Nudged down a little so the receipt (with its scalloped edge) sits in the middle.
-      <div style={{ width: px, height: px, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", paddingTop: px * 0.05 }}>
-        <LogoMark px={px * 1.3} bare />
-      </div>
-    ),
+    // Nudged down a little so the receipt (with its scalloped edge) sits in the middle.
+    <div style={{ width: px, height: px, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", paddingTop: px * 0.05 }}>
+      <LogoMark px={px * 1.3} />
+    </div>,
     { width: px, height: px },
   );
 }

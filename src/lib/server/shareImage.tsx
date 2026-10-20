@@ -74,7 +74,7 @@ export async function shareImage(card: Card | null) {
       >
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "64px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 32, fontWeight: 700, marginLeft: -14 }}>
-            <LogoMark px={84} bare />
+            <LogoMark px={84} />
             Bill Splitter
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
