@@ -43,35 +43,31 @@ async function renderCard(src: string, name: string, amount: number, withAmount:
   const img = await loadImage(src);
   const W = 1080;
   const qr = 880;
-  const H = 1400;
+  const top = 100;
+  const H = top + qr + 230;
   const c = document.createElement("canvas");
   c.width = W;
   c.height = H;
   const ctx = c.getContext("2d")!;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = "#1a3a6b";
-  ctx.fillRect(0, 0, W, 150);
-  ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   const font = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", sans-serif';
-  ctx.font = `700 64px ${font}`;
-  ctx.fillText("PromptPay", W / 2, 100);
   // Keep the QR square and centred whatever the uploaded image's shape.
   const s = Math.min(qr / img.width, qr / img.height);
   const dw = img.width * s;
   const dh = img.height * s;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(img, (W - dw) / 2, 190 + (qr - dh) / 2, dw, dh);
+  ctx.drawImage(img, (W - dw) / 2, top + (qr - dh) / 2, dw, dh);
   ctx.fillStyle = "#0b1220";
   ctx.font = `700 76px ${font}`;
-  ctx.fillText(formatMoney(amount, "THB"), W / 2, 190 + qr + 110);
+  ctx.fillText(formatMoney(amount, "THB"), W / 2, top + qr + 110);
   ctx.fillStyle = "#394457";
   ctx.font = `500 40px ${font}`;
   ctx.fillText(
     withAmount ? `${name} · amount included` : `${name} · enter this amount in your bank app`,
     W / 2,
-    190 + qr + 175,
+    top + qr + 175,
   );
   return new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png"));
 }
@@ -111,7 +107,6 @@ export function PayQr({ source, amount, name }: { source: PayQrSource; amount: n
   return (
     <div className="space-y-4">
       <div className="mx-auto w-full max-w-[340px] overflow-hidden rounded-[26px] bg-white text-[#0b1220] shadow-[var(--card-shadow)]">
-        <div className="bg-[#1a3a6b] py-2.5 text-center text-[17px] font-bold tracking-wide text-white">PromptPay</div>
         <div className="p-5">
           {broken ? (
             <p className="py-16 text-center text-[15px]">The QR image is no longer available.</p>
