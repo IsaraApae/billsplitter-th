@@ -9,10 +9,11 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#f5f3f7",
     theme_color: "#047857",
+    // ?v= changes with the logo so phones fetch the new one.
     icons: [
-      { src: "/icons/192", sizes: "192x192", type: "image/png" },
-      { src: "/icons/512", sizes: "512x512", type: "image/png" },
-      { src: "/icons/512", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/192?v=2", sizes: "192x192", type: "image/png" },
+      { src: "/icons/512?v=2", sizes: "512x512", type: "image/png" },
+      { src: "/icons/512?v=2", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
