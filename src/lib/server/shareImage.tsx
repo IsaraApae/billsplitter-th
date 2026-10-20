@@ -73,16 +73,16 @@ export async function shareImage(card: Card | null) {
         }}
       >
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "64px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 32, fontWeight: 700 }}>
-            <LogoMark px={60} radius={17} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 32, fontWeight: 700, marginLeft: -14 }}>
+            <LogoMark px={84} bare />
             Bill Splitter
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 30, color: INK_2 }}>{card?.kicker ?? "Split the bill, share one link"}</div>
+            <div style={{ fontSize: 30, color: INK_2 }}>{card?.kicker ?? "Split the bill with friends"}</div>
             <div style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.15, letterSpacing: -1, marginTop: 8 }}>{title}</div>
           </div>
           <div style={{ fontSize: 28, color: INK_2 }}>
-            {card ? "Tap to see what you owe and mark it paid" : "Scan the receipt, share one link, see who has paid"}
+            {card ? "Tap to see what you owe and mark it paid" : "Scan the receipt, share one link"}
           </div>
         </div>
 

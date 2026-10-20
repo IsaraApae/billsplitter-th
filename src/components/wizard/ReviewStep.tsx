@@ -12,7 +12,7 @@ import { formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
 import { settlesDirectly, transfers } from "@/lib/settle";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
-import { PersonCard } from "../PersonCard";
+import { PersonCard, TapHint } from "../PersonCard";
 import { asShare, TransferRow } from "../Transfers";
 import { Callout, ICON, Money, Section } from "../ui";
 import type { SetDoc } from "./Wizard";
@@ -83,6 +83,7 @@ export function ReviewStep({
               <PersonCard key={p.personId} person={direct ? asShare(p) : p} profile={profile} currency={doc.currency} mode={doc.mode} />
             ))}
           </ul>
+          <TapHint mode={doc.mode} />
           <p className="px-5 text-[13px] text-ink-2">
             {direct ? (
               <>

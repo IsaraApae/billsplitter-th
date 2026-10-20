@@ -20,6 +20,7 @@ import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { TapHint } from "./PersonCard";
 import { asShare, TransferRow } from "./Transfers";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { ZoomableImage } from "./ZoomableImage";
@@ -403,6 +404,7 @@ export function SharedView({
                 );
               })}
             </ul>
+            <TapHint mode={doc.mode} />
           </Section>
         </>
       ) : (
@@ -488,6 +490,7 @@ export function SharedView({
               );
             })}
           </ul>
+          <TapHint mode={doc.mode} />
           {calc.people.some((p) => p.payable !== p.total - p.prepaid) && (
             <p className="px-5 text-[13px] text-ink-2">
               Amounts are rounded to whole {wholeUnitName(doc.currency)}:{" "}
