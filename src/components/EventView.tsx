@@ -204,6 +204,7 @@ export function EventView({
             />
           ))}
         </ul>
+        <p className="px-5 text-[13px] text-ink-2">Tap a name to see their bills.</p>
         <p className="px-5 text-[13px] text-ink-2">
           {canEdit
             ? "Tap the circle when someone pays you; it's recorded on each bill too. Open a person to tick a single bill."
@@ -386,9 +387,8 @@ function PersonRow({
           ) : (
             <Money value={p.total} currency={currency} className="text-[19px] font-bold tracking-tight" />
           )}
-          {!(onPay && !p.organiser && p.status !== "full" && left > 0) && (
-            <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />
-          )}
+          {/* Every row opens, so every row shows the arrow (also next to a Pay button). */}
+          <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />
         </button>
         {onPay && !p.organiser && p.status !== "full" && left > 0 && (
           <button type="button" className="chip-accent min-h-10 px-4" onClick={onPay}>
