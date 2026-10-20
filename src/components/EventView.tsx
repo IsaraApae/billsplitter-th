@@ -325,7 +325,7 @@ function PersonRow({
   const [open, setOpen] = useState(false);
   const left = Math.max(0, p.total - p.paidSoFar);
   return (
-    <li className={cx(p.status === "full" && !p.organiser && "opacity-70")}>
+    <li>
       <div className="flex min-h-[60px] items-center gap-2 py-2 pr-3 pl-4">
         {p.organiser ? (
           <span className="size-11 shrink-0" aria-hidden />
@@ -352,7 +352,7 @@ function PersonRow({
         >
           <Avatar person={p} size={36} />
           <span className="min-w-0 flex-1">
-            <span className={cx("block truncate font-semibold", p.status === "full" && !p.organiser && "line-through decoration-ink-3")}>
+            <span className="block truncate font-semibold">
               {p.name}
             </span>
             <span

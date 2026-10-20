@@ -331,7 +331,6 @@ export function SharedView({
                     to={t.toP}
                     amount={status === "part" ? Math.max(0, t.amount - paidSoFar) : t.amount}
                     currency={doc.currency}
-                    done={status === "full"}
                     leading={
                       canEdit ? (
                         <button
@@ -426,7 +425,6 @@ export function SharedView({
                   profile={profile}
                   currency={doc.currency}
                   mode={doc.mode}
-                  highlight={isPaid ? "paid" : "unpaid"}
                   leftToPay={status === "part" ? Math.max(0, p.payable - paidPart) : undefined}
                   leading={
                     p.personId === ME_ID ? (
