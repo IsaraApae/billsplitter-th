@@ -344,7 +344,7 @@ export function SharedView({
                         </button>
                       ) : (
                         <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
-                          {status === "none" ? <span className="size-2.5 rounded-full bg-warn" /> : <PaidMark status={status} />}
+                          <PaidMark status={status} />
                         </span>
                       )
                     }
@@ -443,7 +443,7 @@ export function SharedView({
                     ) : (
                       // Read-only for everyone but the organiser: a status icon, not a control.
                       <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
-                        {status === "none" ? <span className="size-2.5 rounded-full bg-warn" /> : <PaidMark status={status} />}
+                        <PaidMark status={status} />
                       </span>
                     )
                   }

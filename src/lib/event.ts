@@ -58,6 +58,16 @@ export function byTitle<T>(items: T[], titleOf: (t: T) => string): T[] {
   return [...items].sort((a, b) => titleOf(a).localeCompare(titleOf(b), ["th", "en"], { numeric: true, sensitivity: "base" }));
 }
 
+/** A big bill's default name from its bills, A–Z: "Food 1 & Karaoke", "Food 1, Food 2 & Karaoke". */
+export function combinedTitle(titles: string[], max = 80): string {
+  const names = byTitle(
+    titles.map((t) => t.trim()).filter(Boolean),
+    (t) => t,
+  );
+  const joined = names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
+  return joined.length > max ? `${joined.slice(0, max - 1).trimEnd()}…` : joined;
+}
+
 /**
  * Everyone across the bills, merged by id — or by name, for people typed into
  * a single bill (they get a new id each time). The organiser is "me" in every

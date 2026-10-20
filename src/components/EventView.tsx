@@ -340,7 +340,7 @@ function PersonRow({
           </button>
         ) : (
           <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
-            {p.status === "none" ? <span className="size-2.5 rounded-full bg-warn" /> : <PaidMark status={p.status} />}
+            <PaidMark status={p.status} />
           </span>
         )}
         <button

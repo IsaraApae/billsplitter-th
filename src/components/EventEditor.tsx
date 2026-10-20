@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import { byBillDate, getEditToken, getHistory, setEditToken, upsertEvent, type EventEntry } from "@/lib/client/storage";
 import { toDay } from "@/lib/draft";
+import { combinedTitle } from "@/lib/event";
 import { DateField } from "./DateField";
 import { Callout, ICON, Money, Sheet, cx } from "./ui";
 
@@ -56,6 +57,9 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
       return n;
     });
 
+  // Left empty, the big bill is named after its bills: "Food 1 & Karaoke".
+  const pickedTitle = combinedTitle(mine.filter((h) => picked.has(h.id)).map((h) => h.title));
+
   async function save() {
     if (picked.size === 0) {
       setError("Pick at least one bill.");
@@ -64,9 +68,8 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
     setBusy(true);
     setError(null);
     const splitIds = mine.filter((h) => picked.has(h.id)).map((h) => h.id);
-    const fallback = `Night out · ${new Date(`${date}T12:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
     const body = {
-      title: title.trim() || fallback,
+      title: title.trim() || pickedTitle || `Night out · ${new Date(`${date}T12:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
       date,
       splits: splitIds.map((id) => ({ id, token: getEditToken(id) ?? undefined })),
     };
@@ -104,7 +107,7 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
         <div className="px-5 py-3">
           <input
             className="w-full bg-transparent text-[20px] font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-3"
-            placeholder="Title, e.g. Saturday night out"
+            placeholder={pickedTitle || "Title, e.g. Saturday night out"}
             aria-label="Big bill title"
             maxLength={80}
             value={title}
