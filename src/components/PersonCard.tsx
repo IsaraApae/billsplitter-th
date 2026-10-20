@@ -65,7 +65,8 @@ export function PersonCard({
           ) : (
             <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" />
           )}
-          {!action && <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />}
+          {/* Every row opens, so every row shows the arrow (also next to a Pay button). */}
+          <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />
         </button>
         {action}
       </div>
@@ -136,6 +137,15 @@ export function PersonCard({
         </div>
       )}
     </li>
+  );
+}
+
+/** Under a list of people: every row opens. */
+export function TapHint({ mode }: { mode: SplitMode }) {
+  return (
+    <p className="px-5 text-[13px] text-ink-2">
+      {mode === "itemized" ? "Tap a name to see what they had." : "Tap a name to see the breakdown."}
+    </p>
   );
 }
 

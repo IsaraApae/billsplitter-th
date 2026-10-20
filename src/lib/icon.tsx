@@ -17,10 +17,10 @@ function Divide({ size, color }: { size: number; color: string }) {
 
 /**
  * The logo: a green receipt with a white ÷ on a white tile with a soft green
- * glow. Full-bleed so it also works as a maskable icon; `radius` rounds it
- * (with a faint edge) for use on the share card.
+ * glow. Full-bleed so it also works as a maskable icon. `bare` leaves out the
+ * tile (just the receipt on a transparent background, for the share card).
  */
-export function LogoMark({ px, radius = 0 }: { px: number; radius?: number }) {
+export function LogoMark({ px, bare = false }: { px: number; bare?: boolean }) {
   const w = px * 0.56;
   const h = px * 0.62;
   const bump = w / 4;
@@ -29,13 +29,15 @@ export function LogoMark({ px, radius = 0 }: { px: number; radius?: number }) {
       style={{
         width: px,
         height: px,
-        borderRadius: radius,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background:
-          "radial-gradient(circle at 50% 110%, rgba(52,211,153,0.30), rgba(52,211,153,0) 60%), radial-gradient(circle at 0% 0%, rgba(20,184,166,0.14), rgba(20,184,166,0) 50%), #ffffff",
-        ...(radius > 0 ? { boxShadow: `inset 0 0 0 ${Math.max(1, px / 30)}px rgba(4,120,87,0.16)` } : {}),
+        ...(bare
+          ? {}
+          : {
+              background:
+                "radial-gradient(circle at 50% 110%, rgba(52,211,153,0.30), rgba(52,211,153,0) 60%), radial-gradient(circle at 0% 0%, rgba(20,184,166,0.14), rgba(20,184,166,0) 50%), #ffffff",
+            }),
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: -px * 0.04 }}>
