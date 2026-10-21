@@ -3,7 +3,7 @@
 
 import { calculate, ORGANISER_ID } from "./calc";
 import { billDate } from "./draft";
-import { settlesDirectly, transferKey, transfers } from "./settle";
+import { organiserLines, settlesDirectly, transferKey, transfers } from "./settle";
 import type { Person, SplitDoc } from "./types";
 
 type Look = Pick<Person, "name" | "emoji" | "color">;
@@ -151,4 +151,75 @@ export function owedToYou(entries: HistoryLike[]): OwedFriend[] {
   }
   for (const f of friends) f.bills.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
   return friends.sort((a, b) => b.total - a.total);
+}
+
+// ---- Who still owes (the organiser's shareable list) -----------------------
+
+export interface BoardPerson {
+  key: string;
+  look: Look;
+  /** how each spelling/look was seen (the most common one is shown) */
+  looks?: Map<string, { look: Look; n: number }>;
+  total: number;
+  bills: { id: string; title: string; date: Date; left: number; part: boolean }[];
+}
+
+export interface Board {
+  /** the organiser, as they're named in their bills */
+  organiser: Look;
+  currency: string;
+  total: number;
+  billCount: number;
+  /** A–Z by name */
+  people: BoardPerson[];
+}
+
+/**
+ * Everyone who still owes the organiser across these bills (what's left after
+ * part payments; paying payers directly, only what's owed to the organiser),
+ * merged by id or name and sorted A–Z, each with their unpaid bills (newest
+ * first). One currency: bills in others are left out.
+ */
+export function whoStillOwes(bills: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[]): Board {
+  const currency = bills[0]?.doc.currency ?? "THB";
+  const people: BoardPerson[] = [];
+  const unpaidBills = new Set<string>();
+  const names = new Map<string, { look: Look; n: number }>();
+  for (const b of bills) {
+    if (b.doc.currency !== currency) continue;
+    const me = b.doc.people.find((p) => p.id === ORGANISER_ID);
+    if (me) {
+      const k = norm(me.name);
+      names.set(k, { look: me, n: (names.get(k)?.n ?? 0) + 1 });
+    }
+    for (const line of organiserLines(b.doc, { paid: b.paid, partial: b.partial })) {
+      if (line.amount <= 0 || line.status === "full") continue;
+      const left = line.amount - line.paidSoFar;
+      if (left <= 0) continue;
+      const p = b.doc.people.find((x) => x.id === line.personId);
+      if (!p) continue;
+      let person = people.find((x) => x.key === p.id || norm(x.look.name) === norm(p.name));
+      if (!person) {
+        person = { key: p.id, look: { name: p.name, emoji: p.emoji, color: p.color }, total: 0, bills: [], looks: new Map() };
+        people.push(person);
+      }
+      const seen = person.looks!.get(p.name) ?? { look: { name: p.name, emoji: p.emoji, color: p.color }, n: 0 };
+      seen.n++;
+      person.looks!.set(p.name, seen);
+      person.total += left;
+      person.bills.push({ id: b.id, title: b.doc.title, date: billDate(b.doc), left, part: line.paidSoFar > 0 });
+      unpaidBills.add(b.id);
+    }
+  }
+  // Show each person as they're most often written ("Mint" over a typed "mint").
+  const capital = (n: string) => (n.charAt(0) !== n.charAt(0).toLocaleLowerCase() ? 1 : 0);
+  for (const p of people) {
+    p.bills.sort((a, c) => c.date.getTime() - a.date.getTime());
+    const best = [...p.looks!.values()].sort((a, c) => c.n - a.n || capital(c.look.name) - capital(a.look.name))[0];
+    if (best) p.look = best.look;
+    delete p.looks;
+  }
+  people.sort((a, c) => a.look.name.localeCompare(c.look.name, ["th", "en"], { sensitivity: "base" }));
+  const organiser = [...names.values()].sort((a, c) => c.n - a.n)[0]?.look ?? { name: "the organiser" };
+  return { organiser, currency, total: people.reduce((s, p) => s + p.total, 0), billCount: unpaidBills.size, people };
 }
