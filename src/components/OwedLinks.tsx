@@ -2,18 +2,26 @@
 
 import { ChevronRight, HandCoins, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { getHistory, getSeen } from "@/lib/client/storage";
+import { useEffect, useState } from "react";
+import { getHistory, getSeen, HISTORY_EVENT } from "@/lib/client/storage";
 import { owedToYou } from "@/lib/owed";
 import { ICON, Money } from "./ui";
 
+function owedSummary() {
+  const friends = owedToYou(getHistory());
+  const thb = friends.filter((f) => f.currency === "THB").reduce((s, f) => s + f.total, 0);
+  return { thb, people: new Set(friends.map((f) => f.key)).size };
+}
+
 /** At the top of History: "Owed to you" (when friends owe you) and "What I owe" (always, so friends can find it). */
 export function OwedLinks() {
-  const [owed] = useState(() => {
-    const friends = owedToYou(getHistory());
-    const thb = friends.filter((f) => f.currency === "THB").reduce((s, f) => s + f.total, 0);
-    return { thb, people: new Set(friends.map((f) => f.key)).size };
-  });
+  const [owed, setOwed] = useState(owedSummary);
+  // History refreshes its payments when it opens: follow along.
+  useEffect(() => {
+    const update = () => setOwed(owedSummary());
+    window.addEventListener(HISTORY_EVENT, update);
+    return () => window.removeEventListener(HISTORY_EVENT, update);
+  }, []);
   const [seen] = useState(() => getSeen().length);
   return (
     <ul className="card rows overflow-hidden">

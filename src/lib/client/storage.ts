@@ -111,8 +111,12 @@ export function upsertHistory(entry: HistoryEntry): void {
   save(HISTORY, [entry, ...rest].slice(0, 100));
 }
 
+/** Fired when History entries change, so summaries (like "Owed to you") can update. */
+export const HISTORY_EVENT = "bs-history";
+
 export function patchHistory(id: string, patch: Partial<HistoryEntry>): void {
   save(HISTORY, getHistory().map((h) => (h.id === id ? { ...h, ...patch } : h)));
+  window.dispatchEvent(new Event(HISTORY_EVENT));
 }
 
 export function deleteHistory(id: string): void {
