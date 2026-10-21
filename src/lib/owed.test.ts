@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { namesIn, owedToYou, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
+import { namesIn, owedToYou, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -79,5 +79,13 @@ describe("who still owes (shareable list)", () => {
       ["Ploy", 20000, [["Karaoke", 20000, false]]],
     ]);
     expect([board.total, board.billCount]).toEqual([65000, 2]);
+  });
+});
+
+describe("who are you (people who still owe)", () => {
+  it("lists only people with something left to pay, across bills, A–Z", () => {
+    const dinner = bill("b1", "Dinner", [isara, mint, ploy], 90000, { paid: ["ploy01"] });
+    const lunch = bill("b2", "Lunch", [isara, { id: "x1", name: "Bank" }, { id: "x2", name: "ploy" }], 30000, { paid: ["x1", "x2"] });
+    expect(unpaidPeople([dinner, lunch]).map((p) => p.name)).toEqual(["Mint"]);
   });
 });

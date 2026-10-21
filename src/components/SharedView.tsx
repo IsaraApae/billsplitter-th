@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, ChevronRight, Copy, PartyPopper, Pencil, QrCode, ZoomIn } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, PartyPopper, Pencil, QrCode, BanknoteArrowUp, ZoomIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -368,8 +368,19 @@ export function SharedView({
         }}
       />
       {!canEdit && (
-        <Link href="/owe" className="-mt-3 flex items-center justify-center gap-1 text-[15px] font-semibold text-accent">
-          Everything you owe, across your bills <ChevronRight size={18} {...ICON} aria-hidden />
+        // Stands out: friends often owe on more than this one bill.
+        <Link
+          href="/owe"
+          className="press flex min-h-[68px] items-center gap-3 rounded-[24px] border border-[var(--accent)] bg-accent-soft py-3 pr-4 pl-5"
+        >
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
+            <BanknoteArrowUp size={22} {...ICON} aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-ink">What I owe</span>
+            <span className="block text-[13px] text-ink-2">Everything you owe, across all your bills</span>
+          </span>
+          <ChevronRight size={22} {...ICON} className="shrink-0 text-accent" aria-hidden />
         </Link>
       )}
 

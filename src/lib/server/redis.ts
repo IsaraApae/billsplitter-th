@@ -639,7 +639,20 @@ export async function boardBills(
   id: string,
 ): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] | null> {
   const owner = await db().get<string>(boardKey(id));
-  if (!owner) return null;
+  return owner ? ownerBills(owner) : null;
+}
+
+/** Every split by the organiser of split `id` (just that split if its organiser isn't known), with payments. */
+export async function sameOrganiserBills(
+  id: string,
+): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[]> {
+  const owner = await db().get<string>(splitOwnerKey(id));
+  if (owner) return ownerBills(owner);
+  const s = await db().get<StoredSplit>(docKey(id));
+  return s ? [{ id, doc: s.doc, ...(await getPaidState(id, s.doc)) }] : [];
+}
+
+async function ownerBills(owner: string): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[]> {
   const ids = (await db().hkeys(organiserKey(owner))).filter(isValidId).slice(0, 300);
   const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] = [];
   await Promise.all(

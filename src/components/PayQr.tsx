@@ -4,12 +4,23 @@ import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { qrImageUrl } from "@/lib/client/profile";
 import { formatMoney } from "@/lib/money";
-import { promptPayPayload } from "@/lib/promptpay";
+import { effectiveQrMode, promptPayPayload } from "@/lib/promptpay";
+import type { PaymentInfo } from "@/lib/types";
 import { Callout, ICON, Money } from "./ui";
 
 export type PayQrSource =
   | { mode: "generate"; promptpay: string }
   | { mode: "upload"; ownerId: string; version: number };
+
+/** The QR for paying an organiser from a bill's payment details (in the browser), or null. */
+export function organiserQr(payment: PaymentInfo | undefined, currency: string): PayQrSource | null {
+  if (!payment || currency !== "THB") return null;
+  const mode = effectiveQrMode(payment, currency);
+  if (mode === "generate") return { mode, promptpay: payment.promptpay };
+  // An uploaded QR: refreshed daily in case it was replaced.
+  if (mode === "upload" && payment.ownerId) return { mode, ownerId: payment.ownerId, version: Math.floor(Date.now() / 86_400_000) };
+  return null;
+}
 
 /** The QR as an image URL (data: for generated, same-origin for uploaded). */
 function useQrSrc(source: PayQrSource, amount: number): string | null {

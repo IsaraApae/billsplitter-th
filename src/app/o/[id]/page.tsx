@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { ChevronRight, PartyPopper } from "lucide-react";
-import Link from "next/link";
+import { PartyPopper } from "lucide-react";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { PaidMark } from "@/components/Payments";
 import { BoardShare } from "@/components/BoardShare";
-import { Avatar, ICON, Money } from "@/components/ui";
+import { BoardView } from "@/components/BoardView";
+import { ICON, Money } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 import { whoStillOwes } from "@/lib/owed";
 import { boardBills, isValidId, storageReady } from "@/lib/server/redis";
@@ -67,38 +66,14 @@ export default async function BoardPage({ params }: PageProps<"/o/[id]">) {
         )}
       </header>
 
-      {b.people.map((p) => (
-        <section key={p.key} className="space-y-2" aria-label={p.look.name}>
-          <div className="flex items-center gap-3 px-2">
-            <Avatar person={p.look} size={32} />
-            <h2 className="min-w-0 flex-1 truncate text-[19px] font-bold">{p.look.name}</h2>
-            <Money value={p.total} currency={b.currency} className="text-[19px] font-bold tracking-tight" />
-          </div>
-          <ul className="card rows overflow-hidden">
-            {p.bills.map((bill) => (
-              <li key={bill.id}>
-                <Link href={`/s/${bill.id}`} className="flex min-h-[60px] items-center gap-3 py-2 pr-3 pl-4">
-                  <PaidMark status={bill.part ? "part" : "none"} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{bill.title}</span>
-                    <span className="block text-[13px] text-ink-2">
-                      {bill.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                      {bill.part && <span className="font-semibold text-accent"> · Part paid</span>}
-                    </span>
-                  </span>
-                  <span className="text-right leading-tight">
-                    {bill.part && <span className="block text-[11px] text-ink-2">left to pay</span>}
-                    <Money value={bill.left} currency={b.currency} className="text-[17px] font-bold tracking-tight" />
-                  </span>
-                  <ChevronRight size={20} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      <BoardView
+        people={b.people.map((p) => ({ ...p, bills: p.bills.map((x) => ({ ...x, date: x.date.toISOString() })) }))}
+        currency={b.currency}
+        organiser={b.organiser.name}
+        payment={b.payment}
+      />
 
-      {n > 0 && <p className="px-5 text-[13px] text-ink-2">Tap a bill to pay it or upload your slip.</p>}
+      {n > 0 && <p className="px-5 text-[13px] text-ink-2">Tap Pay to pay everything at once, or a bill to pay just that one.</p>}
 
       <BoardShare id={id} title={`Owed to ${b.organiser.name}`} />
     </main>

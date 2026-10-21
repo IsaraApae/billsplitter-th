@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getEditToken, getIam, getPicks, getSeen, setIam } from "@/lib/client/storage";
 import { ORGANISER_ID } from "@/lib/calc";
-import { namesIn, whatIOwe, whoAmI, type LoadedBill, type OweGroup, type OweLine } from "@/lib/owed";
-import { effectiveQrMode, isValidPromptPayId } from "@/lib/promptpay";
+import { namesIn, unpaidPeople, whatIOwe, whoAmI, type LoadedBill, type OweGroup, type OweLine } from "@/lib/owed";
+import { isValidPromptPayId } from "@/lib/promptpay";
 import { payerPromptPay } from "@/lib/settle";
-import type { SplitDoc } from "@/lib/types";
+import type { Person, SplitDoc } from "@/lib/types";
 import { PaidMark } from "./Payments";
-import { PayQr, type PayQrSource } from "./PayQr";
+import { organiserQr, PayQr, type PayQrSource } from "./PayQr";
+import { SlipCard } from "./SlipCard";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { Avatar, Callout, ICON, Money, Section, Sheet } from "./ui";
 
@@ -22,11 +23,7 @@ function qrFor(l: OweLine): PayQrSource | null {
     const pp = payerPromptPay(doc, l.toId);
     return pp && isValidPromptPayId(pp) ? { mode: "generate", promptpay: pp } : null;
   }
-  const mode = effectiveQrMode(doc.payment, doc.currency);
-  if (mode === "generate") return { mode, promptpay: doc.payment.promptpay };
-  // An uploaded QR: refreshed daily in case it was replaced.
-  if (mode === "upload" && doc.payment.ownerId) return { mode, ownerId: doc.payment.ownerId, version: Math.floor(Date.now() / 86_400_000) };
-  return null;
+  return organiserQr(doc.payment, doc.currency);
 }
 
 /** Pay everything owed to one person: one QR for the total, one slip spread over their bills. */
@@ -69,6 +66,7 @@ function PayGroupSheet({ group, onClose, onPaid }: { group: OweGroup | null; onC
 }
 
 type BillData = { doc: SplitDoc; paid: string[]; partial?: Record<string, number> };
+type Look = Pick<Person, "name" | "emoji" | "color">;
 
 /** The bills friends shared with this phone (opened here), with their payments. */
 async function loadSeenBills(): Promise<LoadedBill[]> {
@@ -169,6 +167,29 @@ export function WhatIOwe() {
     };
   }, [bills, name, picks]);
 
+  // "Who are you?": everyone who still owes something, in these bills and in
+  // the same organisers' other bills (people who've paid don't show).
+  const [unpaid, setUnpaid] = useState<Look[] | null>(null);
+  useEffect(() => {
+    if (!bills) return;
+    let cancelled = false;
+    Promise.all(
+      bills.map((b) =>
+        fetch(`/api/splits/${b.id}/people`, { cache: "no-store" })
+          .then((r) => (r.ok ? (r.json() as Promise<{ people: Look[] }>) : { people: [] }))
+          .catch(() => ({ people: [] as Look[] })),
+      ),
+    ).then((all) => {
+      if (cancelled) return;
+      const byName = new Map<string, Look>();
+      for (const p of [...unpaidPeople(bills), ...all.flatMap((a) => a.people)]) if (!byName.has(norm(p.name))) byName.set(norm(p.name), p);
+      setUnpaid([...byName.values()].sort((a, c) => a.name.localeCompare(c.name, ["th", "en"], { sensitivity: "base" })));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bills]);
+
   if (bills === null) return <p className="px-1 text-ink-2">Loading your bills…</p>;
   if (bills.length === 0) {
     return (
@@ -187,12 +208,13 @@ export function WhatIOwe() {
   const groups = whatIOwe([...bills, ...others.bills], name, { ...others.picks, ...picks });
   const known = !!name || Object.keys(picks).some((id) => bills.some((b) => b.id === id));
   const people = namesIn(bills);
+  const choosable = unpaid ?? unpaidPeople(bills);
 
   if (!known || choosing) {
     return (
       <Section title="Who are you in these bills?">
         <ul className="card rows overflow-hidden">
-          {people.map((p) => (
+          {choosable.map((p) => (
             <li key={p.name}>
               <button
                 type="button"
@@ -209,7 +231,10 @@ export function WhatIOwe() {
             </li>
           ))}
         </ul>
-        <p className="px-5 text-[13px] text-ink-2">Pick your name once; bills with that name count as yours.</p>
+        {choosable.length === 0 && <p className="card p-5 text-center text-ink-2">Everyone in these bills has paid.</p>}
+        <p className="px-5 text-[13px] text-ink-2">
+          Everyone who still owes in these friends&apos; bills. Pick your name once; bills with that name count as yours.
+        </p>
       </Section>
     );
   }
@@ -247,6 +272,27 @@ export function WhatIOwe() {
           </>
         )}
       </div>
+
+      {/* Paid already? One slip pays everything owed to that person, oldest bill first. */}
+      <SlipCard<SlipResult>
+        choices={groups.map((g) => ({
+          ref: JSON.stringify(g.lines.map((l) => ({ id: l.billId, ref: l.ref }))),
+          person: g.to,
+          label: `To ${g.to.name}`,
+          detail: <Money value={g.total} currency={g.currency} />,
+        }))}
+        endpoint="/api/slips"
+        field="items"
+        pickTitle="Who did you pay?"
+        currency={groups[0]?.currency ?? "THB"}
+        onAccepted={() => setStale(true)}
+        onClose={() => {
+          if (stale) {
+            setStale(false);
+            setVersion((v) => v + 1);
+          }
+        }}
+      />
 
       {groups.map((g) => (
         <Section
