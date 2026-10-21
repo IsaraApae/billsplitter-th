@@ -143,6 +143,21 @@ export interface HistoryLike {
   members?: (Look & { id: string; amount?: number })[];
   paidIds?: string[];
   partialPaid?: Record<string, number>;
+  /** friends pay each payer directly: payments are recorded per transfer */
+  direct?: boolean;
+}
+
+export interface OwedBill {
+  id: string;
+  title: string;
+  date: string;
+  left: number;
+  part: boolean;
+  /** asked to pay in total, and paid so far */
+  amount: number;
+  paidSoFar: number;
+  /** where the bill records this payment (their id, or the transfer to you) */
+  ref: string;
 }
 
 export interface OwedFriend {
@@ -151,7 +166,7 @@ export interface OwedFriend {
   look: Look;
   currency: string;
   total: number;
-  bills: { id: string; title: string; date: string; left: number; part: boolean }[];
+  bills: OwedBill[];
 }
 
 /** Friends who still owe you, across your splits (largest first). */
@@ -173,7 +188,16 @@ export function owedToYou(entries: HistoryLike[]): OwedFriend[] {
         friends.push(f);
       }
       f.total += left;
-      f.bills.push({ id: h.id, title: h.title, date: h.createdAt, left, part: paidPart > 0 });
+      f.bills.push({
+        id: h.id,
+        title: h.title,
+        date: h.createdAt,
+        left,
+        part: paidPart > 0,
+        amount: m.amount,
+        paidSoFar: paidPart,
+        ref: h.direct ? transferKey(m.id, ORGANISER_ID) : m.id,
+      });
     }
   }
   for (const f of friends) f.bills.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));

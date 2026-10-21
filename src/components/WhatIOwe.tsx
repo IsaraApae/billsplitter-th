@@ -10,10 +10,11 @@ import { isValidPromptPayId } from "@/lib/promptpay";
 import { payerPromptPay } from "@/lib/settle";
 import type { Person, SplitDoc } from "@/lib/types";
 import { PaidMark } from "./Payments";
-import { organiserQr, PayQr, type PayQrSource } from "./PayQr";
+import { PayChooser } from "./PayChooser";
+import { organiserQr, type PayQrSource } from "./PayQr";
 import { SlipCard } from "./SlipCard";
-import { SlipUpload, type SlipResult } from "./SlipUpload";
-import { Avatar, Callout, ICON, Money, Section, Sheet } from "./ui";
+import { type SlipResult } from "./SlipUpload";
+import { Avatar, ICON, Money, Section, Sheet } from "./ui";
 
 /** The QR for paying whoever a line is owed to (the organiser's, or a payer's own PromptPay). */
 function qrFor(l: OweLine): PayQrSource | null {
@@ -34,32 +35,20 @@ function PayGroupSheet({ group, onClose, onPaid }: { group: OweGroup | null; onC
   return (
     <Sheet open={!!group} onClose={onClose} title={group ? `Pay ${group.to.name}` : "Pay"}>
       {group && first && (
-        <div className="space-y-4">
-          {source ? (
-            <PayQr source={source} amount={group.total} name={`To ${group.to.name}`} />
-          ) : (
-            <Callout tone="info">
-              Send <Money value={group.total} currency={group.currency} /> to {group.to.name}
+        <PayChooser
+          key={`${group.to.name}|${group.currency}`}
+          bills={group.lines.map((l) => ({ id: l.billId, ref: l.ref, title: l.title, left: l.left }))}
+          currency={group.currency}
+          source={source}
+          qrName={`To ${group.to.name}`}
+          noQr={(amount) => (
+            <>
+              Send {amount} to {group.to.name}
               {note ? <> — {note}</> : <> — ask them for their PromptPay or bank details</>}.
-            </Callout>
+            </>
           )}
-          <ul className="card rows overflow-hidden text-[15px]">
-            {group.lines.map((l) => (
-              <li key={`${l.billId}|${l.ref}`} className="flex min-h-[48px] items-center justify-between gap-3 px-5 py-2">
-                <span className="min-w-0 truncate">{l.title}</span>
-                <Money value={l.left} currency={l.currency} />
-              </li>
-            ))}
-          </ul>
-          <SlipUpload<SlipResult>
-            endpoint="/api/slips"
-            field="items"
-            personRef={JSON.stringify(group.lines.map((l) => ({ id: l.billId, ref: l.ref })))}
-            currency={group.currency}
-            onAccepted={onPaid}
-          />
-          <p className="px-1 text-[13px] text-ink-2">One slip for the total pays all these bills, oldest first.</p>
-        </div>
+          onPaid={onPaid}
+        />
       )}
     </Sheet>
   );

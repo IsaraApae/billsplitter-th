@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Person, PaymentInfo } from "@/lib/types";
 import { PaidMark } from "./Payments";
-import { organiserQr, PayQr } from "./PayQr";
+import { PayChooser } from "./PayChooser";
+import { organiserQr } from "./PayQr";
 import { SlipCard } from "./SlipCard";
-import { SlipUpload, type SlipResult } from "./SlipUpload";
-import { Avatar, Callout, ICON, Money, Sheet } from "./ui";
+import { type SlipResult } from "./SlipUpload";
+import { Avatar, ICON, Money, Sheet } from "./ui";
 
 type Look = Pick<Person, "name" | "emoji" | "color">;
 
@@ -103,32 +104,20 @@ export function BoardView({
         title={payPerson ? `${payPerson.look.name} pays ${organiser}` : "Pay"}
       >
         {payPerson && (
-          <div className="space-y-4">
-            {source ? (
-              <PayQr source={source} amount={payPerson.total} name={`${payPerson.look.name} → ${organiser}`} />
-            ) : (
-              <Callout tone="info">
-                Send <Money value={payPerson.total} currency={currency} /> to {organiser}
+          <PayChooser
+            key={payPerson.key}
+            bills={payPerson.bills.map((b) => ({ id: b.id, ref: b.ref, title: b.title, left: b.left }))}
+            currency={currency}
+            source={source}
+            qrName={`${payPerson.look.name} → ${organiser}`}
+            noQr={(amount) => (
+              <>
+                Send {amount} to {organiser}
                 {payment?.note ? <> — {payment.note}</> : null}.
-              </Callout>
+              </>
             )}
-            <ul className="card rows overflow-hidden text-[15px]">
-              {payPerson.bills.map((b) => (
-                <li key={b.id} className="flex min-h-[48px] items-center justify-between gap-3 px-5 py-2">
-                  <span className="min-w-0 truncate">{b.title}</span>
-                  <Money value={b.left} currency={currency} />
-                </li>
-              ))}
-            </ul>
-            <SlipUpload<SlipResult>
-              endpoint="/api/slips"
-              field="items"
-              personRef={items(payPerson)}
-              currency={currency}
-              onAccepted={() => setStale(true)}
-            />
-            <p className="px-1 text-[13px] text-ink-2">One slip for the total pays all these bills, oldest first.</p>
-          </div>
+            onPaid={() => setStale(true)}
+          />
         )}
       </Sheet>
     </>
