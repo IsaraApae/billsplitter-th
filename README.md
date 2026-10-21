@@ -11,6 +11,11 @@ Split a restaurant bill with friends in Thailand: scan the receipt, tick who had
   <img src="docs/screenshots/9-shared.jpg" alt="Shared bill" width="380">
 </p>
 
+<p>
+  <img src="docs/screenshots/16-what-i-owe.jpg" alt="What I owe, on a friend's phone" width="380">
+  <img src="docs/screenshots/17-owed-to-you.jpg" alt="Owed to you" width="380">
+</p>
+
 More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots). The link preview friends see in chat:
 
 <img src="docs/screenshots/share-preview.png" alt="Link preview card" width="600">
