@@ -15,6 +15,7 @@ import {
   type HistoryEntry,
 } from "@/lib/client/storage";
 import { askConfirm } from "@/lib/client/confirm";
+import { claimMySplits } from "@/lib/client/claim";
 import { refreshEntry } from "@/lib/client/historyRefresh";
 import { getFriends } from "@/lib/client/friendsStore";
 import { ME_ID } from "@/lib/friends";
@@ -40,6 +41,8 @@ export function HistoryList() {
   });
 
   useEffect(() => {
+    // Let friends' "What I owe" find all of this phone's bills.
+    void claimMySplits();
     // Refresh paid progress for the most recent splits.
     byBillDate(getHistory())
       .slice(0, 20)

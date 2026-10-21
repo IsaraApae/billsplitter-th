@@ -555,3 +555,61 @@ export async function setModelCooldown(model: string, seconds: number): Promise<
     /* best effort */
   }
 }
+
+// ---- Organisers: which phone made which splits ("What I owe" finds a
+// friend's other bills from the same organiser) ------------------------------
+
+/** An organiser's phone id: random, public (not a secret). */
+export const isOrganiserKey = (k: string) => /^[\w-]{16,32}$/.test(k);
+const organiserKey = (owner: string) => `organiser:${owner}`;
+const splitOwnerKey = (id: string) => `split:${id}:owner`;
+const ORGANISER_TTL = 60 * 60 * 24 * 400;
+
+/**
+ * Records that these splits were made on the `owner` phone. Each must be
+ * proven with its edit token. Returns how many were recorded.
+ */
+export async function claimSplits(owner: string, splits: { id: string; token: string }[]): Promise<number> {
+  let n = 0;
+  for (const { id, token } of splits) {
+    const s = await db().get<StoredSplit>(docKey(id));
+    if (!s || !tokenMatches(token, s.editHash)) continue;
+    await Promise.all([db().set(splitOwnerKey(id), owner, { ex: TTL_SECONDS }), db().hset(organiserKey(owner), id, "1")]);
+    n++;
+  }
+  if (n > 0) await db().expire(organiserKey(owner), ORGANISER_TTL);
+  return n;
+}
+
+const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
+
+/**
+ * The other splits by the organiser of split `id` that include this person
+ * (same person id, or the same name for people typed in by hand), with their
+ * payments. The organiser themselves never matches.
+ */
+export async function otherSplitsWith(
+  id: string,
+  person: { id: string; name: string },
+): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[]> {
+  const owner = await db().get<string>(splitOwnerKey(id));
+  if (!owner) return [];
+  const ids = (await db().hkeys(organiserKey(owner))).filter((x) => x !== id && isValidId(x)).slice(0, 200);
+  const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] = [];
+  await Promise.all(
+    ids.map(async (sid) => {
+      const s = await db().get<StoredSplit>(docKey(sid));
+      if (!s) {
+        await db().hdel(organiserKey(owner), sid); // expired
+        return;
+      }
+      const there = s.doc.people.find(
+        (p) => p.id !== "me" && (p.id === person.id || norm(p.name) === norm(person.name)),
+      );
+      if (!there) return;
+      const state = await getPaidState(sid, s.doc);
+      out.push({ id: sid, doc: s.doc, ...state });
+    }),
+  );
+  return out;
+}

@@ -12,6 +12,7 @@ export const BACKUP_KEYS = [
   "bs:seen",
   "bs:picks",
   "bs:iam",
+  "bs:device",
 ] as const;
 export type BackupKey = (typeof BACKUP_KEYS)[number];
 export type BackupData = Partial<Record<BackupKey, unknown>>;
@@ -88,6 +89,8 @@ export function mergeBackup(current: BackupData, incoming: BackupData): BackupDa
       ...(isObject(current["bs:picks"]) ? current["bs:picks"] : {}),
     },
     "bs:iam": current["bs:iam"] ?? incoming["bs:iam"],
+    // The old phone's id, so its bills stay findable (this phone re-sends its splits under it).
+    "bs:device": incoming["bs:device"] ?? current["bs:device"],
   };
 }
 

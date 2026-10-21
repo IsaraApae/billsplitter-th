@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronRight, PartyPopper } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { claimMySplits } from "@/lib/client/claim";
 import { refreshEntry } from "@/lib/client/historyRefresh";
 import { getHistory, type HistoryEntry } from "@/lib/client/storage";
 import { owedToYou, type OwedFriend } from "@/lib/owed";
@@ -16,6 +17,7 @@ export function OwedToYou() {
 
   // Fresh payments for every split, a few at a time.
   useEffect(() => {
+    void claimMySplits();
     let cancelled = false;
     (async () => {
       const all = getHistory();
