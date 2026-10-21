@@ -17,6 +17,7 @@ Split a restaurant bill with friends in Thailand: scan the receipt, tick who had
 </p>
 <p>
   <img src="docs/screenshots/18-who-still-owes.jpg" alt="Shareable list of who still owes" width="380">
+  <img src="docs/screenshots/19-choose-bills.jpg" alt="Pay: tick which bills to pay" width="380">
 </p>
 
 More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots). The link preview friends see in chat:
@@ -44,8 +45,8 @@ More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots). The l
 
 **History and the phone**
 - **History**, newest bill date first, with big bills holding their bills; tap a person to see their splits and what they owe you (or you owe them). Tap yourself to see what you spent.
-- **Owed to you:** every friend who still owes you, with their total and unpaid bills (from History, on top of the History page).
-- **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills with them in it, also ones whose link they never got. **Pay** shows one QR for everything owed to that person, and one slip pays all those bills, oldest first ("Already paid?" at the top uploads a slip straight away). They pick their name once from everyone who still owes in those friends' bills; picking themselves to pay or upload a slip also tells the app.
+- **Owed to you:** every friend who still owes you, with their total and unpaid bills (from History, on top of the History page). Tick a bill paid (in full or part) right there, or **Mark all paid** for a friend.
+- **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills with them in it, also ones whose link they never got. **Pay** lets them tick which bills to pay (or all), with one QR for that total, and one slip pays the ticked bills, oldest first ("Already paid?" at the top uploads a slip straight away). They pick their name once from everyone who still owes in those friends' bills; picking themselves to pay or upload a slip also tells the app.
 - **Who still owes (shareable list):** one link (`/o/…`, with its own preview card) showing everyone who still owes you, A–Z, with all their unpaid bills; each person can **Pay** (one QR for their total) or upload a slip there. Copy or share it from "Owed to you".
 - **Friends** page: tap a friend to see their splits. Renaming a friend (or yourself) updates every bill you've shared, old ones too (friends typed into older bills are found by name).
 - **Backup and restore** (Me page) to move splits, friends and edit rights to a new phone.
