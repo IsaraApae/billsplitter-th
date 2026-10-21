@@ -12,3 +12,6 @@ export const FriendsClient = dynamic(() => import("./FriendsManager").then((m) =
   ssr: false,
   loading: blank,
 });
+export const WhatIOweClient = dynamic(() => import("./WhatIOwe").then((m) => m.WhatIOwe), { ssr: false, loading: blank });
+export const OwedToYouClient = dynamic(() => import("./OwedToYou").then((m) => m.OwedToYou), { ssr: false, loading: blank });
+export const OwedLinksClient = dynamic(() => import("./OwedLinks").then((m) => m.OwedLinks), { ssr: false });

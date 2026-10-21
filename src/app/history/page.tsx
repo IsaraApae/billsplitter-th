@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HistoryClient } from "@/components/clientOnly";
+import { HistoryClient, OwedLinksClient } from "@/components/clientOnly";
 
 export const metadata: Metadata = { title: "History" };
 
@@ -7,6 +7,7 @@ export default function HistoryPage() {
   return (
     <main className="mx-auto max-w-2xl space-y-5 px-4 pb-32 md:pb-16">
       <h1 className="large-title">History</h1>
+      <OwedLinksClient />
       <HistoryClient />
     </main>
   );

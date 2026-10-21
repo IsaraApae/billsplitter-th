@@ -27,12 +27,15 @@ export function SlipCard<T extends SlipResult>({
   field,
   currency,
   onAccepted,
+  onPick,
 }: {
   choices: SlipChoice[];
   endpoint: string;
   field: "personId" | "personKey";
   currency: string;
   onAccepted: (r: T) => void;
+  /** who they said they are (to remember it on this phone) */
+  onPick?: (ref: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
@@ -46,7 +49,14 @@ export function SlipCard<T extends SlipResult>({
           <ImageUp size={20} {...ICON} className="text-accent" aria-hidden /> Upload your transfer slip
         </p>
         <p className="text-[15px] text-ink-2">It&apos;s checked and you&apos;re ticked automatically.</p>
-        <button type="button" className="btn-primary h-12 w-full" onClick={() => setOpen(true)}>
+        <button
+          type="button"
+          className="btn-primary h-12 w-full"
+          onClick={() => {
+            setOpen(true);
+            if (choices.length === 1) onPick?.(choices[0].ref);
+          }}
+        >
           <ImageUp size={20} {...ICON} aria-hidden /> I&apos;ve paid — upload slip
         </button>
       </div>
@@ -79,7 +89,11 @@ export function SlipCard<T extends SlipResult>({
           <ul className="card rows overflow-hidden">
             {choices.map((c) => (
               <li key={c.ref}>
-                <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-5 py-2 text-left" onClick={() => setPicked(c.ref)}>
+                <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-5 py-2 text-left" onClick={() => {
+                    setPicked(c.ref);
+                    onPick?.(c.ref);
+                  }}
+                >
                   <Avatar person={c.person} size={36} />
                   <span className="min-w-0 flex-1 truncate font-semibold">{c.label}</span>
                   {c.detail && <span className="text-[15px] text-ink-2">{c.detail}</span>}

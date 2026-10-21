@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
-import { getEditToken, getEvents, upsertEvent } from "@/lib/client/storage";
+import { getEditToken, getEvents, rememberMe, rememberSeen, upsertEvent } from "@/lib/client/storage";
 import { eventVersion } from "@/lib/shareVersion";
 import { byTitle, eventPeople, type EventBill, type EventMeta, type EventPerson, type EventPersonBill } from "@/lib/event";
 import { EventEditor } from "./EventEditor";
@@ -64,6 +64,17 @@ export function EventView({
   const billPerson = askBill ? people.find((p) => p.key === askBill.key) : undefined;
   const billLine = billPerson?.bills.find((b) => b.splitId === askBill?.splitId);
   const payPerson = people.find((p) => p.key === payFor);
+
+  // A friend opening this big bill: remember it for "What I owe" on this phone.
+  useEffect(() => {
+    if (!getEditToken(id)) rememberSeen(id, "event");
+  }, [id]);
+  /** A friend picked themselves: remember who they are in each of the bills. */
+  const pickMe = (key: string) => {
+    if (getEditToken(id)) return;
+    const person = people.find((p) => p.key === key);
+    for (const b of person?.bills ?? []) rememberMe(b.splitId, b.personId, person?.name);
+  };
   const missing = meta.splitIds.length - bills.length;
 
   // Keep this device's copy of the big bill in step (title/date/bills).
@@ -202,6 +213,7 @@ export function EventView({
         endpoint={`/api/events/${id}/slip`}
         field="personKey"
         currency={currency}
+        onPick={pickMe}
         onAccepted={(r) => setBills(r.bills)}
       />
 
@@ -216,7 +228,10 @@ export function EventView({
               busy={busy === p.key}
               onAsk={() => setAskFor(p.key)}
               onAskBill={canEdit ? (b) => getEditToken(b.splitId) && setAskBill({ key: p.key, splitId: b.splitId }) : undefined}
-              onPay={() => setPayFor(p.key)}
+              onPay={() => {
+                pickMe(p.key);
+                setPayFor(p.key);
+              }}
             />
           ))}
         </ul>

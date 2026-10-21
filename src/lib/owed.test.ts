@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+import { newDoc } from "./draft";
+import { namesIn, owedToYou, whatIOwe, whoAmI, type LoadedBill } from "./owed";
+import type { SplitDoc } from "./types";
+
+const isara = { id: "me", name: "Isara" };
+const mint = { id: "mint01", name: "Mint" };
+const ploy = { id: "ploy01", name: "Ploy" };
+
+function bill(id: string, title: string, people: SplitDoc["people"], price: number, extra: Partial<LoadedBill> = {}, doc: Partial<SplitDoc> = {}): LoadedBill {
+  return {
+    id,
+    href: `/s/${id}`,
+    doc: { ...newDoc(), title, mode: "equal", people, items: [{ id: "i", name: "x", qty: 1, price, assigned: [] }], ...doc },
+    paid: [],
+    partial: {},
+    ...extra,
+  };
+}
+
+describe("what I owe", () => {
+  const dinner = bill("b1", "Dinner", [isara, mint, ploy], 90000); // 300 each
+  const karaoke = bill("b2", "Karaoke", [isara, { id: "x9", name: "mint " }], 60000, { partial: { x9: 5000 } }); // typed again
+  const coffee = bill("b3", "Coffee", [{ id: "me", name: "Boss" }, { id: "m2", name: "Mint" }], 24000, { paid: ["m2"] });
+
+  it("finds me by name (or by who I picked) and never as the organiser", () => {
+    expect(whoAmI(dinner.doc, "mint")?.id).toBe("mint01");
+    expect(whoAmI(dinner.doc, null, "ploy01")?.id).toBe("ploy01");
+    expect(whoAmI(dinner.doc, "Isara")).toBeNull();
+  });
+
+  it("adds up what's left per person I owe, skipping what's paid", () => {
+    const groups = whatIOwe([dinner, karaoke, coffee], "Mint");
+    expect(groups.map((g) => [g.to.name, g.total, g.lines.map((l) => [l.title, l.left, l.part])])).toEqual([
+      ["Isara", 55000, [["Dinner", 30000, false], ["Karaoke", 25000, true]]],
+    ]);
+  });
+
+  it("when friends pay each payer directly, I owe each payer", () => {
+    const direct = bill("b4", "BBQ", [isara, mint, ploy], 90000, {}, {
+      prepaid: [{ personId: "ploy01", amount: 60000 }],
+      settle: "direct",
+    });
+    // Ploy paid 600 of 900 (300 each): Mint pays Ploy 300; I paid 300 = my share.
+    const groups = whatIOwe([direct], "Mint");
+    expect(groups.map((g) => [g.to.name, g.total])).toEqual([["Ploy", 30000]]);
+  });
+
+  it("lists everyone's names for 'Who are you?'", () => {
+    expect(namesIn([dinner, karaoke, coffee]).map((p) => p.name)).toEqual(["Mint", "Ploy"]);
+  });
+});
+
+describe("owed to you", () => {
+  const h = (id: string, title: string, createdAt: string, members: { id: string; name: string; amount: number }[], paidIds: string[] = [], partialPaid = {}) => ({
+    id, title, createdAt, currency: "THB", members, paidIds, partialPaid,
+  });
+
+  it("totals each friend's unpaid amounts across splits, merging the same name", () => {
+    const friends = owedToYou([
+      h("a", "Dinner", "2026-10-07", [{ id: "me", name: "Isara", amount: 30000 }, { id: "mint01", name: "Mint", amount: 26700 }, { id: "ploy01", name: "Ploy", amount: 30000 }], ["ploy01"]),
+      h("b", "Karaoke", "2026-10-06", [{ id: "me", name: "Isara", amount: 30000 }, { id: "x9", name: "mint", amount: 30000 }], [], { x9: 5000 }),
+      h("c", "Food", "2026-10-05", [{ id: "me", name: "Isara", amount: 10000 }, { id: "ploy01", name: "Ploy", amount: -5000 }]),
+    ]);
+    expect(friends.map((f) => [f.look.name, f.total, f.bills.map((b) => [b.title, b.left, b.part])])).toEqual([
+      ["Mint", 51700, [["Dinner", 26700, false], ["Karaoke", 25000, true]]],
+    ]);
+  });
+});

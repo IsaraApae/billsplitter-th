@@ -11,19 +11,15 @@ import {
   getEditToken,
   getEvents,
   getHistory,
-  historyFromDoc,
-  paidProgress,
-  patchHistory,
   type EventEntry,
   type HistoryEntry,
 } from "@/lib/client/storage";
 import { askConfirm } from "@/lib/client/confirm";
+import { refreshEntry } from "@/lib/client/historyRefresh";
 import { getFriends } from "@/lib/client/friendsStore";
 import { ME_ID } from "@/lib/friends";
 import { formatMoney } from "@/lib/money";
-import type { SplitDoc } from "@/lib/types";
 import { byTitle } from "@/lib/event";
-import { paymentSummary } from "@/lib/settle";
 import { EventEditor } from "./EventEditor";
 import { Avatar, ICON, Money, cx } from "./ui";
 
@@ -44,41 +40,13 @@ export function HistoryList() {
   });
 
   useEffect(() => {
-    // Refresh paid progress for the most recent splits. Older entries don't
-    // know who's in them yet: those load the whole split once instead.
+    // Refresh paid progress for the most recent splits.
     byBillDate(getHistory())
       .slice(0, 20)
       .forEach(async (h) => {
-        try {
-          // Entries saved before people/amounts were kept load the whole split once.
-          // So do bills where friends pay each payer directly (progress counts transfers).
-          const full = !h.members || h.members.some((m) => m.amount === undefined) || h.direct;
-          const r = await fetch(full ? `/api/splits/${h.id}` : `/api/splits/${h.id}/paid`, { cache: "no-store" });
-          if (r.status === 404) {
-            setGone((g) => new Set(g).add(h.id));
-            return;
-          }
-          if (!r.ok) return;
-          let patch: Partial<HistoryEntry>;
-          if (full) {
-            const data: { doc: SplitDoc; paid: string[]; partial?: Record<string, number> } = await r.json();
-            patch = {
-              ...historyFromDoc(data.doc),
-              ...paymentSummary(data.doc, { paid: data.paid, partial: data.partial ?? {} }),
-            };
-          } else {
-            const data: { paid: string[]; partial?: Record<string, number> } = await r.json();
-            patch = {
-              ...paidProgress(h.personIds ?? [], data.paid),
-              paidIds: data.paid,
-              partialPaid: data.partial ?? {},
-            };
-          }
-          patchHistory(h.id, patch);
-          setEntries((es) => byBillDate(es.map((e) => (e.id === h.id ? { ...e, ...patch } : e))));
-        } catch {
-          /* offline — show cached progress */
-        }
+        const patch = await refreshEntry(h);
+        if (patch === "gone") setGone((g) => new Set(g).add(h.id));
+        else if (patch) setEntries((es) => byBillDate(es.map((e) => (e.id === h.id ? { ...e, ...patch } : e))));
       });
   }, []);
 

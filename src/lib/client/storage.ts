@@ -142,3 +142,47 @@ export function upsertEvent(entry: EventEntry): void {
 export function deleteEvent(id: string): void {
   save(EVENTS, getEvents().filter((e) => e.id !== id));
 }
+
+// ---- Bills opened as a friend, for "What I owe"
+export interface SeenBill {
+  id: string;
+  kind: "split" | "event";
+  /** epoch ms, last opened */
+  at: number;
+}
+
+const SEEN = "bs:seen";
+/** billId → who I am in it (person id), once picked there */
+const PICKS = "bs:picks";
+/** the name I go by in friends' bills */
+const IAM = "bs:iam";
+
+export function getSeen(): SeenBill[] {
+  const s = load<SeenBill[]>(SEEN, []);
+  return Array.isArray(s) ? s : [];
+}
+
+/** A bill someone else made was opened here (newest first, up to 100). */
+export function rememberSeen(id: string, kind: SeenBill["kind"]): void {
+  save(SEEN, [{ id, kind, at: Date.now() }, ...getSeen().filter((s) => s.id !== id)].slice(0, 100));
+}
+
+export function getPicks(): Record<string, string> {
+  return load<Record<string, string>>(PICKS, {});
+}
+
+export function getIam(): string | null {
+  const n = load<string | null>(IAM, null);
+  return typeof n === "string" && n.trim() ? n : null;
+}
+
+export function setIam(name: string | null): void {
+  if (name?.trim()) save(IAM, name.trim());
+  else remove(IAM);
+}
+
+/** I picked myself in a bill (to pay or upload a slip): remember who, and my name. */
+export function rememberMe(billId: string, personId: string, name?: string): void {
+  save(PICKS, { ...getPicks(), [billId]: personId });
+  if (name && !getIam()) setIam(name);
+}
