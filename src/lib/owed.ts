@@ -35,6 +35,11 @@ export interface OweLine {
   /** paid part of it already */
   part: boolean;
   href: string;
+  /** what the bill records my payment under (my person id, or the transfer key) */
+  ref: string;
+  /** who I pay, as a person id in that bill ("me" = the organiser) */
+  toId: string;
+  bill: LoadedBill;
 }
 
 export interface OweGroup {
@@ -59,7 +64,7 @@ export function whoAmI(doc: SplitDoc, name: string | null, picked?: string): Per
 /** What "I" still owe in one bill: to the organiser, or (paying payers directly) to each payer. */
 export function oweLines(bill: LoadedBill, me: Person): OweLine[] {
   const { doc } = bill;
-  const base = { billId: bill.id, title: doc.title, date: billDate(doc), currency: doc.currency, href: bill.href };
+  const base = { billId: bill.id, title: doc.title, date: billDate(doc), currency: doc.currency, href: bill.href, bill };
   const person = (id: string) => doc.people.find((p) => p.id === id);
   const calc = calculate(doc);
   if (settlesDirectly(doc)) {
@@ -68,7 +73,14 @@ export function oweLines(bill: LoadedBill, me: Person): OweLine[] {
       .map((t) => {
         const key = transferKey(t.from, t.to);
         const paidPart = bill.partial[key] ?? 0;
-        return { ...base, to: person(t.to) ?? { name: "?" }, left: bill.paid.includes(key) ? 0 : t.amount - paidPart, part: paidPart > 0 };
+        return {
+          ...base,
+          to: person(t.to) ?? { name: "?" },
+          left: bill.paid.includes(key) ? 0 : t.amount - paidPart,
+          part: paidPart > 0,
+          ref: key,
+          toId: t.to,
+        };
       })
       .filter((l) => l.left > 0);
   }
@@ -77,7 +89,7 @@ export function oweLines(bill: LoadedBill, me: Person): OweLine[] {
   const paidPart = bill.partial[me.id] ?? 0;
   const left = r.payable - paidPart;
   const organiser = person(ORGANISER_ID) ?? { name: "the organiser" };
-  return left > 0 ? [{ ...base, to: organiser, left, part: paidPart > 0 }] : [];
+  return left > 0 ? [{ ...base, to: organiser, left, part: paidPart > 0, ref: me.id, toId: ORGANISER_ID }] : [];
 }
 
 /** Everything "I" owe across bills, grouped by who I pay (largest first). */

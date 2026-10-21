@@ -1,19 +1,11 @@
-import { calculate, ORGANISER_ID } from "@/lib/calc";
+import { calculate } from "@/lib/calc";
 import { billDay } from "@/lib/draft";
-import { findTransfer, payerPromptPay, settlesDirectly } from "@/lib/settle";
 import { checkSlip } from "@/lib/slip";
 import { jsonError, safely } from "@/lib/server/http";
-import { storeReceiptImage } from "@/lib/server/qrStore";
 import { rateLimit } from "@/lib/server/ratelimit";
-import {
-  addSlip,
-  claimSlipReference,
-  getPaidState,
-  getSplit,
-  isValidId,
-  recordCheckedPayment,
-} from "@/lib/server/redis";
-import { readSlipUpload } from "@/lib/server/slipRead";
+import { addSlip, claimSlipReference, getPaidState, getSplit, isValidId, recordCheckedPayment } from "@/lib/server/redis";
+import { readAndKeep, slipTarget } from "@/lib/server/slipPay";
+import { readSlipForm } from "@/lib/server/slipRead";
 
 export const maxDuration = 60;
 
@@ -30,57 +22,45 @@ export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/sli
   const { id } = await ctx.params;
   if (!isValidId(id)) return jsonError(404, "not_found", "Split not found.");
   return safely(async () => {
-    const s = await getSplit(id);
+    const [s, form] = await Promise.all([getSplit(id), readSlipForm(req, "personId")]);
     if (!s) return jsonError(404, "not_found", "This split doesn't exist or has expired.");
-    const upload = await readSlipUpload(req, "personId");
-    if (!upload.ok) return jsonError(upload.status, upload.code, upload.message);
-    const personId = upload.personRef;
-    const calc = calculate(s.doc);
-    let owed: number;
-    // Who the money should have gone to.
-    let payee: { promptpay?: string } = { promptpay: s.doc.payment.promptpay };
-    if (settlesDirectly(s.doc)) {
-      const t = findTransfer(s.doc, personId, calc);
-      if (!t) return jsonError(404, "not_found", "That payment isn't in this split.");
-      owed = t.amount;
-      if (t.to !== ORGANISER_ID) payee = { promptpay: payerPromptPay(s.doc, t.to) };
-    } else {
-      const i = s.doc.people.findIndex((p) => p.id === personId);
-      if (i < 0 || personId === ORGANISER_ID) return jsonError(404, "not_found", "That person isn't in this split.");
-      owed = calc.people[i].payable;
-    }
+    if (!form.ok) return jsonError(form.status, form.code, form.message);
+    const ref = form.personRef;
+    const target = slipTarget(s.doc, ref, calculate(s.doc));
+    if (!target.ok) return jsonError(target.status, target.code, target.message);
     const state = await getPaidState(id, s.doc);
-    if (state.paid.includes(personId)) return jsonError(409, "already_paid", "You're already marked as paid.");
-    if (owed <= 0) return jsonError(409, "nothing_owed", "You don't owe anything on this split.");
+    if (state.paid.includes(ref)) return jsonError(409, "already_paid", "You're already marked as paid.");
+    if (target.owed <= 0) return jsonError(409, "nothing_owed", "You don't owe anything on this split.");
 
-    const verdict = checkSlip(upload.slip, {
-      billDay: billDay(s.doc),
-      currency: s.doc.currency,
-      organiser: payee,
-    });
-    if (!verdict.ok) return jsonError(422, "slip_rejected", verdict.reason);
-    if (!(await claimSlipReference(verdict.reference, `${id}:${personId}`))) {
+    const read = await readAndKeep(form);
+    if (!read.ok) return jsonError(read.status, read.code, read.message);
+    const verdict = checkSlip(read.slip, { billDay: billDay(s.doc), currency: s.doc.currency, organiser: target.payee });
+    if (!verdict.ok) {
+      read.discard();
+      return jsonError(422, "slip_rejected", verdict.reason);
+    }
+    if (!(await claimSlipReference(verdict.reference, `${id}:${ref}`))) {
+      read.discard();
       return jsonError(409, "slip_used", "This slip has already been used.");
     }
 
-    const photo = await storeReceiptImage(upload.bytes, "slips").catch(() => "");
-    const paidSoFar = (state.partial[personId] ?? 0) + verdict.amount;
-    const full = paidSoFar >= owed;
-    const next = await recordCheckedPayment(id, personId, full ? { kind: "full" } : { kind: "part", amount: paidSoFar });
+    const paidSoFar = (state.partial[ref] ?? 0) + verdict.amount;
+    const full = paidSoFar >= target.owed;
+    const next = await recordCheckedPayment(id, ref, full ? { kind: "full" } : { kind: "part", amount: paidSoFar });
     if (next === "not_found") return jsonError(404, "not_found", "That person isn't in this split.");
-    await addSlip(id, personId, {
-      photo,
+    await addSlip(id, ref, {
+      photo: await read.photo,
       amount: verdict.amount,
-      date: upload.slip.date!,
+      date: read.slip.date!,
       reference: verdict.reference,
       receiver: verdict.receiver,
-      senderName: upload.slip.senderName,
+      senderName: read.slip.senderName,
       at: new Date().toISOString(),
     });
     return Response.json({
       result: full ? "full" : "part",
       amount: verdict.amount,
-      left: Math.max(0, owed - paidSoFar),
+      left: Math.max(0, target.owed - paidSoFar),
       receiver: verdict.receiver,
       ...next,
     });

@@ -4,10 +4,69 @@ import { ChevronRight, PartyPopper, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getEditToken, getIam, getPicks, getSeen, setIam } from "@/lib/client/storage";
-import { namesIn, whatIOwe, whoAmI, type LoadedBill } from "@/lib/owed";
+import { ORGANISER_ID } from "@/lib/calc";
+import { namesIn, whatIOwe, whoAmI, type LoadedBill, type OweGroup, type OweLine } from "@/lib/owed";
+import { effectiveQrMode, isValidPromptPayId } from "@/lib/promptpay";
+import { payerPromptPay } from "@/lib/settle";
 import type { SplitDoc } from "@/lib/types";
 import { PaidMark } from "./Payments";
-import { Avatar, ICON, Money, Section } from "./ui";
+import { PayQr, type PayQrSource } from "./PayQr";
+import { SlipUpload, type SlipResult } from "./SlipUpload";
+import { Avatar, Callout, ICON, Money, Section, Sheet } from "./ui";
+
+/** The QR for paying whoever a line is owed to (the organiser's, or a payer's own PromptPay). */
+function qrFor(l: OweLine): PayQrSource | null {
+  const { doc } = l.bill;
+  if (doc.currency !== "THB") return null;
+  if (l.toId !== ORGANISER_ID) {
+    const pp = payerPromptPay(doc, l.toId);
+    return pp && isValidPromptPayId(pp) ? { mode: "generate", promptpay: pp } : null;
+  }
+  const mode = effectiveQrMode(doc.payment, doc.currency);
+  if (mode === "generate") return { mode, promptpay: doc.payment.promptpay };
+  // An uploaded QR: refreshed daily in case it was replaced.
+  if (mode === "upload" && doc.payment.ownerId) return { mode, ownerId: doc.payment.ownerId, version: Math.floor(Date.now() / 86_400_000) };
+  return null;
+}
+
+/** Pay everything owed to one person: one QR for the total, one slip spread over their bills. */
+function PayGroupSheet({ group, onClose, onPaid }: { group: OweGroup | null; onClose: () => void; onPaid: () => void }) {
+  const first = group?.lines[0];
+  const source = first ? qrFor(first) : null;
+  const note = first?.toId === ORGANISER_ID ? first.bill.doc.payment.note : "";
+  return (
+    <Sheet open={!!group} onClose={onClose} title={group ? `Pay ${group.to.name}` : "Pay"}>
+      {group && first && (
+        <div className="space-y-4">
+          {source ? (
+            <PayQr source={source} amount={group.total} name={`To ${group.to.name}`} />
+          ) : (
+            <Callout tone="info">
+              Send <Money value={group.total} currency={group.currency} /> to {group.to.name}
+              {note ? <> — {note}</> : <> — ask them for their PromptPay or bank details</>}.
+            </Callout>
+          )}
+          <ul className="card rows overflow-hidden text-[15px]">
+            {group.lines.map((l) => (
+              <li key={`${l.billId}|${l.ref}`} className="flex min-h-[48px] items-center justify-between gap-3 px-5 py-2">
+                <span className="min-w-0 truncate">{l.title}</span>
+                <Money value={l.left} currency={l.currency} />
+              </li>
+            ))}
+          </ul>
+          <SlipUpload<SlipResult>
+            endpoint="/api/slips"
+            field="items"
+            personRef={JSON.stringify(group.lines.map((l) => ({ id: l.billId, ref: l.ref })))}
+            currency={group.currency}
+            onAccepted={onPaid}
+          />
+          <p className="px-1 text-[13px] text-ink-2">One slip for the total pays all these bills, oldest first.</p>
+        </div>
+      )}
+    </Sheet>
+  );
+}
 
 type BillData = { doc: SplitDoc; paid: string[]; partial?: Record<string, number> };
 
@@ -86,6 +145,10 @@ export function WhatIOwe() {
   const [name, setName] = useState<string | null>(getIam);
   const [choosing, setChoosing] = useState(false);
   const [picks] = useState(getPicks);
+  const [paying, setPaying] = useState<string | null>(null);
+  // Bumped after a slip is accepted, to reload everything.
+  const [version, setVersion] = useState(0);
+  const [stale, setStale] = useState(false);
   // The same organisers' other bills with me in them.
   const [others, setOthers] = useState<{ bills: LoadedBill[]; picks: Record<string, string> }>({ bills: [], picks: {} });
 
@@ -95,7 +158,7 @@ export function WhatIOwe() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [version]);
 
   useEffect(() => {
     if (!bills) return;
@@ -193,6 +256,11 @@ export function WhatIOwe() {
               <Avatar person={g.to} size={22} /> To {g.to.name} · <Money value={g.total} currency={g.currency} />
             </span>
           }
+          action={
+            <button type="button" className="chip-accent min-h-9 px-4" onClick={() => setPaying(`${g.to.name}|${g.currency}`)}>
+              Pay
+            </button>
+          }
         >
           <ul className="card rows overflow-hidden">
             {g.lines.map((l) => (
@@ -218,7 +286,23 @@ export function WhatIOwe() {
         </Section>
       ))}
 
-      <p className="px-5 text-[13px] text-ink-2">Every bill these friends made with you in it, also ones they didn&apos;t send you. Tap one to pay it.</p>
+      <p className="px-5 text-[13px] text-ink-2">
+        Every bill these friends made with you in it, also ones they didn&apos;t send you. Tap Pay to pay someone everything at
+        once, or a bill to pay just that one.
+      </p>
+
+      <PayGroupSheet
+        group={groups.find((g) => `${g.to.name}|${g.currency}` === paying) ?? null}
+        onClose={() => {
+          setPaying(null);
+          // Reload once the sheet is closed, so its success message stays put.
+          if (stale) {
+            setStale(false);
+            setVersion((v) => v + 1);
+          }
+        }}
+        onPaid={() => setStale(true)}
+      />
     </div>
   );
 }
