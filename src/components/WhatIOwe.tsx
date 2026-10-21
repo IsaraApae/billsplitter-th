@@ -4,7 +4,7 @@ import { ChevronRight, PartyPopper, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getEditToken, getIam, getPicks, getSeen, setIam } from "@/lib/client/storage";
-import { namesIn, whatIOwe, type LoadedBill } from "@/lib/owed";
+import { namesIn, whatIOwe, whoAmI, type LoadedBill } from "@/lib/owed";
 import type { SplitDoc } from "@/lib/types";
 import { PaidMark } from "./Payments";
 import { Avatar, ICON, Money, Section } from "./ui";
@@ -39,6 +39,44 @@ async function loadSeenBills(): Promise<LoadedBill[]> {
   return [...out.values()].filter((b) => !getEditToken(b.id));
 }
 
+const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
+
+/**
+ * The same organisers' other bills with me in them, including ones whose
+ * link I never got (the organiser's phone tells the server which bills it
+ * made). `picks` says who I am in each of them.
+ */
+async function loadOtherBills(
+  seen: LoadedBill[],
+  name: string | null,
+  picks: Record<string, string>,
+): Promise<{ bills: LoadedBill[]; picks: Record<string, string> }> {
+  const known = new Set(seen.map((b) => b.id));
+  const out = new Map<string, LoadedBill>();
+  const found: Record<string, string> = {};
+  await Promise.all(
+    seen.map(async (b) => {
+      const me = whoAmI(b.doc, name, picks[b.id]);
+      if (!me) return;
+      try {
+        const q = new URLSearchParams({ person: me.id, name: me.name });
+        const r = await fetch(`/api/splits/${b.id}/others?${q}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const d = (await r.json()) as { splits: (BillData & { id: string })[] };
+        for (const o of d.splits) {
+          if (known.has(o.id) || out.has(o.id) || getEditToken(o.id)) continue;
+          out.set(o.id, { id: o.id, doc: o.doc, paid: o.paid, partial: o.partial ?? {}, href: `/s/${o.id}` });
+          const there = o.doc.people.find((p) => p.id !== "me" && (p.id === me.id || norm(p.name) === norm(me.name)));
+          if (there) found[o.id] = there.id;
+        }
+      } catch {
+        /* offline: skip it */
+      }
+    }),
+  );
+  return { bills: [...out.values()], picks: found };
+}
+
 /**
  * "What I owe": everything this phone's owner still owes across the bills
  * friends shared with them, grouped by who they pay.
@@ -48,6 +86,8 @@ export function WhatIOwe() {
   const [name, setName] = useState<string | null>(getIam);
   const [choosing, setChoosing] = useState(false);
   const [picks] = useState(getPicks);
+  // The same organisers' other bills with me in them.
+  const [others, setOthers] = useState<{ bills: LoadedBill[]; picks: Record<string, string> }>({ bills: [], picks: {} });
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +96,15 @@ export function WhatIOwe() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!bills) return;
+    let cancelled = false;
+    loadOtherBills(bills, name, picks).then((o) => !cancelled && setOthers(o));
+    return () => {
+      cancelled = true;
+    };
+  }, [bills, name, picks]);
 
   if (bills === null) return <p className="px-1 text-ink-2">Loading your bills…</p>;
   if (bills.length === 0) {
@@ -72,7 +121,7 @@ export function WhatIOwe() {
     );
   }
 
-  const groups = whatIOwe(bills, name, picks);
+  const groups = whatIOwe([...bills, ...others.bills], name, { ...others.picks, ...picks });
   const known = !!name || Object.keys(picks).some((id) => bills.some((b) => b.id === id));
   const people = namesIn(bills);
 
@@ -169,7 +218,7 @@ export function WhatIOwe() {
         </Section>
       ))}
 
-      <p className="px-5 text-[13px] text-ink-2">Bills you&apos;ve opened on this phone. Tap one to pay it.</p>
+      <p className="px-5 text-[13px] text-ink-2">Every bill these friends made with you in it, also ones they didn&apos;t send you. Tap one to pay it.</p>
     </div>
   );
 }

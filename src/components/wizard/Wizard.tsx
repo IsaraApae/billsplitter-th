@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { calculate } from "@/lib/calc";
 import { rememberPeople, rememberPromptPays } from "@/lib/client/friendsStore";
+import { claimSplit } from "@/lib/client/claim";
 import { askConfirm } from "@/lib/client/confirm";
 import { hasPendingScan, SCAN_EVENT } from "@/lib/client/pendingScan";
 import { getProfile, paymentFromProfile } from "@/lib/client/profile";
@@ -166,6 +167,9 @@ export function Wizard() {
       if (!res.ok) throw new Error(data?.message ?? `Saving failed (${res.status}).`);
       const id: string = editing ?? data.id;
       if (!editing) setEditToken(id, data.token);
+      // So friends' "What I owe" finds this bill even if they never get its link.
+      const editToken = editing ? token : data.token;
+      if (editToken) void claimSplit(id, editToken);
       rememberPeople(clean.people);
       if (settlesDirectly(clean)) rememberPromptPays(clean.prepaid);
       upsertHistory({

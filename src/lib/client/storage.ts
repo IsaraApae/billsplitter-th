@@ -186,3 +186,15 @@ export function rememberMe(billId: string, personId: string, name?: string): voi
   save(PICKS, { ...getPicks(), [billId]: personId });
   if (name && !getIam()) setIam(name);
 }
+
+// ---- This phone's organiser id (random, public), so friends' "What I owe" finds all your bills
+const DEVICE = "bs:device";
+
+export function getDeviceKey(): string {
+  const k = load<string | null>(DEVICE, null);
+  if (typeof k === "string" && /^[\w-]{16,32}$/.test(k)) return k;
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const fresh = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  save(DEVICE, fresh);
+  return fresh;
+}
