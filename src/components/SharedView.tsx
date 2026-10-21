@@ -29,7 +29,7 @@ import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
-import { SlipsUploaded, SlipTag } from "./SlipsUploaded";
+import { slipRows, SlipsUploaded, SlipTag } from "./SlipsUploaded";
 import { SlipCard, type SlipChoice } from "./SlipCard";
 import { TapHint } from "./PersonCard";
 import { asShare, TransferRow } from "./Transfers";
@@ -596,7 +596,7 @@ export function SharedView({
         </Section>
       )}
 
-      {canEdit && <SlipsUploaded slips={slips} doc={doc} />}
+      {canEdit && <SlipsUploaded rows={slipRows(slips, doc)} currency={doc.currency} />}
 
       <Section title="Bill">
         {doc.photo && !photoBroken && (
