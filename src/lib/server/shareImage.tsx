@@ -25,6 +25,12 @@ interface Card {
   people: { name: string; color?: PersonColor }[];
   /** e.g. "3 people · split by item" */
   detail: string;
+  /** the receipt's heading (default "TOTAL") */
+  label?: string;
+  /** the button (default "See what you owe →") */
+  cta?: string;
+  /** the line at the bottom left (default "Tap to see what you owe and mark it paid") */
+  tagline?: string;
 }
 
 /**
@@ -82,7 +88,7 @@ export async function shareImage(card: Card | null) {
             <div style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.15, letterSpacing: -1, marginTop: 8 }}>{title}</div>
           </div>
           <div style={{ fontSize: 28, color: INK_2 }}>
-            {card ? "Tap to see what you owe and mark it paid" : "Scan the receipt, share one link"}
+            {card ? (card.tagline ?? "Tap to see what you owe and mark it paid") : "Scan the receipt, share one link"}
           </div>
         </div>
 
@@ -101,7 +107,7 @@ export async function shareImage(card: Card | null) {
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: 6, color: INK_2 }}>TOTAL</div>
+              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: 6, color: INK_2 }}>{card?.label ?? "TOTAL"}</div>
               {dashes}
               {card ? (
                 <div style={{ display: "flex", alignItems: "baseline", letterSpacing: -2, color: ACCENT }}>
@@ -132,7 +138,7 @@ export async function shareImage(card: Card | null) {
                 fontWeight: 700,
               }}
             >
-              {card ? "See what you owe →" : "Split a bill →"}
+              {card ? (card.cta ?? "See what you owe →") : "Split a bill →"}
             </div>
           </div>
           {/* Scalloped bottom edge of the receipt. */}

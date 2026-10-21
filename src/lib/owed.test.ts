@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { namesIn, owedToYou, whatIOwe, whoAmI, type LoadedBill } from "./owed";
+import { namesIn, owedToYou, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -65,5 +65,19 @@ describe("owed to you", () => {
     expect(friends.map((f) => [f.look.name, f.total, f.bills.map((b) => [b.title, b.left, b.part])])).toEqual([
       ["Mint", 51700, [["Dinner", 26700, false], ["Karaoke", 25000, true]]],
     ]);
+  });
+});
+
+describe("who still owes (shareable list)", () => {
+  it("lists everyone who hasn't paid A–Z, with all their unpaid bills", () => {
+    const dinner = bill("b1", "Dinner", [isara, mint, ploy], 90000, { paid: ["ploy01"] });
+    const karaoke = bill("b2", "Karaoke", [isara, { id: "x9", name: "mint" }, ploy], 60000, { partial: { x9: 5000 } });
+    const board = whoStillOwes([karaoke, dinner]);
+    expect(board.organiser.name).toBe("Isara");
+    expect(board.people.map((p) => [p.look.name, p.total, p.bills.map((b) => [b.title, b.left, b.part])])).toEqual([
+      ["Mint", 45000, [["Karaoke", 15000, true], ["Dinner", 30000, false]]],
+      ["Ploy", 20000, [["Karaoke", 20000, false]]],
+    ]);
+    expect([board.total, board.billCount]).toEqual([65000, 2]);
   });
 });

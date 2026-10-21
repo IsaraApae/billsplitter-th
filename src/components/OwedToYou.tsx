@@ -7,6 +7,8 @@ import { claimMySplits } from "@/lib/client/claim";
 import { refreshEntry } from "@/lib/client/historyRefresh";
 import { getHistory, type HistoryEntry } from "@/lib/client/storage";
 import { owedToYou, type OwedFriend } from "@/lib/owed";
+import { getProfile } from "@/lib/client/profile";
+import { BoardLinkCard } from "./BoardLinkCard";
 import { PaidMark } from "./Payments";
 import { Avatar, ICON, Money, cx } from "./ui";
 
@@ -14,6 +16,7 @@ import { Avatar, ICON, Money, cx } from "./ui";
 export function OwedToYou() {
   const [entries, setEntries] = useState<HistoryEntry[]>(getHistory);
   const [open, setOpen] = useState<string | null>(null);
+  const [myName] = useState(() => getProfile().name.trim() || "you");
 
   // Fresh payments for every split, a few at a time.
   useEffect(() => {
@@ -65,6 +68,7 @@ export function OwedToYou() {
         ))}{" "}
         from {people} {people === 1 ? "friend" : "friends"}
       </p>
+      <BoardLinkCard name={myName} />
       <ul className="card rows overflow-hidden">
         {friends.map((f) => (
           <FriendRow key={`${f.key}|${f.currency}`} f={f} open={open === f.key + f.currency} onToggle={() => setOpen((o) => (o === f.key + f.currency ? null : f.key + f.currency))} />

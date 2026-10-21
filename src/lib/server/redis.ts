@@ -613,3 +613,44 @@ export async function otherSplitsWith(
   );
   return out;
 }
+
+// ---- "Who still owes" lists: one shareable link per organiser ---------------
+
+const boardKey = (id: string) => `board:${id}`;
+const organiserBoardKey = (owner: string) => `organiser:${owner}:board`;
+
+/** This organiser's list link id (made once, then the same one). */
+export async function boardFor(owner: string): Promise<string> {
+  const existing = await db().get<string>(organiserBoardKey(owner));
+  if (existing && (await db().get<string>(boardKey(existing))) === owner) {
+    await Promise.all([db().expire(boardKey(existing), ORGANISER_TTL), db().expire(organiserBoardKey(owner), ORGANISER_TTL)]);
+    return existing;
+  }
+  const id = newId();
+  await Promise.all([
+    db().set(boardKey(id), owner, { ex: ORGANISER_TTL }),
+    db().set(organiserBoardKey(owner), id, { ex: ORGANISER_TTL }),
+  ]);
+  return id;
+}
+
+/** The organiser's splits (with payments) behind a list link, or null if there's no such list. */
+export async function boardBills(
+  id: string,
+): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] | null> {
+  const owner = await db().get<string>(boardKey(id));
+  if (!owner) return null;
+  const ids = (await db().hkeys(organiserKey(owner))).filter(isValidId).slice(0, 300);
+  const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] = [];
+  await Promise.all(
+    ids.map(async (sid) => {
+      const s = await db().get<StoredSplit>(docKey(sid));
+      if (!s) {
+        await db().hdel(organiserKey(owner), sid);
+        return;
+      }
+      out.push({ id: sid, doc: s.doc, ...(await getPaidState(sid, s.doc)) });
+    }),
+  );
+  return out;
+}
