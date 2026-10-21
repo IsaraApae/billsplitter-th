@@ -36,6 +36,8 @@ More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots). The l
 
 **History and the phone**
 - **History**, newest bill date first, with big bills holding their bills; tap a person to see their splits and what they owe you (or you owe them). Tap yourself to see what you spent.
+- **Owed to you:** every friend who still owes you, with their total and unpaid bills (from History, on top of the History page).
+- **What I owe:** on a friend's phone, everything they still owe across the bills they've opened, grouped by who they pay (to the organiser, or to each payer). They pick their name once; picking themselves to pay or upload a slip also tells the app.
 - **Friends** page: tap a friend to see their splits. Renaming a friend (or yourself) updates every bill you've shared, old ones too (friends typed into older bills are found by name).
 - **Backup and restore** (Me page) to move splits, friends and edit rights to a new phone.
 

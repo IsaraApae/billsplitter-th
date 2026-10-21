@@ -1,19 +1,28 @@
 "use client";
 
-import { Check, ChevronDown, Copy, PartyPopper, Pencil, QrCode, ZoomIn } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, PartyPopper, Pencil, QrCode, ZoomIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate, wholeUnit } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { photoSrc } from "@/lib/client/photo";
-import { getEditToken, getHistory, historyFromDoc, patchHistory } from "@/lib/client/storage";
+import { getEditToken, getHistory, historyFromDoc, patchHistory, rememberMe, rememberSeen } from "@/lib/client/storage";
 import { billDate } from "@/lib/draft";
 import { ME_ID, organiserFirstByName } from "@/lib/friends";
 import { formatStep, wholeUnitName } from "@/lib/money";
 import { splitVersion } from "@/lib/shareVersion";
 import { accountNumber, formatPromptPayId, isValidPromptPayId } from "@/lib/promptpay";
-import { keyStatus, paidAtRestaurant, payerPromptPay, paymentSummary, settlesDirectly, transferKey, transfers } from "@/lib/settle";
+import {
+  keyStatus,
+  paidAtRestaurant,
+  parseTransferKey,
+  payerPromptPay,
+  paymentSummary,
+  settlesDirectly,
+  transferKey,
+  transfers,
+} from "@/lib/settle";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
 import { PayQr, type PayQrSource } from "./PayQr";
@@ -144,6 +153,17 @@ export function SharedView({
   useEffect(() => {
     version.current = updatedAt;
   }, [updatedAt]);
+
+  // A friend opening this bill: remember it for "What I owe" on this phone.
+  useEffect(() => {
+    if (!getEditToken(id)) rememberSeen(id, "split");
+  }, [id]);
+  /** A friend picked themselves (to pay or upload a slip): a person id or a transfer key. */
+  const pickMe = (ref: string) => {
+    if (getEditToken(id)) return;
+    const personId = parseTransferKey(ref)?.from ?? ref;
+    rememberMe(id, personId, doc.people.find((p) => p.id === personId)?.name);
+  };
 
   // Keep the history entry's progress fresh if this split is in our history.
   useEffect(() => {
@@ -340,12 +360,18 @@ export function SharedView({
         endpoint={`/api/splits/${id}/slip`}
         field="personId"
         currency={doc.currency}
+        onPick={pickMe}
         onAccepted={(r) => {
           setPaid(new Set(r.paid));
           setPartial(r.partial ?? {});
           loadSlips();
         }}
       />
+      {!canEdit && (
+        <Link href="/owe" className="-mt-3 flex items-center justify-center gap-1 text-[15px] font-semibold text-accent">
+          Everything you owe, across your bills <ChevronRight size={18} {...ICON} aria-hidden />
+        </Link>
+      )}
 
       {direct ? (
         <>
@@ -386,7 +412,11 @@ export function SharedView({
                     }
                     action={
                       status !== "full" ? (
-                        <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPayFor(t.key)}>
+                        <button type="button" className="chip-accent min-h-10 px-4" onClick={() => {
+                            pickMe(t.key);
+                            setPayFor(t.key);
+                          }}
+                        >
                           Pay
                         </button>
                       ) : null
@@ -510,7 +540,11 @@ export function SharedView({
                   }
                   action={
                     !isPaid && p.payable > 0 && p.personId !== ME_ID ? (
-                      <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPayFor(p.personId)}>
+                      <button type="button" className="chip-accent min-h-10 px-4" onClick={() => {
+                          pickMe(p.personId);
+                          setPayFor(p.personId);
+                        }}
+                      >
                         Pay
                       </button>
                     ) : null

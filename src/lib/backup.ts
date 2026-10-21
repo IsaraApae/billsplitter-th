@@ -9,6 +9,9 @@ export const BACKUP_KEYS = [
   "bs:events",
   "bs:tokens",
   "bs:lastCrew",
+  "bs:seen",
+  "bs:picks",
+  "bs:iam",
 ] as const;
 export type BackupKey = (typeof BACKUP_KEYS)[number];
 export type BackupData = Partial<Record<BackupKey, unknown>>;
@@ -79,6 +82,12 @@ export function mergeBackup(current: BackupData, incoming: BackupData): BackupDa
       ...(isObject(current["bs:tokens"]) ? current["bs:tokens"] : {}),
     },
     "bs:lastCrew": current["bs:lastCrew"] ?? incoming["bs:lastCrew"],
+    "bs:seen": union(current["bs:seen"], incoming["bs:seen"]),
+    "bs:picks": {
+      ...(isObject(incoming["bs:picks"]) ? incoming["bs:picks"] : {}),
+      ...(isObject(current["bs:picks"]) ? current["bs:picks"] : {}),
+    },
+    "bs:iam": current["bs:iam"] ?? incoming["bs:iam"],
   };
 }
 
