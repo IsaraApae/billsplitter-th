@@ -170,6 +170,8 @@ export interface SlipInfo {
   date: string;
   receiver: "match" | "unknown";
   senderName: string | null;
+  /** when it was uploaded (ISO) */
+  at?: string;
 }
 
 function SlipList({ slips, currency }: { slips: SlipInfo[]; currency: string }) {

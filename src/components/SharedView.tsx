@@ -29,6 +29,7 @@ import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { SlipsUploaded, SlipTag } from "./SlipsUploaded";
 import { SlipCard, type SlipChoice } from "./SlipCard";
 import { TapHint } from "./PersonCard";
 import { asShare, TransferRow } from "./Transfers";
@@ -419,6 +420,7 @@ export function SharedView({
                     status={
                       <span className={cx("block pl-0.5 text-[13px] font-semibold", status === "none" ? "text-warn" : "text-accent")}>
                         {status === "full" ? "Paid" : status === "part" ? "Part paid · left to pay" : "Unpaid"}
+                        {canEdit && slips[t.key]?.length ? <SlipTag /> : null}
                       </span>
                     }
                     action={
@@ -547,6 +549,7 @@ export function SharedView({
                       ) : (
                         "Unpaid"
                       )}
+                      {canEdit && slips[p.personId]?.length ? <SlipTag /> : null}
                     </span>
                   }
                   action={
@@ -592,6 +595,8 @@ export function SharedView({
           </p>
         </Section>
       )}
+
+      {canEdit && <SlipsUploaded slips={slips} doc={doc} />}
 
       <Section title="Bill">
         {doc.photo && !photoBroken && (
