@@ -4,7 +4,7 @@
 import { calculate, ORGANISER_ID } from "./calc";
 import { billDate } from "./draft";
 import { organiserLines, settlesDirectly, transferKey, transfers } from "./settle";
-import type { Person, SplitDoc } from "./types";
+import type { PaymentInfo, Person, SplitDoc } from "./types";
 
 type Look = Pick<Person, "name" | "emoji" | "color">;
 
@@ -110,6 +110,21 @@ export function whatIOwe(bills: LoadedBill[], name: string | null, picks: Record
   return [...groups.values()].sort((a, b) => b.total - a.total);
 }
 
+/**
+ * Everyone who still owes something in these bills (to the organiser, or to
+ * a payer), by name A–Z, for "Who are you?". People who've paid don't show.
+ */
+export function unpaidPeople(bills: LoadedBill[]): Look[] {
+  const seen = new Map<string, Look>();
+  for (const b of bills) {
+    for (const p of b.doc.people) {
+      if (p.id === ORGANISER_ID || seen.has(norm(p.name))) continue;
+      if (oweLines(b, p).length > 0) seen.set(norm(p.name), { name: p.name, emoji: p.emoji, color: p.color });
+    }
+  }
+  return [...seen.values()].sort((a, c) => a.name.localeCompare(c.name, ["th", "en"], { sensitivity: "base" }));
+}
+
 /** Everyone (not the organiser) in these bills, by name, for "Who are you?". */
 export function namesIn(bills: LoadedBill[]): Look[] {
   const seen = new Map<string, Look>();
@@ -173,7 +188,8 @@ export interface BoardPerson {
   /** how each spelling/look was seen (the most common one is shown) */
   looks?: Map<string, { look: Look; n: number }>;
   total: number;
-  bills: { id: string; title: string; date: Date; left: number; part: boolean }[];
+  /** `ref`: what the bill records their payment under (their id, or a transfer key) */
+  bills: { id: string; title: string; date: Date; left: number; part: boolean; ref: string }[];
 }
 
 export interface Board {
@@ -184,6 +200,8 @@ export interface Board {
   billCount: number;
   /** A–Z by name */
   people: BoardPerson[];
+  /** how to pay the organiser (from their newest bill) */
+  payment?: PaymentInfo;
 }
 
 /**
@@ -219,7 +237,7 @@ export function whoStillOwes(bills: { id: string; doc: SplitDoc; paid: string[];
       seen.n++;
       person.looks!.set(p.name, seen);
       person.total += left;
-      person.bills.push({ id: b.id, title: b.doc.title, date: billDate(b.doc), left, part: line.paidSoFar > 0 });
+      person.bills.push({ id: b.id, title: b.doc.title, date: billDate(b.doc), left, part: line.paidSoFar > 0, ref: line.key });
       unpaidBills.add(b.id);
     }
   }
@@ -233,5 +251,13 @@ export function whoStillOwes(bills: { id: string; doc: SplitDoc; paid: string[];
   }
   people.sort((a, c) => a.look.name.localeCompare(c.look.name, ["th", "en"], { sensitivity: "base" }));
   const organiser = [...names.values()].sort((a, c) => c.n - a.n)[0]?.look ?? { name: "the organiser" };
-  return { organiser, currency, total: people.reduce((s, p) => s + p.total, 0), billCount: unpaidBills.size, people };
+  const newest = [...bills].filter((b) => b.doc.currency === currency).sort((a, c) => billDate(c.doc).getTime() - billDate(a.doc).getTime())[0];
+  return {
+    organiser,
+    currency,
+    total: people.reduce((s, p) => s + p.total, 0),
+    billCount: unpaidBills.size,
+    people,
+    payment: newest?.doc.payment,
+  };
 }

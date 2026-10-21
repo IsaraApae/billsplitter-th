@@ -28,12 +28,18 @@ export function SlipCard<T extends SlipResult>({
   currency,
   onAccepted,
   onPick,
+  onClose,
+  pickTitle = "Who are you?",
 }: {
   choices: SlipChoice[];
   endpoint: string;
-  field: "personId" | "personKey";
+  field: "personId" | "personKey" | "items";
   currency: string;
   onAccepted: (r: T) => void;
+  /** the sheet was closed (e.g. to reload after a slip was accepted) */
+  onClose?: () => void;
+  /** the question when there's more than one choice */
+  pickTitle?: string;
   /** who they said they are (to remember it on this phone) */
   onPick?: (ref: string) => void;
 }) {
@@ -66,8 +72,9 @@ export function SlipCard<T extends SlipResult>({
         onClose={() => {
           setOpen(false);
           setPicked(null);
+          onClose?.();
         }}
-        title={chosen ? "Upload your slip" : "Who are you?"}
+        title={chosen ? "Upload your slip" : pickTitle}
       >
         {chosen ? (
           <div className="space-y-4">
