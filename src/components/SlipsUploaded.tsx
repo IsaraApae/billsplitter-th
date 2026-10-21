@@ -3,7 +3,7 @@
 import { ReceiptText, ShieldCheck } from "lucide-react";
 import { photoSrc } from "@/lib/client/photo";
 import { parseTransferKey } from "@/lib/settle";
-import type { SplitDoc } from "@/lib/types";
+import type { Person, SplitDoc } from "@/lib/types";
 import type { SlipInfo } from "./Payments";
 import { Avatar, ICON, Money, Section } from "./ui";
 
@@ -16,24 +16,37 @@ export function SlipTag() {
   );
 }
 
+export interface SlipRow {
+  s: SlipInfo;
+  /** who sent it */
+  person: Pick<Person, "name" | "emoji" | "color">;
+  /** which bill it was for (on a big bill) */
+  bill?: string;
+}
+
+/** The person id a slip was recorded under (a person id, or the sender of a transfer). */
+export const slipPersonId = (key: string) => parseTransferKey(key)?.from ?? key;
+
+/** One bill's slips as rows, with who sent each. */
+export function slipRows(slips: Record<string, SlipInfo[]>, doc: SplitDoc, bill?: string): SlipRow[] {
+  return Object.entries(slips).flatMap(([key, list]) => {
+    const person = doc.people.find((p) => p.id === slipPersonId(key)) ?? { name: "Someone" };
+    return list.map((s) => ({ s, person, bill }));
+  });
+}
+
 /**
- * Every slip uploaded for this bill, newest first, each with who sent it
- * (their avatar and name in the bill) and the name printed on the slip, so
- * they're easy to tell apart. Organiser only: slips show bank names.
+ * Every slip uploaded, newest first, each with who sent it (their avatar and
+ * name), the bill it was for on a big bill, and the name printed on the slip,
+ * so they're easy to tell apart. Organiser only: slips show bank names.
  */
-export function SlipsUploaded({ slips, doc }: { slips: Record<string, SlipInfo[]>; doc: SplitDoc }) {
-  const rows = Object.entries(slips)
-    .flatMap(([key, list]) => {
-      const personId = parseTransferKey(key)?.from ?? key;
-      const person = doc.people.find((p) => p.id === personId) ?? { name: "Someone" };
-      return list.map((s) => ({ s, person }));
-    })
-    .sort((a, b) => (b.s.at ?? "").localeCompare(a.s.at ?? ""));
+export function SlipsUploaded({ rows: unsorted, currency }: { rows: SlipRow[]; currency: string }) {
+  const rows = [...unsorted].sort((a, b) => (b.s.at ?? "").localeCompare(a.s.at ?? ""));
   if (rows.length === 0) return null;
   return (
     <Section title={`Slips uploaded · ${rows.length}`}>
       <ul className="card rows overflow-hidden">
-        {rows.map(({ s, person }, i) => (
+        {rows.map(({ s, person, bill }, i) => (
           <li key={i}>
             <a
               href={s.photo ? photoSrc(s.photo) : undefined}
@@ -46,8 +59,12 @@ export function SlipsUploaded({ slips, doc }: { slips: Record<string, SlipInfo[]
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{person.name}</span>
                 <span className="block text-[15px]">
-                  <Money value={s.amount} currency={doc.currency} className="font-semibold" />
-                  <span className="text-ink-2"> · {new Date(`${s.date}T12:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                  <Money value={s.amount} currency={currency} className="font-semibold" />
+                  <span className="text-ink-2">
+                    {" "}
+                    · {new Date(`${s.date}T12:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    {bill && <> · {bill}</>}
+                  </span>
                 </span>
                 <span className="flex items-center gap-1 truncate text-[13px] text-ink-2">
                   {s.receiver === "match" && <ShieldCheck size={14} {...ICON} className="shrink-0 text-accent" aria-hidden />}

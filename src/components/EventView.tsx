@@ -11,9 +11,10 @@ import { eventVersion } from "@/lib/shareVersion";
 import { byTitle, eventPeople, type EventBill, type EventMeta, type EventPerson, type EventPersonBill } from "@/lib/event";
 import { EventEditor } from "./EventEditor";
 import { PayQr, type PayQrSource } from "./PayQr";
-import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
+import { PaidMark, PaymentSheet, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
 import { SlipCard } from "./SlipCard";
+import { slipPersonId, SlipsUploaded, SlipTag, type SlipRow } from "./SlipsUploaded";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { Avatar, Callout, ICON, Money, Section, Sheet, cx } from "./ui";
 
@@ -64,6 +65,35 @@ export function EventView({
   const billPerson = askBill ? people.find((p) => p.key === askBill.key) : undefined;
   const billLine = billPerson?.bills.find((b) => b.splitId === askBill?.splitId);
   const payPerson = people.find((p) => p.key === payFor);
+
+  // Slips friends uploaded, per bill (organiser only: they show bank names).
+  // Bumped after a slip is accepted, to load them again.
+  const [slipsVersion, setSlipsVersion] = useState(0);
+  const [slipsByBill, setSlipsByBill] = useState<Record<string, Record<string, SlipInfo[]>>>({});
+  useEffect(() => {
+    if (!editToken) return;
+    let cancelled = false;
+    Promise.all(
+      initialBills.map(async (b) => {
+        const token = getEditToken(b.id);
+        if (!token) return [b.id, {}] as const;
+        const r = await fetch(`/api/splits/${b.id}/slips`, { cache: "no-store", headers: { "x-edit-token": token } }).catch(() => null);
+        const d = r?.ok ? ((await r.json()) as { slips: Record<string, SlipInfo[]> }) : { slips: {} };
+        return [b.id, d.slips] as const;
+      }),
+    ).then((all) => !cancelled && setSlipsByBill(Object.fromEntries(all)));
+    return () => {
+      cancelled = true;
+    };
+  }, [editToken, initialBills, slipsVersion]);
+  // Each slip with who sent it (the big bill's person) and which bill it was for.
+  const slipList: (SlipRow & { personKey?: string })[] = bills.flatMap((b) =>
+    Object.entries(slipsByBill[b.id] ?? {}).flatMap(([key, list]) => {
+      const who = people.find((p) => p.bills.some((pb) => pb.splitId === b.id && pb.personId === slipPersonId(key)));
+      return list.map((s) => ({ s, person: who ?? { name: "Someone" }, bill: b.doc.title, personKey: who?.key }));
+    }),
+  );
+  const sentSlip = new Set(slipList.map((r) => r.personKey));
 
   // A friend opening this big bill: remember it for "What I owe" on this phone.
   useEffect(() => {
@@ -214,7 +244,10 @@ export function EventView({
         field="personKey"
         currency={currency}
         onPick={pickMe}
-        onAccepted={(r) => setBills(r.bills)}
+        onAccepted={(r) => {
+          setBills(r.bills);
+          setSlipsVersion((v) => v + 1);
+        }}
       />
 
       <Section title="Who owes what">
@@ -232,6 +265,7 @@ export function EventView({
                 pickMe(p.key);
                 setPayFor(p.key);
               }}
+              slip={canEdit && sentSlip.has(p.key)}
             />
           ))}
         </ul>
@@ -242,6 +276,8 @@ export function EventView({
             : "Each person pays their total for all the bills at once."}
         </p>
       </Section>
+
+      {canEdit && <SlipsUploaded rows={slipList} currency={currency} />}
 
       <Section title={`Bills · ${bills.length}`}>
         <ul className="card rows overflow-hidden">
@@ -314,7 +350,10 @@ export function EventView({
               field="personKey"
               personRef={payPerson.key}
               currency={currency}
-              onAccepted={(r) => setBills(r.bills)}
+              onAccepted={(r) => {
+          setBills(r.bills);
+          setSlipsVersion((v) => v + 1);
+        }}
             />
           </div>
         )}
@@ -343,6 +382,7 @@ function PersonRow({
   onAsk,
   onAskBill,
   onPay,
+  slip = false,
 }: {
   person: EventPerson;
   currency: string;
@@ -352,6 +392,8 @@ function PersonRow({
   /** tick this person on one bill (organiser only) */
   onAskBill?: (b: EventPersonBill) => void;
   onPay?: () => void;
+  /** they uploaded a slip (organiser only) */
+  slip?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const left = Math.max(0, p.total - p.paidSoFar);
@@ -403,6 +445,7 @@ function PersonRow({
               ) : (
                 "Unpaid"
               )}
+              {slip && <SlipTag />}
             </span>
           </span>
           {p.total < 0 ? (
