@@ -64,7 +64,10 @@ export function WhatIOwe() {
         <div className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-accent-soft text-accent">
           <ReceiptText size={28} {...ICON} aria-hidden />
         </div>
-        <p className="text-ink-2">Bills friends share with you show up here once you open their links on this phone.</p>
+        <p className="text-ink-2">Bills friends send you show up here once you open their links on this phone.</p>
+        <p className="mt-2 text-[13px] text-ink-2">
+          Opened it in LINE? LINE&apos;s browser and Safari keep separate lists, so open this page in the same one.
+        </p>
       </div>
     );
   }
