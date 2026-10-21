@@ -35,14 +35,15 @@ More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots). The l
 - **One link per bill**, with a link preview (date, title, the total on a paper receipt, the people) that refreshes when the bill is edited. Tap a person to see what they had.
 - **PromptPay:** upload your bank's QR, or generate one from your PromptPay number with each person's exact amount. Bank details copy as just the account number.
 - **Big tick / small tick:** the organiser marks people paid in full, paid part (with the amount; "left to pay" shows what's still owed), or not paid; friends see the same ticks. The organiser is never counted as unpaid.
-- **Transfer slips:** "I've paid — upload slip" on the bill page (pick your name) or in the Pay sheet; the slip is read with Gemini and checked (a transfer slip, dated on or after the bill, never used before; the receiver is matched by PromptPay number when the slip shows it) and they're ticked automatically, with a progress bar. The organiser can look over every slip.
+- **Transfer slips:** "I've paid — upload slip" on the bill page (pick your name), in the Pay sheet or in "What I owe" (several slips at once, with a preview of each); the slip is read with Gemini and checked (a transfer slip, dated on or after the bill, never used before; the receiver is matched by PromptPay number when the slip shows it) and they're ticked automatically, with a progress bar. The organiser can look over every slip.
 - **Big bills:** combine several bills from one outing (Food 1, Karaoke, Food 2) into one page with one total and one payment per friend, named after its bills ("Food 1 & Karaoke") unless you give it a title. Payments are spread over the bills; single bills can still be ticked on their own.
 - **Receipt photo** on the shared page (zoomable).
 
 **History and the phone**
 - **History**, newest bill date first, with big bills holding their bills; tap a person to see their splits and what they owe you (or you owe them). Tap yourself to see what you spent.
 - **Owed to you:** every friend who still owes you, with their total and unpaid bills (from History, on top of the History page).
-- **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills with them in it, also ones whose link they never got. They pick their name once; picking themselves to pay or upload a slip also tells the app.
+- **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills with them in it, also ones whose link they never got. **Pay** shows one QR for everything owed to that person, and one slip pays all those bills, oldest first. They pick their name once; picking themselves to pay or upload a slip also tells the app.
+- **Who still owes (shareable list):** one link (`/o/…`, with its own preview card) showing everyone who still owes you, A–Z, with all their unpaid bills. Copy or share it from "Owed to you".
 - **Friends** page: tap a friend to see their splits. Renaming a friend (or yourself) updates every bill you've shared, old ones too (friends typed into older bills are found by name).
 - **Backup and restore** (Me page) to move splits, friends and edit rights to a new phone.
 

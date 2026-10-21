@@ -40,6 +40,8 @@ export interface ImageJsonRequest {
   /** ~15 s per call and ~55 s overall by default */
   attemptMs?: number;
   totalMs?: number;
+  /** models started straight away (default START_WITH) */
+  startWith?: number;
 }
 
 export type ImageJsonResult =
@@ -224,6 +226,6 @@ export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonRes
         launch(); // failed: ask the next model now
       });
     };
-    for (let i = 0; i < START_WITH; i++) launch();
+    for (let i = 0; i < Math.min(req.startWith ?? START_WITH, MAX_PARALLEL); i++) launch();
   });
 }
