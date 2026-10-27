@@ -64,6 +64,26 @@ describe("readImageJson with fastFirst", () => {
     expect(started).toHaveLength(2); // no extra model started for the rejected answer
   });
 
+  it("takes a bigger model's answer even when it fails the check (e.g. a part payment)", async () => {
+    fakeGemini({
+      "gemini-3.8-flash": { ms: 80, text: "part" },
+      "gemini-3.5-flash-lite": { ms: 20, text: "lite-part" },
+    });
+    const r = await readImageJson(req((t) => t === "good"));
+    expect(r).toMatchObject({ ok: true, text: "part", model: "gemini-3.8-flash" });
+  });
+
+  it("after a rejected quick answer, still replaces a busy model with the next one", async () => {
+    const started = fakeGemini({
+      "gemini-3.8-flash": { ms: 40, status: 503 },
+      "gemini-3.5-flash-lite": { ms: 20, text: "bad" },
+      "gemini-3.7-flash": { ms: 40, text: "good" },
+    });
+    const r = await readImageJson(req((t) => t === "good"));
+    expect(started.slice(0, 3)).toEqual(["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash"]);
+    expect(r).toMatchObject({ ok: true, text: "good", model: "gemini-3.7-flash" });
+  });
+
   it("falls back to the rejected answer when nothing better comes", async () => {
     fakeGemini({
       "gemini-3.8-flash": { ms: 80, status: 503 },

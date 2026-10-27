@@ -1,7 +1,7 @@
 import "server-only";
 import { calculate, ORGANISER_ID, type CalcResult } from "../calc";
 import { findTransfer, payerPromptPay, settlesDirectly } from "../settle";
-import type { SlipRead } from "../slip";
+import { slipMatches, type SlipCheck, type SlipRead } from "../slip";
 import type { SplitDoc } from "../types";
 import { deleteImages, storeReceiptImage } from "./qrStore";
 import { readSlip, type SlipForm } from "./slipRead";
@@ -32,16 +32,19 @@ export function slipTarget(
  * Reads the slip and, at the same time, saves its picture (so the organiser
  * can look at it later) — the two together take about as long as the read.
  * `discard` removes the picture again when the slip isn't used.
+ * `expect` (the route's checkSlip options and what's still owed) lets a quick
+ * Flash-Lite read through when it passes those checks and shows exactly that amount.
  */
 export async function readAndKeep(
   form: Extract<SlipForm, { ok: true }>,
+  expect?: { check: SlipCheck; owed: number },
 ): Promise<({ ok: true; slip: SlipRead; photo: Promise<string> } | Fail) & { discard: () => void }> {
   const photo = storeReceiptImage(form.bytes, "slips").catch(() => "");
   const discard = () =>
     void photo.then(async (url) => {
       if (url) await deleteImages([url]).catch(() => {});
     });
-  const r = await readSlip(form.bytes, form.mime);
+  const r = await readSlip(form.bytes, form.mime, expect && ((slip) => slipMatches(slip, expect.check, expect.owed)));
   if (!r.ok) {
     discard();
     return { ...r, discard };

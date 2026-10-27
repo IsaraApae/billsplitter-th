@@ -31,13 +31,10 @@ export async function POST(req: Request, ctx: RouteContext<"/api/events/[id]/sli
     const theirBills = e.bills.filter((b) => person.bills.some((pb) => pb.splitId === b.id));
     const earliest = theirBills.map((b) => billDay(b.doc)).sort()[0];
     const newest = [...theirBills].sort((a, b) => b.doc.createdAt.localeCompare(a.doc.createdAt))[0];
-    const read = await readAndKeep(form);
+    const check = { billDay: earliest, currency: newest.doc.currency, organiser: { promptpay: newest.doc.payment.promptpay } };
+    const read = await readAndKeep(form, { check, owed: person.total - person.paidSoFar });
     if (!read.ok) return jsonError(read.status, read.code, read.message);
-    const verdict = checkSlip(read.slip, {
-      billDay: earliest,
-      currency: newest.doc.currency,
-      organiser: { promptpay: newest.doc.payment.promptpay },
-    });
+    const verdict = checkSlip(read.slip, check);
     if (!verdict.ok) {
       read.discard();
       return jsonError(422, "slip_rejected", verdict.reason);
