@@ -51,9 +51,10 @@ export async function POST(req: Request) {
       .sort((a, b) => a.day.localeCompare(b.day));
     if (bills.length === 0) return jsonError(409, "nothing_owed", "These bills are already paid.");
 
-    const read = await readAndKeep(form);
+    const check = { billDay: bills[0].day, currency: bills[0].doc.currency, organiser: bills[0].payee };
+    const read = await readAndKeep(form, { check, owed: bills.reduce((sum, b) => sum + b.left, 0) });
     if (!read.ok) return jsonError(read.status, read.code, read.message);
-    const verdict = checkSlip(read.slip, { billDay: bills[0].day, currency: bills[0].doc.currency, organiser: bills[0].payee });
+    const verdict = checkSlip(read.slip, check);
     if (!verdict.ok) {
       read.discard();
       return jsonError(422, "slip_rejected", verdict.reason);

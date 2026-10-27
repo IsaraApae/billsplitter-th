@@ -73,8 +73,12 @@ export async function readSlipForm(req: Request, field: string, maxRef = 100): P
 
 export type SlipReadResult = { ok: true; slip: SlipRead } | { ok: false; status: number; code: string; message: string };
 
-/** Reads a slip picture with Gemini (three models race: slips are short and often waited on). */
-export async function readSlip(bytes: Buffer, mime: string): Promise<SlipReadResult> {
+/**
+ * Reads a slip picture with Gemini (three models race: slips are short and
+ * often waited on). With `accept`, Flash-Lite joins the first three and its
+ * answer is used straight away only if `accept` passes it.
+ */
+export async function readSlip(bytes: Buffer, mime: string, accept?: (slip: SlipRead) => boolean): Promise<SlipReadResult> {
   const r = await readImageJson({
     evt: "slip",
     prompt: PROMPT,
@@ -85,6 +89,16 @@ export async function readSlip(bytes: Buffer, mime: string): Promise<SlipReadRes
     totalMs: 45_000,
     attemptMs: 12_000,
     startWith: 3,
+    fastFirst: !!accept,
+    accept:
+      accept &&
+      ((text) => {
+        try {
+          return accept(sanitizeSlip(extractJson(text)));
+        } catch {
+          return false;
+        }
+      }),
   });
   if (!r.ok) {
     if (r.reason === "not_configured") {

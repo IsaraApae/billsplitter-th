@@ -32,9 +32,10 @@ export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/sli
     if (state.paid.includes(ref)) return jsonError(409, "already_paid", "You're already marked as paid.");
     if (target.owed <= 0) return jsonError(409, "nothing_owed", "You don't owe anything on this split.");
 
-    const read = await readAndKeep(form);
+    const check = { billDay: billDay(s.doc), currency: s.doc.currency, organiser: target.payee };
+    const read = await readAndKeep(form, { check, owed: target.owed - (state.partial[ref] ?? 0) });
     if (!read.ok) return jsonError(read.status, read.code, read.message);
-    const verdict = checkSlip(read.slip, { billDay: billDay(s.doc), currency: s.doc.currency, organiser: target.payee });
+    const verdict = checkSlip(read.slip, check);
     if (!verdict.ok) {
       read.discard();
       return jsonError(422, "slip_rejected", verdict.reason);

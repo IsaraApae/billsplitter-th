@@ -45,8 +45,9 @@ export interface ImageJsonRequest {
   /** start the fastest (Flash-Lite) model alongside the best one, instead of the second best */
   fastFirst?: boolean;
   /**
-   * Sanity check on an answer. A rejected answer is kept as a fallback while
-   * the models already running finish; no new ones are started for it.
+   * Sanity check on the answer of the Flash-Lite model that fastFirst moved
+   * up (bigger models' answers are taken as they are). A rejected answer is
+   * kept as a fallback while the other models answer.
    */
   accept?: (text: string) => boolean;
 }
@@ -184,8 +185,9 @@ const MAX_PARALLEL = 3;
  * Asks the model chain to read one image, racing for speed: the two best
  * models start together (or the best plus Flash-Lite, with fastFirst); when one fails (busy, out of quota, timed out)
  * the next starts at once, and if they're merely slow another starts after
- * HEDGE_MS. The first good answer wins and the others are cancelled; one
- * that fails `accept` only wins if nothing better arrives. A 400
+ * HEDGE_MS. The first good answer wins and the others are cancelled, except
+ * that a fastFirst Flash-Lite answer failing `accept` only wins if no other
+ * model answers. A 400
  * (bad image) stops everything. Models that recently ran out of quota,
  * timed out or were busy go last.
  */
@@ -199,10 +201,13 @@ export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonRes
 
   const cooling = await getModelCooldowns(CHAIN);
   const order = [...CHAIN.filter((m) => !cooling.has(m)), ...CHAIN.filter((m) => cooling.has(m))];
+  // The Flash-Lite model moved up by fastFirst: its answers have to pass `accept`.
+  let quick: string | undefined;
   if (req.fastFirst) {
     // Flash-Lite usually answers in ~3 s, the bigger Flash models in 5–8 s.
     const lite = order.findIndex((m, i) => i > 0 && !cooling.has(m) && /flash-lite/.test(m));
     if (lite > 1) order.splice(1, 0, ...order.splice(lite, 1));
+    if (lite > 0) quick = order[1];
   }
   const stopAll = new AbortController();
 
@@ -223,7 +228,7 @@ export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonRes
     };
     const launch = () => {
       if (finished || running >= MAX_PARALLEL) return;
-      if (fallback || next >= order.length || left() < 4_000) {
+      if (next >= order.length || left() < 4_000) {
         if (running === 0) finish(fail());
         return;
       }
@@ -237,9 +242,11 @@ export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonRes
         attempts.push(r.attempt);
         if (r.cooldownSec) void setModelCooldown(m, r.cooldownSec);
         if (r.attempt.outcome === "ok" && r.text !== undefined) {
-          if (!req.accept || req.accept(r.text)) return finish({ ok: true, text: r.text, model: m, attempts });
-          log(req.evt, { model: m, note: "answer failed the sanity check; waiting for the other models" });
-          fallback ??= { text: r.text, model: m };
+          if (m !== quick || !req.accept || req.accept(r.text)) return finish({ ok: true, text: r.text, model: m, attempts });
+          log(req.evt, { model: m, note: "quick answer failed the check; waiting for a bigger model" });
+          fallback = { text: r.text, model: m };
+          if (running === 0) launch(); // nothing else is asking: start the next model
+          return;
         }
         if (r.attempt.outcome === "api_error") return finish(fail());
         launch(); // failed: ask the next model now

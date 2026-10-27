@@ -74,3 +74,15 @@ export function checkSlip(
   const receiver = receiverCheck(slip, opts.organiser);
   return { ok: true, amount, reference: normaliseReference(slip.reference), receiver };
 }
+
+export type SlipCheck = Parameters<typeof checkSlip>[1];
+
+/**
+ * A quick (Flash-Lite) read worth trusting without waiting for a bigger
+ * model: it passes checkSlip and shows exactly what's still owed (minor
+ * units). Anything else — a part payment, a misread digit — waits.
+ */
+export function slipMatches(slip: SlipRead, check: SlipCheck, owed: number): boolean {
+  const v = checkSlip(slip, check);
+  return v.ok && v.amount === owed;
+}
