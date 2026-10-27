@@ -103,9 +103,10 @@ export function ItemsStep({
     if (receipt) URL.revokeObjectURL(receipt.url);
     const url = URL.createObjectURL(upload);
     setReceipt({ url, upload, info: null, docKey: doc.createdAt });
-    // Keep a copy for the shared page (in the background; scanning doesn't wait).
-    void uploadReceiptPhoto(upload).then((photo) => photo && setDoc((d) => ({ ...d, photo })));
     await runScan(upload, url);
+    // Then keep a copy for the shared page, in the background. Not during the
+    // scan: on mobile data the two uploads would share the connection.
+    void uploadReceiptPhoto(upload).then((photo) => photo && setDoc((d) => ({ ...d, photo })));
   }
 
   /** Sends the prepared photo to /api/scan (also used by "Try again"). */
