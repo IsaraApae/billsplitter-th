@@ -1,3 +1,4 @@
+import { scanAddsUp } from "@/lib/draft";
 import { extractJson, sanitizeScan, type ScanAttempt } from "@/lib/scanResult";
 import { readImageJson } from "@/lib/server/gemini";
 import { jsonError } from "@/lib/server/http";
@@ -146,6 +147,15 @@ export async function POST(req: Request) {
     mime: file.type,
     data,
     totalMs: TOTAL_MS - (Date.now() - started),
+    // Flash-Lite races the best model; its answer is taken only if the numbers add up.
+    fastFirst: true,
+    accept: (text) => {
+      try {
+        return scanAddsUp(sanitizeScan(extractJson(text)));
+      } catch {
+        return false;
+      }
+    },
   });
   const { attempts } = r;
   const tried = attempts.map((a) => `${a.model}:${a.status || a.outcome}`);

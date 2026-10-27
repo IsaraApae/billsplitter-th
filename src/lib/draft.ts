@@ -95,6 +95,17 @@ export function totalMismatch(calculatedTotal: number, printedTotal: number | nu
   return Math.abs(gap) > 10 ** currencyExponent(currency) ? gap : null;
 }
 
+/**
+ * A scan worth accepting without waiting for a second opinion: it found items
+ * and, applied to a new split, they come to the printed total (the same check
+ * that shows the "doesn't match the receipt" warning). True when no total is printed.
+ */
+export function scanAddsUp(scan: ScanResult): boolean {
+  if (!scan.items.length) return false;
+  const { doc } = applyScan({ ...newDoc(), people: [{ id: "me", name: "Me" }] }, scan);
+  return totalMismatch(calculate(doc).total, doc.receipt.total, doc.currency) === null;
+}
+
 /** Nearest sensible percentage (bp) for a printed amount over a base. */
 function inferRateBp(amount: number, base: number): number | null {
   if (base <= 0 || amount <= 0) return null;

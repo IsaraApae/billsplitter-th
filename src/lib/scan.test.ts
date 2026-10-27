@@ -6,7 +6,7 @@ import { receiptDate, sanitizeScan, summariseFailure, type ScanAttempt } from ".
 import { promptPayPayload } from "./promptpay";
 import { cleanScannedItems, isSummaryLine } from "./scanFilter";
 import { calculate } from "./calc";
-import { applyScan, newDoc, totalMismatch } from "./draft";
+import { applyScan, newDoc, scanAddsUp, totalMismatch } from "./draft";
 
 /** Independent CRC-16/CCITT-FALSE reference to check the library's output. */
 function crc16(data: string): string {
@@ -221,6 +221,17 @@ describe("applyScan + totalMismatch", () => {
     expect(totalMismatch(100, null, "THB")).toBeNull();
     expect(totalMismatch(1002, 1000, "JPY")).toBe(2);
   });
+});
+
+describe("scanAddsUp (accepting a quick scan)", () => {
+  const scan = (total: number | null, items = [{ name: "Pad Thai", qty: 1, price: 100 }, { name: "Tea", qty: 2, price: 100 }]) => ({
+    // 200 + 10% service + 7% VAT = 235.40
+    items, subtotal: 200, serviceCharge: 20, vat: 15.4, vatIncluded: false, discount: null, total, currency: "THB",
+  });
+  it("accepts items that add up to the printed total with service and VAT", () => expect(scanAddsUp(scan(235.4))).toBe(true));
+  it("rejects a total the items don't reach", () => expect(scanAddsUp(scan(335.4))).toBe(false));
+  it("accepts when no total is printed", () => expect(scanAddsUp(scan(null))).toBe(true));
+  it("rejects a scan with no items", () => expect(scanAddsUp(scan(0, []))).toBe(false));
 });
 
 describe("receipt date", () => {
