@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkSlip, receiverCheck, sanitizeSlip, type SlipRead } from "./slip";
+import { checkSlip, receiverCheck, sanitizeSlip, slipMatches, type SlipRead } from "./slip";
 
 const now = new Date(2026, 9, 6, 20);
 const slip = (over: Partial<SlipRead> = {}): SlipRead => ({
@@ -25,6 +25,19 @@ describe("slip reading", () => {
     expect(receiverCheck(slip({ receiverAccount: "xxx-xxx-5678" }), { promptpay: "0812345678" })).toBe("match");
     expect(receiverCheck(slip({ receiverAccount: "xxx-xxx-9999" }), { promptpay: "0812345678" })).toBe("unknown");
     expect(receiverCheck(slip(), {})).toBe("unknown");
+  });
+});
+
+describe("slipMatches (trusting a quick read)", () => {
+  it("passes a good slip for exactly what's owed", () => expect(slipMatches(slip(), opts, 22000)).toBe(true));
+  it("waits on a part payment or a misread digit", () => {
+    expect(slipMatches(slip({ amount: 100 }), opts, 22000)).toBe(false);
+    expect(slipMatches(slip({ amount: 2200 }), opts, 22000)).toBe(false);
+  });
+  it("waits on a slip that fails the usual checks, even with the right amount", () => {
+    expect(slipMatches(slip({ isSlip: false }), opts, 22000)).toBe(false);
+    expect(slipMatches(slip({ date: "2026-10-01" }), opts, 22000)).toBe(false); // before the bill
+    expect(slipMatches(slip({ reference: null }), opts, 22000)).toBe(false);
   });
 });
 
