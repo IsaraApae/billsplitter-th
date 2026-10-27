@@ -22,7 +22,8 @@ interface Card {
   title: string;
   total: number;
   currency: string;
-  people: { name: string; color?: PersonColor }[];
+  /** `organiser`: the person sharing it, whose name is only added when there's room */
+  people: { name: string; color?: PersonColor; organiser?: boolean }[];
   /** e.g. "3 people · split by item" */
   detail: string;
   /** the receipt's heading (default "TOTAL") */
@@ -123,7 +124,10 @@ export async function shareImage(card: Card | null) {
                 <Avatars people={card?.people ?? []} />
                 {card && card.people.length > 0 && (
                   <div style={{ maxWidth: paper - 72, fontSize: 28, fontWeight: 700, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-                    {nameLine(card.people.map((p) => p.name))}
+                    {nameLine(
+                      card.people.filter((p) => !p.organiser).map((p) => p.name),
+                      card.people.find((p) => p.organiser)?.name,
+                    )}
                   </div>
                 )}
                 {card && <div style={{ fontSize: 26, color: INK_2, marginTop: -6 }}>{card.detail}</div>}
@@ -169,9 +173,12 @@ export async function shareImage(card: Card | null) {
 /**
  * The people's names for the receipt: "Boss, Mint, Ploy", or "Boss, Mint +3"
  * when they don't fit in about `max` characters (one line on the receipt).
+ * The organiser's name goes last and only if it still fits; it's never the
+ * one that pushes a friend's name off.
  */
-export function nameLine(names: string[], max = 24): string {
+export function nameLine(names: string[], organiser?: string, max = 24): string {
   const all = names.map((n) => n.trim()).filter(Boolean);
+  const me = organiser?.trim();
   const len = (s: string) => [...s].length;
   let line = "";
   for (let i = 0; i < all.length; i++) {
@@ -180,6 +187,7 @@ export function nameLine(names: string[], max = 24): string {
     if (line && len(next) + (after > 0 ? ` +${after}`.length : 0) > max) return `${line} +${all.length - i}`;
     line = next;
   }
+  if (me && (!line || len(`${line}, ${me}`) <= max)) return line ? `${line}, ${me}` : me;
   return line;
 }
 

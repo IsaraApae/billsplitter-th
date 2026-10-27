@@ -1,4 +1,4 @@
-import { calculate } from "@/lib/calc";
+import { calculate, ORGANISER_ID } from "@/lib/calc";
 import { billDate } from "@/lib/draft";
 import { shareImage } from "@/lib/server/shareImage";
 import { loadSplit } from "@/lib/server/splits";
@@ -13,7 +13,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/og/s/[id]">) {
         title: s.doc.title,
         total: calculate(s.doc).total,
         currency: s.doc.currency,
-        people: s.doc.people,
+        people: s.doc.people.map((p) => ({ ...p, organiser: p.id === ORGANISER_ID })),
         detail: `${s.doc.people.length} ${s.doc.people.length === 1 ? "person" : "people"} · ${s.doc.mode === "equal" ? "split equally" : "split by item"}`,
       })
     : await shareImage(null);
