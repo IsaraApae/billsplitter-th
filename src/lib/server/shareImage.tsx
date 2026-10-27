@@ -121,7 +121,12 @@ export async function shareImage(card: Card | null) {
               {dashes}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
                 <Avatars people={card?.people ?? []} />
-                {card && <div style={{ fontSize: 26, color: INK_2 }}>{card.detail}</div>}
+                {card && card.people.length > 0 && (
+                  <div style={{ maxWidth: paper - 72, fontSize: 28, fontWeight: 700, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                    {nameLine(card.people.map((p) => p.name))}
+                  </div>
+                )}
+                {card && <div style={{ fontSize: 26, color: INK_2, marginTop: -6 }}>{card.detail}</div>}
               </div>
             </div>
             <div
@@ -159,6 +164,23 @@ export async function shareImage(card: Card | null) {
       ],
     },
   );
+}
+
+/**
+ * The people's names for the receipt: "Boss, Mint, Ploy", or "Boss, Mint +3"
+ * when they don't fit in about `max` characters (one line on the receipt).
+ */
+export function nameLine(names: string[], max = 24): string {
+  const all = names.map((n) => n.trim()).filter(Boolean);
+  const len = (s: string) => [...s].length;
+  let line = "";
+  for (let i = 0; i < all.length; i++) {
+    const next = line ? `${line}, ${all[i]}` : all[i];
+    const after = all.length - i - 1;
+    if (line && len(next) + (after > 0 ? ` +${after}`.length : 0) > max) return `${line} +${all.length - i}`;
+    line = next;
+  }
+  return line;
 }
 
 /** Up to 6 overlapping initials, then "+N". */
