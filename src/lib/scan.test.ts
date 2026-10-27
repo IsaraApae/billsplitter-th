@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isValidPromptPayId } from "./promptpay";
 import { addFriend, findByName, lastSplitDates, markUsed, sameAsLastTime, sortFriends, toPeople, type Friend } from "./friends";
 import { readJpegInfo, swapsAxes } from "./jpeg";
-import { receiptDate, sanitizeScan, summariseFailure, type ScanAttempt } from "./scanResult";
+import { brandName, receiptDate, sanitizeScan, summariseFailure, type ScanAttempt } from "./scanResult";
 import { promptPayPayload } from "./promptpay";
 import { cleanScannedItems, isSummaryLine } from "./scanFilter";
 import { calculate } from "./calc";
@@ -281,9 +281,30 @@ describe("receipt merchant name", () => {
   });
 
   it("is cleaned up by sanitizeScan", () => {
-    expect(sanitizeScan({ items: [], merchant: "  Yoshinoya \n Chamchuree  " }).merchant).toBe("Yoshinoya Chamchuree");
+    expect(sanitizeScan({ items: [], merchant: "  Yoshinoya \n Chamchuree  Square " }).merchant).toBe("Yoshinoya");
     expect(sanitizeScan({ items: [], merchant: "" }).merchant).toBeNull();
   });
+});
+
+describe("brandName drops the branch", () => {
+  it.each([
+    ["Naklaa Mookata MBK Center", "Naklaa Mookata"],
+    ["SWENSEN'S-MBK", "SWENSEN'S"],
+    ["After You - Siam Paragon", "After You"],
+    ["Bonchon Terminal 21", "Bonchon"],
+    ["Starbucks (EmQuartier)", "Starbucks"],
+    ["ร้านเจ๊ไฝ สาขาสยาม", "ร้านเจ๊ไฝ"],
+    ["MK Restaurants Branch Ladprao", "MK Restaurants"],
+  ])("%s → %s", (raw, brand) => expect(brandName(raw)).toBe(brand));
+
+  it.each([
+    "Mo-Mo-Paradise", // hyphens inside the brand
+    "Bar B Q Plaza", // "Plaza" is part of the brand
+    "Café 99",
+    "Siam Steak", // a place word that IS the brand stays
+    "Central", // never empties the name
+    "Baan Mai",
+  ])("keeps %s", (name) => expect(brandName(name)).toBe(name));
 });
 
 describe("printed service charge, VAT and rounding", () => {

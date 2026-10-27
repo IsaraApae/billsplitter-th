@@ -75,6 +75,36 @@ export function receiptDate(v: unknown, now = new Date()): string | null {
   return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+// Malls, areas and words that name a branch rather than the brand.
+// ponytail: fixed list for Bangkok, add places here when a branch slips through.
+const PLACES = new Set(
+  ("mbk center centre mall square tower siam paragon central centralworld embassy emquartier emporium emsphere " +
+    "iconsiam terminal terminal21 samyan mitrtown chamchuree chamchuri silom sukhumvit asok asoke thonglor " +
+    "ekkamai ari ladprao bangna mega chidlom ratchada rama seacon fashion island megabangna " +
+    "airport suvarnabhumi donmueang onenimman nimman chiangmai phuket pattaya hatyai")
+    .split(" "),
+);
+const isPlace = (w: string) => PLACES.has(w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ""));
+
+/** The brand part of a shop name: "Naklaa Mookata MBK Center" → "Naklaa Mookata", "SWENSEN'S-MBK" → "SWENSEN'S". */
+export function brandName(name: string): string {
+  // "… สาขาสยาม" / "… Branch Siam" / "… Br. 12"
+  let s = name.replace(/\s*(สาขา|\bbranch\b|\bbr\.).*$/iu, "").trim();
+  // A trailing "-MBK" / " - Siam Paragon" / " (Siam Paragon)" made only of place words.
+  s = s.replace(/\s*[-–|@(]\s*([^-–|@(]+?)\)?\s*$/u, (seg, tail: string) =>
+    tail.split(/\s+/).every((w) => isPlace(w) || /^\d+$/.test(w)) ? "" : seg,
+  );
+  // Trailing place words with no separator: "Naklaa Mookata MBK Center", "Bonchon Terminal 21".
+  const words = s.split(" ");
+  while (words.length > 1) {
+    const last = words[words.length - 1];
+    const prev = words[words.length - 2];
+    if (isPlace(last) || (/^\d+$/.test(last) && isPlace(prev) && words.length > 2)) words.pop();
+    else break;
+  }
+  return words.join(" ").trim() || name;
+}
+
 export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const rawItems = Array.isArray(o.items) ? o.items : [];
@@ -105,7 +135,7 @@ export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
       const r = num(o.rounding, true);
       return r !== null && r !== 0 && Math.abs(r) < 100 ? r : null;
     })(),
-    merchant: typeof o.merchant === "string" && o.merchant.trim() ? o.merchant.replace(/\s+/g, " ").trim().slice(0, 60) : null,
+    merchant: typeof o.merchant === "string" && o.merchant.trim() ? brandName(o.merchant.replace(/\s+/g, " ").trim()).slice(0, 60) : null,
   };
 }
 

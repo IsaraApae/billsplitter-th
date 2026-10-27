@@ -35,7 +35,7 @@ FIELDS (plain numbers: no currency symbols, no thousands separators; null when n
 - rounding: a rounding adjustment line if printed ("Rounding", "Round adj.", "ปัดเศษ"), signed (e.g. -0.45 or 0.55); null if none.
 - total: the final amount paid.
 - currency: ISO 4217 code from symbols or context (฿ / บาท / Thai receipt → THB). Default to THB for Thai receipts.
-- merchant: the shop or restaurant name printed at the top (brand plus branch if shown, e.g. "Yoshinoya Chamchuree Square"), as printed, Thai or English; not the company's legal name (CO.,LTD / บริษัท) unless that's all there is. null if none.
+- merchant: the shop or restaurant's BRAND name printed at the top, as printed, Thai or English. Leave out the branch, mall, area or location ("Naklaa Mookata MBK Center" → "Naklaa Mookata", "SWENSEN'S-MBK" → "SWENSEN'S", "Yoshinoya Chamchuree Square" → "Yoshinoya", "ร้านเจ๊ไฝ สาขาสยาม" → "ร้านเจ๊ไฝ"). Not the company's legal name (CO.,LTD / บริษัท) unless that's all there is. null if none.
 - date: the date printed on the receipt as YYYY-MM-DD (Gregorian). Thai receipts often print the Buddhist year (พ.ศ.): 2569 or "69" means 2026 — convert it. Thai receipts put the day before the month (05/10/26 = 5 October). null if no date is printed.
 If the photo is not a receipt, return an empty items array.`;
 
