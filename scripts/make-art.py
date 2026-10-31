@@ -561,17 +561,55 @@ def scene(name):
 
 
 def cloud_sky(w=1200, h=630):
-    """The share card's background: a pale sky full of soft white clouds."""
-    rng = np.random.default_rng(23)
-    y = np.linspace(0, 1, h)[:, None, None]
-    grad = np.broadcast_to(rgb("#74BCF0") + (rgb("#CDEBF8") - rgb("#74BCF0")) * y, (h, w, 3)).copy()
-    n = soft_noise(w, h, rng, stretch=2.6, beta=1.9)
-    density = smooth(0.44, 0.56, n)
-    above = np.vstack([n[:10], n[:-10]])
-    lit = np.clip((n - above) * 8 + 0.78, 0, 1)
-    color = rgb("#BCDDF3")[None, None] + (rgb("#FFFFFF") - rgb("#BCDDF3"))[None, None] * lit[..., None]
-    out = grad + (color - grad) * density[..., None]
-    return Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8))
+    """The share card's background: fluffy cumulus clouds, painted from hundreds of soft
+    shaded puffs, back to front, so they read like cauliflower rather than haze."""
+    rng = np.random.default_rng(29)
+    k = 2  # drawn big, then scaled down
+    W2, H2 = w * k, h * k
+    y = np.linspace(0, 1, H2)[:, None, None]
+    out = np.broadcast_to(rgb("#3C97EA") + (rgb("#AEDDF7") - rgb("#3C97EA")) * y, (H2, W2, 3)).copy()
+    white, shade_hi, shade_lo = rgb("#FFFFFF"), rgb("#E2EEF9"), rgb("#AFCBE8")
+    # (centre x, base y, half width, height)
+    clouds = [(900, 150, 330, 120), (70, 230, 300, 150), (1130, 420, 250, 170), (360, 380, 300, 165), (760, 560, 330, 150), (90, 590, 240, 120)]
+    for cx, base, half, tall in clouds:
+        cx, base, half, tall = cx * k, base * k, half * k, tall * k
+        puffs = []
+        # Stay inside the ends, where puffs would stack into rings; a body first, so no holes.
+        for t in np.linspace(-0.82, 0.82, 16):
+            dome = (1 - t * t) ** 0.6
+            for f in (0.25, 0.5, 0.72):
+                r = tall * 0.26
+                puffs.append((cx + t * half, base - r * 0.5 - f * dome * (tall - r), r, f))
+        for _ in range(170):
+            t = rng.uniform(-0.93, 0.93)
+            dome = max(0.0, 1 - t * t) ** 0.6
+            up = rng.uniform(0, 1) ** 0.75 * dome  # 0 at the base, 1 at the crown
+            r = tall * rng.uniform(0.1, 0.24) * (0.8 + 0.5 * (1 - up))
+            # Keep lumps near the outline: that's what makes the edge cauliflower.
+            puffs.append((cx + t * half, base - r * 0.5 - up * (tall - r), r, up))
+        for _ in range(170):  # small lumps riding on the crown
+            t = rng.uniform(-0.92, 0.92)
+            dome = max(0.0, 1 - t * t) ** 0.6
+            r = tall * rng.uniform(0.045, 0.1)
+            puffs.append((cx + t * half, base - dome * tall * rng.uniform(0.82, 1.03), r, 1.0))
+        puffs.sort(key=lambda q: q[1])  # higher puffs first, lower ones overlap them
+        for px, py, r, up in puffs:
+            x0, x1 = max(0, int(px - r)), min(W2, int(px + r) + 1)
+            y0, y1 = max(0, int(py - r)), min(H2, int(py + r) + 1)
+            if x0 >= x1 or y0 >= y1:
+                continue
+            ys, xs = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+            u, v = (xs - px) / r, (ys - py) / r
+            d = np.sqrt(u * u + v * v)
+            alpha = (1 - smooth(0.82, 1.0, d))[..., None]
+            # Each puff: bright where it faces the light, shaded low on the right.
+            lit = smooth(-0.15, 0.72, -(v * 0.82 + u * 0.32))[..., None]
+            low = np.clip((py - (base - tall)) / tall, 0, 1)
+            shadow = shade_hi + (shade_lo - shade_hi) * low**1.5
+            col = shadow[None, None] + (white - shadow)[None, None] * lit
+            out[y0:y1, x0:x1] = out[y0:y1, x0:x1] + (col - out[y0:y1, x0:x1]) * alpha
+    img = Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.1 * k))
+    return img.resize((w, h), Image.LANCZOS)
 
 
 def write_webp(img, path, q):
@@ -618,7 +656,7 @@ def main():
     os.makedirs(os.path.join(root, "public/meadow"), exist_ok=True)
     os.makedirs(os.path.join(root, "public/scene"), exist_ok=True)
     os.makedirs(os.path.join(root, "assets/og"), exist_ok=True)
-    cloud_sky().save(os.path.join(root, "assets/og/clouds.jpg"), quality=78, optimize=True)
+    cloud_sky().save(os.path.join(root, "assets/og/clouds.jpg"), quality=82, optimize=True)
     for name in SCENES:
         img = scene(name)
         write_webp(img, os.path.join(root, f"public/scene/{name}-1800.webp"), 62)
