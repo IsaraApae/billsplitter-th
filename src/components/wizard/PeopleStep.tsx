@@ -94,7 +94,7 @@ export function PeopleStep({
               {editing === p.id ? (
                 <input
                   autoFocus
-                  className="input h-11 min-h-11 w-44 rounded-full"
+                  className="input h-11 min-h-11 w-44 rounded-[var(--r)]"
                   aria-label={`Rename ${p.name}`}
                   value={p.name}
                   enterKeyHint="done"
@@ -103,7 +103,7 @@ export function PeopleStep({
                   onKeyDown={(e) => e.key === "Enter" && setEditing(null)}
                 />
               ) : (
-                <span className="glass-flat inline-flex h-11 items-center rounded-full pl-1.5">
+                <span className="raised-flat inline-flex h-11 items-center rounded-[var(--r)] pl-1.5">
                   <button
                     type="button"
                     className="flex h-full max-w-44 items-center gap-2 pr-1 font-semibold"
@@ -184,7 +184,7 @@ export function PeopleStep({
               <button
                 type="button"
                 className={cx(
-                  "press min-h-8 rounded-full px-3 text-[13px] font-semibold",
+                  "press min-h-8 rounded-[var(--r)] px-3 text-[13px] font-semibold",
                   onlyUnassigned ? "bg-ink text-[var(--bg)]" : "bg-warn-soft text-ink",
                 )}
                 aria-pressed={onlyUnassigned}

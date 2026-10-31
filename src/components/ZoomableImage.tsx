@@ -8,7 +8,7 @@ export function ZoomableImage({ src }: { src: string }) {
   const [scale, setScale] = useState(1);
   return (
     <div className="space-y-3">
-      <div className="max-h-[68dvh] overflow-auto rounded-[22px] bg-white [touch-action:pan-x_pan-y_pinch-zoom]">
+      <div className="max-h-[68dvh] overflow-auto rounded-[8px] bg-white [touch-action:pan-x_pan-y_pinch-zoom]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt="Receipt photo" style={{ width: `${scale * 100}%`, maxWidth: "none" }} className="block" />
       </div>

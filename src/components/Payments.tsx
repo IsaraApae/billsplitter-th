@@ -19,7 +19,7 @@ export function PaidMark({ status, busy, small }: { status: PaidStatus; busy?: b
       className={cx(
         "grid shrink-0 place-items-center rounded-full",
         small ? "size-5" : "size-8",
-        status === "full" && "bg-accent text-accent-ink",
+        status === "full" && "bg-accent-fill text-accent-ink",
         status === "part" && "bg-[var(--field)] text-accent",
         status === "none" && "bg-[var(--field)]",
         busy && "opacity-50",
@@ -189,9 +189,9 @@ function SlipList({ slips, currency }: { slips: SlipInfo[]; currency: string }) 
             >
               {s.photo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photoSrc(s.photo)} alt="Slip" className="size-12 shrink-0 rounded-[12px] bg-white object-cover" />
+                <img src={photoSrc(s.photo)} alt="Slip" className="size-12 shrink-0 rounded-[8px] bg-white object-cover" />
               ) : (
-                <span className="size-12 shrink-0 rounded-[12px] bg-[var(--field)]" />
+                <span className="size-12 shrink-0 rounded-[8px] bg-[var(--field)]" />
               )}
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold">

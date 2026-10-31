@@ -145,7 +145,7 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
                     aria-hidden
                     className={cx(
                       "grid size-7 shrink-0 place-items-center rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-accent",
-                      on ? "bg-accent text-accent-ink" : "bg-[var(--field)]",
+                      on ? "bg-accent-fill text-accent-ink" : "bg-[var(--field)]",
                     )}
                   >
                     {on && <Check size={16} {...ICON} />}

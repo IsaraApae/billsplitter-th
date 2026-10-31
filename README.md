@@ -2,25 +2,16 @@
 
 # Bill Splitter
 
-Split a restaurant bill with friends in Thailand: scan the receipt, tick who had what, share one link, and see who has paid. PromptPay QR codes, transfer-slip checking, "big bills" for a whole night out, and an iOS-style "Liquid Glass" look in light and dark.
+Split a restaurant bill with friends in Thailand: scan the receipt, tick who had what, share one link, and see who has paid. PromptPay QR codes, transfer-slip checking, "big bills" for a whole night out, and a surreal Y2K poster look (checkerboards, chess pieces, flowers) in day and night versions.
 
 **Live:** https://billsplitter-th.vercel.app
 
 <p>
-  <img src="docs/screenshots/1-items.jpg" alt="Items step" width="380">
-  <img src="docs/screenshots/9-shared.jpg" alt="Shared bill" width="380">
+  <img src="docs/screenshots/home.jpg" alt="Home, light and dark" width="380">
+  <img src="docs/screenshots/shared.jpg" alt="Shared bill, light and dark" width="380">
 </p>
 
-<p>
-  <img src="docs/screenshots/16-what-i-owe.jpg" alt="What I owe, on a friend's phone" width="380">
-  <img src="docs/screenshots/17-owed-to-you.jpg" alt="Owed to you" width="380">
-</p>
-<p>
-  <img src="docs/screenshots/18-who-still-owes.jpg" alt="Shareable list of who still owes" width="380">
-  <img src="docs/screenshots/19-choose-bills.jpg" alt="Pay: tick which bills to pay" width="380">
-</p>
-
-More screenshots (light | dark) in [`docs/screenshots`](docs/screenshots). The link preview friends see in chat:
+The link preview friends see in chat:
 
 <img src="docs/screenshots/share-preview.png" alt="Link preview card" width="600">
 

@@ -10,7 +10,7 @@ import { Avatar, ICON, Money, Section } from "./ui";
 /** " · Slip" after a person's status: they uploaded a slip (organiser only). */
 export function SlipTag() {
   return (
-    <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-accent-soft px-1.5 align-middle text-[12px] font-semibold text-accent-strong">
+    <span className="ml-1 inline-flex items-center gap-0.5 rounded-[var(--r)] bg-accent-soft px-1.5 align-middle text-[12px] font-semibold text-accent-strong">
       <ReceiptText size={12} {...ICON} aria-hidden /> Slip
     </span>
   );

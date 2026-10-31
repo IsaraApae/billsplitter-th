@@ -1,0 +1,1082 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-31T10:03:52Z",
+  "title": "Design System: Bill Splitter",
+  "extensions": {
+    "colorMeta": {
+      "brand-green": {
+        "role": "primary",
+        "displayName": "Brand Green",
+        "canonical": "#00b368",
+        "tonalRamp": [
+          "#001103",
+          "#002e16",
+          "#00502b",
+          "#007542",
+          "#009b5a",
+          "#2ac276",
+          "#5ce899",
+          "#c6ffd9"
+        ]
+      },
+      "on-green": {
+        "role": "primary",
+        "displayName": "Deep Forest On-Green",
+        "canonical": "#04261a",
+        "tonalRamp": [
+          "#001007",
+          "#0a2c20",
+          "#294a3c",
+          "#486a5b",
+          "#698b7c",
+          "#8baf9e",
+          "#aed3c2",
+          "#d3f9e7"
+        ]
+      },
+      "green-text": {
+        "role": "primary",
+        "displayName": "Text Green",
+        "canonical": "#007a50",
+        "tonalRamp": [
+          "#001006",
+          "#002e1b",
+          "#004f33",
+          "#00744c",
+          "#26986a",
+          "#52bd8c",
+          "#79e2af",
+          "#c4ffdf"
+        ]
+      },
+      "green-strong": {
+        "role": "primary",
+        "displayName": "Strong Green on Tint",
+        "canonical": "#006b47",
+        "tonalRamp": [
+          "#001006",
+          "#002e1b",
+          "#004f33",
+          "#12734e",
+          "#3f956f",
+          "#64b991",
+          "#89deb4",
+          "#c2ffdf"
+        ]
+      },
+      "green-soft": {
+        "role": "primary",
+        "displayName": "Soft Green",
+        "canonical": "rgb(0 179 104 / 0.14)",
+        "tonalRamp": [
+          "rgb(0 17 3 / 0.14)",
+          "rgb(0 46 22 / 0.14)",
+          "rgb(0 80 43 / 0.14)",
+          "rgb(0 117 66 / 0.14)",
+          "rgb(0 155 90 / 0.14)",
+          "rgb(42 194 118 / 0.14)",
+          "rgb(92 232 153 / 0.14)",
+          "rgb(198 255 217 / 0.14)"
+        ]
+      },
+      "positive": {
+        "role": "tertiary",
+        "displayName": "Positive",
+        "canonical": "#1f7a50",
+        "tonalRamp": [
+          "#001005",
+          "#002e19",
+          "#014f30",
+          "#14734a",
+          "#40966a",
+          "#65ba8c",
+          "#8adfaf",
+          "#c5ffdc"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger Red",
+        "canonical": "#b93e38",
+        "tonalRamp": [
+          "#220000",
+          "#4e0002",
+          "#80030c",
+          "#a92f2b",
+          "#d1544c",
+          "#f9786d",
+          "#ffb3aa",
+          "#fee9e6"
+        ]
+      },
+      "danger-soft": {
+        "role": "tertiary",
+        "displayName": "Danger Soft",
+        "canonical": "rgb(185 62 56 / 0.1)",
+        "tonalRamp": [
+          "rgb(34 0 0 / 0.1)",
+          "rgb(78 0 2 / 0.1)",
+          "rgb(128 3 12 / 0.1)",
+          "rgb(169 47 43 / 0.1)",
+          "rgb(209 84 76 / 0.1)",
+          "rgb(249 120 109 / 0.1)",
+          "rgb(255 179 170 / 0.1)",
+          "rgb(254 233 230 / 0.1)"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Warn",
+        "canonical": "#7a4e0c",
+        "tonalRamp": [
+          "#170600",
+          "#371f00",
+          "#5d3901",
+          "#835619",
+          "#a7783e",
+          "#cb9b61",
+          "#f1bf84",
+          "#ffebd5"
+        ]
+      },
+      "warn-soft": {
+        "role": "tertiary",
+        "displayName": "Warn Soft",
+        "canonical": "rgb(232 172 114 / 0.22)",
+        "tonalRamp": [
+          "rgb(25 5 0 / 0.22)",
+          "rgb(57 29 0 / 0.22)",
+          "rgb(96 55 3 / 0.22)",
+          "rgb(137 83 19 / 0.22)",
+          "rgb(173 116 58 / 0.22)",
+          "rgb(210 151 93 / 0.22)",
+          "rgb(248 187 129 / 0.22)",
+          "rgb(255 234 216 / 0.22)"
+        ]
+      },
+      "info": {
+        "role": "tertiary",
+        "displayName": "Info",
+        "canonical": "#2f5f8a",
+        "tonalRamp": [
+          "#000b21",
+          "#002647",
+          "#13456e",
+          "#356590",
+          "#5687b4",
+          "#78aada",
+          "#9ecffd",
+          "#e2f0fe"
+        ]
+      },
+      "info-soft": {
+        "role": "tertiary",
+        "displayName": "Info Soft",
+        "canonical": "rgb(134 178 222 / 0.22)",
+        "tonalRamp": [
+          "rgb(0 11 33 / 0.22)",
+          "rgb(0 38 72 / 0.22)",
+          "rgb(27 68 106 / 0.22)",
+          "rgb(59 101 140 / 0.22)",
+          "rgb(92 134 176 / 0.22)",
+          "rgb(126 170 213 / 0.22)",
+          "rgb(161 206 251 / 0.22)",
+          "rgb(226 240 255 / 0.22)"
+        ]
+      },
+      "page": {
+        "role": "neutral",
+        "displayName": "Pale Meadow Mist",
+        "canonical": "#eef4ee",
+        "tonalRamp": [
+          "#090c09",
+          "#222622",
+          "#3f433f",
+          "#5e635e",
+          "#7f847f",
+          "#a1a7a1",
+          "#c5cbc5",
+          "#eaf0ea"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0b1b14",
+        "tonalRamp": [
+          "#020f08",
+          "#192922",
+          "#35473e",
+          "#54665d",
+          "#75887e",
+          "#97aba1",
+          "#bacfc5",
+          "#dff4ea"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "#47574f",
+        "tonalRamp": [
+          "#030e08",
+          "#1a2922",
+          "#37463e",
+          "#55665d",
+          "#76877e",
+          "#98aaa1",
+          "#bccec5",
+          "#e1f4ea"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "canonical": "#4f5f57",
+        "tonalRamp": [
+          "#030e08",
+          "#1a2922",
+          "#37463f",
+          "#55665e",
+          "#76877e",
+          "#98aaa1",
+          "#bccec5",
+          "#e1f4ea"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "White Card",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "White Raised",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Pale Panel",
+        "canonical": "#f6faf5",
+        "tonalRamp": [
+          "#090c09",
+          "#232622",
+          "#40433f",
+          "#5f625e",
+          "#80837f",
+          "#a3a6a2",
+          "#c7cac6",
+          "#ecf0eb"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "canonical": "rgb(11 27 20 / 0.14)",
+        "tonalRamp": [
+          "rgb(2 15 8 / 0.14)",
+          "rgb(25 41 34 / 0.14)",
+          "rgb(53 71 62 / 0.14)",
+          "rgb(84 102 93 / 0.14)",
+          "rgb(117 136 126 / 0.14)",
+          "rgb(151 171 161 / 0.14)",
+          "rgb(186 207 197 / 0.14)",
+          "rgb(223 244 234 / 0.14)"
+        ]
+      },
+      "raised-line": {
+        "role": "neutral",
+        "displayName": "Raised Line",
+        "canonical": "rgb(11 27 20 / 0.16)",
+        "tonalRamp": [
+          "rgb(2 15 8 / 0.16)",
+          "rgb(25 41 34 / 0.16)",
+          "rgb(53 71 62 / 0.16)",
+          "rgb(84 102 93 / 0.16)",
+          "rgb(117 136 126 / 0.16)",
+          "rgb(151 171 161 / 0.16)",
+          "rgb(186 207 197 / 0.16)",
+          "rgb(223 244 234 / 0.16)"
+        ]
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Field",
+        "canonical": "rgb(11 27 20 / 0.06)",
+        "tonalRamp": [
+          "rgb(2 15 8 / 0.06)",
+          "rgb(25 41 34 / 0.06)",
+          "rgb(53 71 62 / 0.06)",
+          "rgb(84 102 93 / 0.06)",
+          "rgb(117 136 126 / 0.06)",
+          "rgb(151 171 161 / 0.06)",
+          "rgb(186 207 197 / 0.06)",
+          "rgb(223 244 234 / 0.06)"
+        ]
+      },
+      "scrim": {
+        "role": "neutral",
+        "displayName": "Scrim",
+        "canonical": "rgb(3 14 10 / 0.45)",
+        "tonalRamp": [
+          "rgb(3 14 10 / 0.45)",
+          "rgb(27 40 36 / 0.45)",
+          "rgb(55 70 65 / 0.45)",
+          "rgb(86 101 96 / 0.45)",
+          "rgb(118 135 129 / 0.45)",
+          "rgb(153 170 163 / 0.45)",
+          "rgb(188 206 199 / 0.45)",
+          "rgb(225 243 237 / 0.45)"
+        ]
+      },
+      "square-a": {
+        "role": "neutral",
+        "displayName": "Square A",
+        "canonical": "#dcebdf",
+        "tonalRamp": [
+          "#050e07",
+          "#1d2820",
+          "#39463c",
+          "#58655b",
+          "#79867c",
+          "#9ba99e",
+          "#bfcec2",
+          "#e4f3e7"
+        ]
+      },
+      "square-b": {
+        "role": "neutral",
+        "displayName": "Square B",
+        "canonical": "#c5dfcc",
+        "tonalRamp": [
+          "#001005",
+          "#152a1c",
+          "#324839",
+          "#516857",
+          "#718978",
+          "#94ac9a",
+          "#b7d1be",
+          "#dcf6e3"
+        ]
+      },
+      "scene-sky": {
+        "role": "secondary",
+        "displayName": "Cobalt Scene Sky",
+        "canonical": "#0c3fb0",
+        "tonalRamp": [
+          "#000039",
+          "#00146d",
+          "#0132a3",
+          "#2257c9",
+          "#437bf0",
+          "#76a3fb",
+          "#aecafd",
+          "#e6effe"
+        ]
+      },
+      "on-scene": {
+        "role": "secondary",
+        "displayName": "On Scene",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "on-scene-2": {
+        "role": "secondary",
+        "displayName": "On Scene 2",
+        "canonical": "#f0f6ff",
+        "tonalRamp": [
+          "#080b11",
+          "#21252c",
+          "#3e4249",
+          "#5d6269",
+          "#7d838b",
+          "#a0a5ae",
+          "#c4cad2",
+          "#e9eff8"
+        ]
+      },
+      "green-text-night": {
+        "role": "primary",
+        "displayName": "Text Green (night)",
+        "canonical": "#2ee08f",
+        "tonalRamp": [
+          "#001004",
+          "#002e18",
+          "#044f2f",
+          "#0b7447",
+          "#149a60",
+          "#02c479",
+          "#40eb99",
+          "#c5fedb"
+        ]
+      },
+      "green-strong-night": {
+        "role": "primary",
+        "displayName": "Strong Green on Tint (night)",
+        "canonical": "#7cf0b8",
+        "tonalRamp": [
+          "#001006",
+          "#002e1b",
+          "#014f33",
+          "#05744c",
+          "#0c9a67",
+          "#46be89",
+          "#6fe4ad",
+          "#c2ffde"
+        ]
+      },
+      "green-soft-night": {
+        "role": "primary",
+        "displayName": "Soft Green (night)",
+        "canonical": "rgb(46 224 143 / 0.16)",
+        "tonalRamp": [
+          "rgb(0 16 4 / 0.16)",
+          "rgb(0 46 24 / 0.16)",
+          "rgb(4 79 47 / 0.16)",
+          "rgb(11 116 71 / 0.16)",
+          "rgb(20 154 96 / 0.16)",
+          "rgb(2 196 121 / 0.16)",
+          "rgb(64 235 153 / 0.16)",
+          "rgb(197 254 219 / 0.16)"
+        ]
+      },
+      "positive-night": {
+        "role": "tertiary",
+        "displayName": "Positive (night)",
+        "canonical": "#8fd3a0",
+        "tonalRamp": [
+          "#001102",
+          "#002f11",
+          "#025025",
+          "#2e7144",
+          "#519364",
+          "#74b786",
+          "#98dca9",
+          "#c7ffd4"
+        ]
+      },
+      "danger-night": {
+        "role": "tertiary",
+        "displayName": "Danger Red (night)",
+        "canonical": "#f0958e",
+        "tonalRamp": [
+          "#220000",
+          "#4e0005",
+          "#722322",
+          "#964440",
+          "#bc6660",
+          "#e28982",
+          "#ffb2ac",
+          "#fee9e7"
+        ]
+      },
+      "danger-soft-night": {
+        "role": "tertiary",
+        "displayName": "Danger Soft (night)",
+        "canonical": "rgb(240 149 142 / 0.14)",
+        "tonalRamp": [
+          "rgb(34 0 0 / 0.14)",
+          "rgb(78 0 5 / 0.14)",
+          "rgb(114 35 34 / 0.14)",
+          "rgb(150 68 64 / 0.14)",
+          "rgb(188 102 96 / 0.14)",
+          "rgb(226 137 130 / 0.14)",
+          "rgb(255 178 172 / 0.14)",
+          "rgb(254 233 231 / 0.14)"
+        ]
+      },
+      "warn-night": {
+        "role": "tertiary",
+        "displayName": "Warn (night)",
+        "canonical": "#e8ac72",
+        "tonalRamp": [
+          "#190500",
+          "#391d00",
+          "#603703",
+          "#895313",
+          "#ad743a",
+          "#d2975d",
+          "#f8bb81",
+          "#ffead8"
+        ]
+      },
+      "warn-soft-night": {
+        "role": "tertiary",
+        "displayName": "Warn Soft (night)",
+        "canonical": "rgb(232 172 114 / 0.14)",
+        "tonalRamp": [
+          "rgb(25 5 0 / 0.14)",
+          "rgb(57 29 0 / 0.14)",
+          "rgb(96 55 3 / 0.14)",
+          "rgb(137 83 19 / 0.14)",
+          "rgb(173 116 58 / 0.14)",
+          "rgb(210 151 93 / 0.14)",
+          "rgb(248 187 129 / 0.14)",
+          "rgb(255 234 216 / 0.14)"
+        ]
+      },
+      "info-night": {
+        "role": "tertiary",
+        "displayName": "Info (night)",
+        "canonical": "#86b2de",
+        "tonalRamp": [
+          "#000b21",
+          "#002648",
+          "#1b446a",
+          "#3b658c",
+          "#5c86b0",
+          "#7eaad5",
+          "#a1cefb",
+          "#e2f0ff"
+        ]
+      },
+      "info-soft-night": {
+        "role": "tertiary",
+        "displayName": "Info Soft (night)",
+        "canonical": "rgb(134 178 222 / 0.14)",
+        "tonalRamp": [
+          "rgb(0 11 33 / 0.14)",
+          "rgb(0 38 72 / 0.14)",
+          "rgb(27 68 106 / 0.14)",
+          "rgb(59 101 140 / 0.14)",
+          "rgb(92 134 176 / 0.14)",
+          "rgb(126 170 213 / 0.14)",
+          "rgb(161 206 251 / 0.14)",
+          "rgb(226 240 255 / 0.14)"
+        ]
+      },
+      "page-night": {
+        "role": "neutral",
+        "displayName": "Pale Meadow Mist (night)",
+        "canonical": "#060d0a",
+        "tonalRamp": [
+          "#060d0a",
+          "#1f2724",
+          "#3b4441",
+          "#5a6460",
+          "#7b8581",
+          "#9da8a3",
+          "#c1ccc7",
+          "#e6f2ed"
+        ]
+      },
+      "ink-night": {
+        "role": "neutral",
+        "displayName": "Ink (night)",
+        "canonical": "#f1f7f2",
+        "tonalRamp": [
+          "#080c09",
+          "#222623",
+          "#3f433f",
+          "#5e635f",
+          "#7f847f",
+          "#a1a7a2",
+          "#c5cbc6",
+          "#eaf0eb"
+        ]
+      },
+      "ink-2-night": {
+        "role": "neutral",
+        "displayName": "Ink 2 (night)",
+        "canonical": "#a8b8ae",
+        "tonalRamp": [
+          "#040e08",
+          "#1c2921",
+          "#38463d",
+          "#57655c",
+          "#78877d",
+          "#9aaaa0",
+          "#becec4",
+          "#e3f3e9"
+        ]
+      },
+      "ink-3-night": {
+        "role": "neutral",
+        "displayName": "Ink 3 (night)",
+        "canonical": "#9dada3",
+        "tonalRamp": [
+          "#040e08",
+          "#1c2921",
+          "#38463d",
+          "#57655c",
+          "#77877d",
+          "#9aaaa0",
+          "#bdcec4",
+          "#e2f3e9"
+        ]
+      },
+      "card-night": {
+        "role": "neutral",
+        "displayName": "White Card (night)",
+        "canonical": "#101a15",
+        "tonalRamp": [
+          "#050e09",
+          "#1d2822",
+          "#3a453f",
+          "#59655e",
+          "#79867f",
+          "#9ca9a2",
+          "#bfcdc6",
+          "#e5f2eb"
+        ]
+      },
+      "raised-night": {
+        "role": "neutral",
+        "displayName": "White Raised (night)",
+        "canonical": "#18241e",
+        "tonalRamp": [
+          "#040e09",
+          "#1c2822",
+          "#39463f",
+          "#57655e",
+          "#78867f",
+          "#9aa9a1",
+          "#becec5",
+          "#e3f3ea"
+        ]
+      },
+      "panel-night": {
+        "role": "neutral",
+        "displayName": "Pale Panel (night)",
+        "canonical": "#0c1511",
+        "tonalRamp": [
+          "#050d0a",
+          "#1e2823",
+          "#3a4540",
+          "#59645f",
+          "#7a8580",
+          "#9ca8a3",
+          "#c0cdc7",
+          "#e5f2ec"
+        ]
+      },
+      "line-night": {
+        "role": "neutral",
+        "displayName": "Line (night)",
+        "canonical": "rgb(190 235 210 / 0.16)",
+        "tonalRamp": [
+          "rgb(0 16 6 / 0.16)",
+          "rgb(1 45 27 / 0.16)",
+          "rgb(35 75 56 / 0.16)",
+          "rgb(67 108 86 / 0.16)",
+          "rgb(99 141 119 / 0.16)",
+          "rgb(134 177 153 / 0.16)",
+          "rgb(169 213 189 / 0.16)",
+          "rgb(206 251 226 / 0.16)"
+        ]
+      },
+      "raised-line-night": {
+        "role": "neutral",
+        "displayName": "Raised Line (night)",
+        "canonical": "rgb(190 235 210 / 0.2)",
+        "tonalRamp": [
+          "rgb(0 16 6 / 0.2)",
+          "rgb(1 45 27 / 0.2)",
+          "rgb(35 75 56 / 0.2)",
+          "rgb(67 108 86 / 0.2)",
+          "rgb(99 141 119 / 0.2)",
+          "rgb(134 177 153 / 0.2)",
+          "rgb(169 213 189 / 0.2)",
+          "rgb(206 251 226 / 0.2)"
+        ]
+      },
+      "field-night": {
+        "role": "neutral",
+        "displayName": "Field (night)",
+        "canonical": "rgb(190 235 210 / 0.1)",
+        "tonalRamp": [
+          "rgb(0 16 6 / 0.1)",
+          "rgb(1 45 27 / 0.1)",
+          "rgb(35 75 56 / 0.1)",
+          "rgb(67 108 86 / 0.1)",
+          "rgb(99 141 119 / 0.1)",
+          "rgb(134 177 153 / 0.1)",
+          "rgb(169 213 189 / 0.1)",
+          "rgb(206 251 226 / 0.1)"
+        ]
+      },
+      "scrim-night": {
+        "role": "neutral",
+        "displayName": "Scrim (night)",
+        "canonical": "rgb(0 0 0 / 0.6)",
+        "tonalRamp": [
+          "rgb(11 11 11 / 0.6)",
+          "rgb(37 37 37 / 0.6)",
+          "rgb(66 66 66 / 0.6)",
+          "rgb(97 97 97 / 0.6)",
+          "rgb(130 130 130 / 0.6)",
+          "rgb(165 165 165 / 0.6)",
+          "rgb(201 201 201 / 0.6)",
+          "rgb(238 238 238 / 0.6)"
+        ]
+      },
+      "square-a-night": {
+        "role": "neutral",
+        "displayName": "Square A (night)",
+        "canonical": "#12201a",
+        "tonalRamp": [
+          "#030e09",
+          "#1a2922",
+          "#37463f",
+          "#56665e",
+          "#76877f",
+          "#98aaa2",
+          "#bccec6",
+          "#e1f4eb"
+        ]
+      },
+      "square-b-night": {
+        "role": "neutral",
+        "displayName": "Square B (night)",
+        "canonical": "#1c2e25",
+        "tonalRamp": [
+          "#010f08",
+          "#182a21",
+          "#34473d",
+          "#53675c",
+          "#73887d",
+          "#96ab9f",
+          "#b9cfc3",
+          "#def5e9"
+        ]
+      },
+      "scene-sky-night": {
+        "role": "secondary",
+        "displayName": "Cobalt Scene Sky (night)",
+        "canonical": "#020612",
+        "tonalRamp": [
+          "#050b18",
+          "#1d2534",
+          "#394253",
+          "#576273",
+          "#788395",
+          "#9aa6b9",
+          "#becade",
+          "#e6efff"
+        ]
+      },
+      "on-scene-night": {
+        "role": "secondary",
+        "displayName": "On Scene (night)",
+        "canonical": "#5cf0b4",
+        "tonalRamp": [
+          "#001006",
+          "#002d1d",
+          "#004f35",
+          "#00744f",
+          "#009a6b",
+          "#12c289",
+          "#52e8ac",
+          "#c1ffe0"
+        ]
+      },
+      "on-scene-2-night": {
+        "role": "secondary",
+        "displayName": "On Scene 2 (night)",
+        "canonical": "#d8f7e7",
+        "tonalRamp": [
+          "#001007",
+          "#112b20",
+          "#2e493c",
+          "#4d685b",
+          "#6e8a7c",
+          "#90ad9e",
+          "#b3d2c2",
+          "#d8f7e7"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The app's name on the home poster; uppercase; 48px from 768px, 22px on one line once a draft is under way."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "The bill title in the scene; uppercase; 44, 34, 26 or 21px by length, ×1.35 from 768px."
+      },
+      "page-title": {
+        "displayName": "Page Title",
+        "purpose": "Titles on pages without a scene; uppercase; 38px from 768px, with a checker rule beneath."
+      },
+      "total": {
+        "displayName": "Total",
+        "purpose": "The bill total in the scene; 64px from 768px; 20px in the action bar."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Sheet titles and buttons."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running text, inputs and row content."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Chips, segments, callouts and the scene's date line."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels and hints."
+      },
+      "section-label": {
+        "displayName": "Section Label",
+        "purpose": "The short uppercase heading above a card."
+      }
+    },
+    "shadows": [
+      {
+        "name": "raised",
+        "value": "0 10px 24px -12px rgb(11 27 20 / 0.32), 0 2px 4px rgb(11 27 20 / 0.06)",
+        "purpose": "Action bar, toolbar circles, the rank and the scan square."
+      },
+      {
+        "name": "raised-night",
+        "value": "0 10px 24px -12px rgb(0 0 0 / 0.8), 0 2px 4px rgb(0 0 0 / 0.3)",
+        "purpose": "Raised at night."
+      },
+      {
+        "name": "panel",
+        "value": "0 24px 60px -14px rgb(3 14 10 / 0.45)",
+        "purpose": "Sheets and dialogs."
+      },
+      {
+        "name": "panel-night",
+        "value": "0 24px 60px -14px rgb(0 0 0 / 0.8)",
+        "purpose": "Panel at night."
+      },
+      {
+        "name": "primary-glow",
+        "value": "0 8px 16px -10px rgb(0 135 90 / 0.8)",
+        "purpose": "A soft green pool under primary buttons."
+      },
+      {
+        "name": "scene-text",
+        "value": "0 2px 12px rgb(0 0 0 / 0.25)",
+        "purpose": "Text shadow that holds poster type off the sky; scene only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-spring",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The one easing for every motion."
+      },
+      {
+        "name": "press",
+        "value": "0.2s",
+        "purpose": "Scale to 0.95 on press."
+      },
+      {
+        "name": "travel",
+        "value": "0.45s",
+        "purpose": "Sheets sliding up; the pawn moving along the rank."
+      },
+      {
+        "name": "pop",
+        "value": "0.35s",
+        "purpose": "Alerts scaling in; the queen's promotion, delayed 0.25s."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sheet",
+        "value": "656px"
+      },
+      {
+        "name": "desktop",
+        "value": "768px"
+      },
+      {
+        "name": "scene-large",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action on a screen; dark text on the brand green.",
+      "html": "<button class=\"ds-btn-primary\">Scan receipt</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 20px;border-radius:8px;font:600 17px/1.45 -apple-system,BlinkMacSystemFont,'SF Pro Text','Noto Sans Thai',system-ui,sans-serif;cursor:pointer;transition: transform .2s cubic-bezier(.16,1,.3,1);border:0;background:var(--accent-fill);color:var(--accent-ink);font-weight:700;box-shadow:0 8px 16px -10px rgb(0 135 90 / .8);}.ds-btn-primary:active{transform:scale(.95);}.ds-btn-primary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}.ds-btn-primary:disabled{opacity:.4;pointer-events:none;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A solid alternative action, flat with a hairline.",
+      "html": "<button class=\"ds-btn-secondary\">From photos</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 20px;border-radius:8px;font:600 17px/1.45 -apple-system,BlinkMacSystemFont,'SF Pro Text','Noto Sans Thai',system-ui,sans-serif;cursor:pointer;transition: transform .2s cubic-bezier(.16,1,.3,1);background:var(--raised);border:1px solid var(--raised-line);color:var(--ink);}.ds-btn-secondary:hover{background:var(--hover);}.ds-btn-secondary:active{transform:scale(.95);}.ds-btn-secondary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "A quiet text action in green, on cards.",
+      "html": "<button class=\"ds-btn-ghost\">Add item</button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 20px;border-radius:8px;font:600 17px/1.45 -apple-system,BlinkMacSystemFont,'SF Pro Text','Noto Sans Thai',system-ui,sans-serif;cursor:pointer;transition: transform .2s cubic-bezier(.16,1,.3,1);background:none;border:0;color:var(--accent);}.ds-btn-ghost:hover{background:var(--hover);}.ds-btn-ghost:active{transform:scale(.95);}.ds-btn-ghost:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}"
+    },
+    {
+      "name": "Selected Chip",
+      "kind": "chip",
+      "refersTo": "chip-selected",
+      "description": "A selection shown as solid ink with inverted text.",
+      "html": "<button class=\"ds-chip\">Ploy</button> <button class=\"ds-chip ds-chip-on\">Mint</button>",
+      "css": ".ds-chip{transition: transform .2s cubic-bezier(.16,1,.3,1);display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:8px;background:var(--raised);border:1px solid var(--raised-line);color:var(--ink);font:500 15px system-ui,sans-serif;cursor:pointer;}.ds-chip:active{transform:scale(.95);}.ds-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}.ds-chip-on{background:var(--ink);border-color:transparent;color:var(--bg);font-weight:600;}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A tinted field with no stroke and a green focus outline.",
+      "html": "<input class=\"ds-input\" placeholder=\"Title, e.g. Friday dinner\" aria-label=\"Title\">",
+      "css": ".ds-input{min-height:48px;width:100%;padding:0 16px;border:0;border-radius:8px;background:var(--field);color:var(--ink);font:17px system-ui,sans-serif;caret-color:var(--accent);outline:none;}.ds-input::placeholder{color:var(--ink-3);}.ds-input:focus-visible{outline:2px solid var(--accent);outline-offset:0;}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The content layer: flat, hairline border, tabular amounts.",
+      "html": "<div class=\"ds-card\"><strong>0 of 3 paid</strong><span class=\"ds-card-amt\">฿2,024.44 to go</span></div>",
+      "css": ".ds-card{display:flex;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--card);border:1px solid var(--line);border-radius:8px;color:var(--ink);font:17px/1.45 system-ui,sans-serif;}.ds-card-amt{font-variant-numeric:tabular-nums;color:var(--ink-2);}"
+    },
+    {
+      "name": "Navigation Bar",
+      "kind": "nav",
+      "refersTo": "nav-bar",
+      "description": "A solid full-width bar with links and a separate green scan square.",
+      "html": "<div class=\"ds-nav\"><a class=\"ds-nav-link ds-nav-on\" href=\"#\" aria-current=\"page\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\"/><path d=\"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/></svg><span>Home</span></a><a class=\"ds-nav-link\" href=\"#\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\"/><path d=\"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/></svg><span>History</span></a><button class=\"ds-nav-scan\" aria-label=\"Scan receipt\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z\"/><circle cx=\"12\" cy=\"13\" r=\"3\"/></svg></button></div>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:10px;width:100%;padding:6px 12px;background:var(--raised);border-top:1px solid var(--raised-line);}.ds-nav-link{transition: transform .2s cubic-bezier(.16,1,.3,1);flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:52px;min-width:64px;border-radius:8px;color:var(--ink-2);font:600 11px system-ui,sans-serif;text-decoration:none;}.ds-nav-link:active,.ds-nav-scan:active{transform:scale(.95);}.ds-nav-link:focus-visible,.ds-nav-scan:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}.ds-nav-on{background:var(--accent-soft);color:var(--accent-strong);}.ds-nav-scan{transition: transform .2s cubic-bezier(.16,1,.3,1);display:grid;place-items:center;width:62px;height:62px;flex:none;border:0;border-radius:8px;background:var(--accent-fill);color:var(--accent-ink);box-shadow:var(--raised-shadow);cursor:pointer;}"
+    },
+    {
+      "name": "Step Rank",
+      "kind": "custom",
+      "refersTo": "rank-square-current",
+      "description": "The wizard's five steps as a rank of a chessboard; the pawn's green square travels along it.",
+      "html": "<ol class=\"ds-rank\"><li class=\"ds-sq ds-sq-on\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"5.4\" r=\"3.9\"/><rect x=\"8.2\" y=\"9.4\" width=\"7.6\" height=\"1.7\" rx=\".85\"/><path d=\"M10.3 11.1c0 3.2-1 5.5-2.8 7.3h9c-1.8-1.8-2.8-4.1-2.8-7.3z\"/><rect x=\"5.3\" y=\"19\" width=\"13.4\" height=\"3.2\" rx=\"1.1\"/></svg><span>Items</span></li><li class=\"ds-sq ds-b\"><span>People</span></li><li class=\"ds-sq\"><span>Extras</span></li><li class=\"ds-sq ds-b\"><span>Review</span></li><li class=\"ds-sq\"><span>Share</span></li></ol>",
+      "css": ".ds-rank{display:grid;grid-template-columns:repeat(5,1fr);margin:0;padding:0;list-style:none;border-radius:8px;overflow:hidden;box-shadow:var(--raised-shadow);}.ds-sq{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:60px;padding-bottom:7px;box-sizing:border-box;background:var(--square-a);color:var(--ink-2);font:600 12px system-ui,sans-serif;}.ds-b{background:var(--square-b);}.ds-sq-on{background:var(--accent-fill);color:var(--accent-ink);font-weight:700;}.ds-sq svg{position:absolute;top:7px;}"
+    },
+    {
+      "name": "Scene Header",
+      "kind": "custom",
+      "refersTo": "total",
+      "description": "The poster at the top of a shared bill: title and total in the sky, date line beneath, breaking up into the page in squares.",
+      "html": "<header class=\"ds-scene\"><h1 class=\"ds-scene-title\">Naklaa Mookata</h1><span class=\"ds-scene-total\">฿2,848.34</span><p class=\"ds-scene-sub\">31 Oct 2026 · 4 people · split by item</p></header>",
+      "css": ".ds-scene{position:relative;min-height:250px;padding:28px 20px 44px;background:var(--scene) center 74%/cover no-repeat,var(--scene-sky);color:var(--on-scene);}.ds-scene::after{content:'';position:absolute;inset:auto 0 0;height:20px;background:repeating-conic-gradient(var(--bg) 0 25%,transparent 0 50%) 0 0/20px 20px;}.ds-scene-title{font-family:var(--font-anybody),var(--font-kanit),'Arial Black',system-ui,sans-serif;font-weight:900;margin:0;font-size:34px;line-height:.98;letter-spacing:-.015em;text-transform:uppercase;text-shadow:0 2px 12px rgb(0 0 0 / .25);}.ds-scene-total{font-family:var(--font-anybody),var(--font-kanit),'Arial Black',system-ui,sans-serif;font-weight:900;display:block;margin-top:12px;font-size:40px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-shadow:0 2px 14px rgb(0 0 0 / .3);}.ds-scene-sub{margin:8px 0 0;color:var(--on-scene-2);font:600 15px system-ui,sans-serif;text-shadow:0 1px 8px rgb(0 0 0 / .35);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Group's Party Poster",
+    "overview": "**Creative North Star: \"The Group's Party Poster\"**\n\nThe top of a page is a poster: a surreal Y2K collage of big sky, a perspective emerald checkerboard, tall grass, oversized flowers, glossy green chess pieces and a lilac retro computer showing a pixel divide sign, with ultra-wide black caps set in the clear sky. Then the money arrives and the poster steps back. Everything someone works with sits on solid, flat panels with small corners, in a calm green-tinted neutral, and every page ends in a meadow.\n\nThe density is that of a phone tool used one-handed at a table at night: 44px targets, 17px body, tabular amounts. Personality lives in the scene, the checker details, the pawn walking along the steps and the meadow, never in the rows where somebody is reading an amount. Light and dark are the same world at different hours: a cobalt day with a white-and-emerald board, and a near-black night with a moon and a black-and-emerald board.\n\nThe world rejects the soft fintech card stack and the frosted glass it replaced. The visual language follows the user's chosen reference campaign, translated to the app's green and drawn from scratch.",
+    "keyCharacteristics": [
+      "A full-bleed scene at the top of the home and shared-bill pages, breaking into the page through two rows of squares.",
+      "Ultra-wide black caps for short titles and headline totals only.",
+      "Solid panels, 8px corners, hairline borders, no glass.",
+      "Chess as the interface's own metaphor: steps are a rank, the pawn promotes to a queen on Share.",
+      "A meadow growing from the bottom of every page."
+    ],
+    "rules": [
+      {
+        "name": "The Drawn From Code Rule",
+        "body": "All artwork comes from `scripts/make-art.py`, which draws the scene, meadow, share-card sky and favicons procedurally with no source images. New artwork extends that script. It must never reuse the reference campaign's images.",
+        "section": "overview"
+      },
+      {
+        "name": "The Dark On Green Rule",
+        "body": "Text and icons on Brand Green are always Deep Forest On-Green, never white.",
+        "section": "colors"
+      },
+      {
+        "name": "The Green Text Rule",
+        "body": "Brand Green is a fill, not a text colour. On white, green text is Text Green; on Soft Green, it is Strong Green.",
+        "section": "colors"
+      },
+      {
+        "name": "The Only Red Rule",
+        "body": "In the interface, red means a negative amount or an error, and nothing else. The artwork's coral flowers and computer lights are part of the world and exempt.",
+        "section": "colors"
+      },
+      {
+        "name": "The Poster Type Rule",
+        "body": "The display face is for short titles, totals and the headings above cards. It is never used for running text.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "Amounts always use tabular figures, with the currency symbol and decimals at 62% size, so the whole number is what you read.",
+        "section": "typography"
+      },
+      {
+        "name": "The Date Below Rule",
+        "body": "The date and details line sits under the title and total, in the scene and on the share card. It never sits above the title.",
+        "section": "typography"
+      },
+      {
+        "name": "The Meadow Ending Rule",
+        "body": "Every page ends in the meadow, clamp(170px, 24vw, 300px) tall, growing up from the nav bar on phones and from the bottom of the screen on desktop. It sits behind the content, so the last card may overlap its grass tips. It is decorative, hidden from assistive technology and loaded lazily.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Card Rule",
+        "body": "Cards have no shadow. A shadow means the element floats above the page.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Cheap To Paint Rule",
+        "body": "No `backdrop-filter` or CSS blur filter in the interface; every working surface is solid, because the app runs on phones on mobile data. Soft shading baked into the rasters is part of the artwork and is fine.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do generate any new artwork with `scripts/make-art.py`, in day and night versions, and keep the provenance file beside each shipped raster.",
+      "Do put poster type in the clear upper sky and keep amounts people act on in cards on solid panels.",
+      "Do use dark text #04261a on Brand Green #00b368.",
+      "Do end every page in the meadow and run the nav bar solid across the full width.",
+      "Do place the date and details line under the title and total.",
+      "Do keep touch targets at 44px or larger and set every amount in tabular figures.",
+      "Do ship every new surface in both day and night.",
+      "Do use `cubic-bezier(0.16, 1, 0.3, 1)` for all motion and let reduced-motion remove it."
+    ],
+    "donts": [
+      "Don't reuse or trace the reference campaign's images. Take its language, and draw everything from code.",
+      "Don't add `backdrop-filter`, CSS blur or frosted surfaces to the interface.",
+      "Don't put white text on Brand Green, or use Brand Green itself as text.",
+      "Don't use red in the interface for anything but negative amounts and errors.",
+      "Don't add a shadow to a card that is not floating.",
+      "Don't float the navigation as a pill or make it translucent.",
+      "Don't set running text in the poster face or place a small line above a bill title.",
+      "Don't let the scene follow people into the working area: below the header, surfaces stay calm and solid."
+    ]
+  }
+}

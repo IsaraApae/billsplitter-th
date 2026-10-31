@@ -117,7 +117,7 @@ export function PayQr({ source, amount, name }: { source: PayQrSource; amount: n
 
   return (
     <div className="space-y-4">
-      <div className="mx-auto w-full max-w-[340px] overflow-hidden rounded-[26px] bg-white text-[#0b1220] shadow-[var(--card-shadow)]">
+      <div className="mx-auto w-full max-w-[340px] overflow-hidden rounded-[8px] bg-white text-[#0b1220] shadow-[var(--card-shadow)]">
         <div className="p-5">
           {broken ? (
             <p className="py-16 text-center text-[15px]">The QR image is no longer available.</p>
@@ -130,7 +130,7 @@ export function PayQr({ source, amount, name }: { source: PayQrSource; amount: n
               onError={() => setBroken(true)}
             />
           ) : (
-            <div className="aspect-square w-full rounded-2xl bg-[#f2f2f7]" />
+            <div className="aspect-square w-full rounded-[8px] bg-[#f2f2f7]" />
           )}
           <div className="mt-3 text-center">
             <p className="text-[15px] font-medium text-[#394457]">{name}</p>

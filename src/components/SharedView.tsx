@@ -29,6 +29,7 @@ import { PayQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { BillHeader } from "./Poster";
 import { slipRows, SlipsUploaded, SlipTag } from "./SlipsUploaded";
 import { SlipCard, type SlipChoice } from "./SlipCard";
 import { TapHint } from "./PersonCard";
@@ -277,24 +278,19 @@ export function SharedView({
     }
   }
 
-  const date = billDate(doc).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const date = billDate(doc).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 px-4 pb-32 md:pb-16">
-      <header className="card px-6 pt-6 pb-5 text-center">
-        <p className="text-[13px] text-ink-2">{date}</p>
-        <h1 className="mt-1 text-[28px] leading-tight font-bold tracking-tight break-words">{doc.title}</h1>
-        <Money value={calc.total} currency={doc.currency} className="mt-3 block text-[48px] leading-none font-bold tracking-tight" />
-        <p className="mt-2 text-[15px] text-ink-2">
-          {doc.people.length} {doc.people.length === 1 ? "person" : "people"} · {doc.mode === "equal" ? "split equally" : "split by item"}
-        </p>
+    <main className="mx-auto max-w-2xl space-y-6 px-4 pb-6 md:pb-16">
+      <BillHeader
+        details={`${date} · ${doc.people.length} ${doc.people.length === 1 ? "person" : "people"} · ${doc.mode === "equal" ? "split equally" : "split by item"}`}
+        title={doc.title}
+      >
+        <Money value={calc.total} currency={doc.currency} className="scene-total mt-3" />
+      </BillHeader>
 
-        <div className="mt-5 text-left" aria-label="Payment progress">
+      <section className="card px-5 py-4">
+        <div aria-label="Payment progress">
           <div className="mb-2 flex items-baseline justify-between gap-2">
             <span className="flex items-center gap-1.5 font-semibold">
               {allPaid && <PartyPopper size={20} {...ICON} className="text-accent" aria-hidden />}
@@ -308,8 +304,8 @@ export function SharedView({
               </span>
             )}
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[var(--field)]">
-            <div className="h-full rounded-full bg-accent" style={{ width: `${total ? (paidCount / total) * 100 : 0}%` }} />
+          <div className="h-2 overflow-hidden rounded-[2px] bg-[var(--field)]">
+            <div className="h-full rounded-[2px] bg-accent-fill" style={{ width: `${total ? (paidCount / total) * 100 : 0}%` }} />
           </div>
           {!allPaid && waitingOn.length > 0 && (
             <p className="mt-2 text-[15px] text-ink-2">
@@ -317,7 +313,7 @@ export function SharedView({
             </p>
           )}
         </div>
-      </header>
+      </section>
 
       {error && <Callout tone="error">{error}</Callout>}
 
@@ -334,18 +330,18 @@ export function SharedView({
               </div>
             )}
             {pp && (
-              <div className="flex min-h-[60px] items-center justify-between gap-2 py-2 pr-3 pl-5">
-                <span>
+              <div className="flex min-h-[60px] items-center justify-between gap-2 py-2 pr-5 pl-5">
+                <span className="min-w-0">
                   <span className="text-ink-2">PromptPay </span>
-                  <span className="tnum font-semibold">{formatPromptPayId(pp)}</span>
+                  <span className="tnum font-semibold whitespace-nowrap">{formatPromptPayId(pp)}</span>
                 </span>
-                <button type="button" className="btn-secondary min-h-10 px-4 text-[15px]" onClick={() => copy(pp, "pp")}>
+                <button type="button" className="btn-secondary min-h-10 shrink-0 px-4 text-[15px]" onClick={() => copy(pp, "pp")}>
                   {copied === "pp" ? <Check size={18} {...ICON} /> : <Copy size={18} {...ICON} />} {copied === "pp" ? "Copied" : "Copy"}
                 </button>
               </div>
             )}
             {doc.payment.note && (
-              <div className="flex items-start justify-between gap-2 py-3 pr-3 pl-5">
+              <div className="flex items-start justify-between gap-2 py-3 pr-5 pl-5">
                 <p className="pt-2 break-words whitespace-pre-wrap">{doc.payment.note}</p>
                 <button type="button" className="btn-secondary min-h-10 shrink-0 px-4 text-[15px]" onClick={() => copy(accountNumber(doc.payment.note) ?? doc.payment.note, "note")}>
                   {copied === "note" ? <Check size={18} {...ICON} /> : <Copy size={18} {...ICON} />} {copied === "note" ? "Copied" : "Copy"}
@@ -372,9 +368,9 @@ export function SharedView({
         // Stands out: friends often owe on more than this one bill.
         <Link
           href="/owe"
-          className="press flex min-h-[68px] items-center gap-3 rounded-[24px] border border-[var(--accent)] bg-accent-soft py-3 pr-4 pl-5"
+          className="press flex min-h-[68px] items-center gap-3 rounded-[8px] border border-[var(--accent)] bg-accent-soft py-3 pr-4 pl-5"
         >
-          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-accent-ink">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-fill text-accent-ink">
             <BanknoteArrowUp size={22} {...ICON} aria-hidden />
           </span>
           <span className="min-w-0 flex-1">

@@ -52,7 +52,7 @@ export function DateField({ value, onChange, label }: { value: string; onChange:
     <>
       <button
         type="button"
-        className="press glass-flat inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-ink tnum"
+        className="press raised-flat inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] px-4 text-ink tnum"
         aria-label={`${label}: ${parseDay(value).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`}
         onClick={show}
       >
@@ -115,7 +115,7 @@ export function DateField({ value, onChange, label }: { value: string; onChange:
                     className={cx(
                       "press grid size-11 place-items-center rounded-full text-[17px] tnum disabled:opacity-30",
                       day === picked
-                        ? "bg-accent font-semibold text-accent-ink"
+                        ? "bg-accent-fill font-semibold text-accent-ink"
                         : day === today
                           ? "font-semibold text-accent"
                           : "text-ink hover:bg-[var(--hover)]",

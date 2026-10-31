@@ -13,6 +13,7 @@ import { EventEditor } from "./EventEditor";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { PaidMark, PaymentSheet, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
+import { BillHeader } from "./Poster";
 import { SlipCard } from "./SlipCard";
 import { slipPersonId, SlipsUploaded, SlipTag, type SlipRow } from "./SlipsUploaded";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
@@ -188,19 +189,21 @@ export function EventView({
   });
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 px-4 pb-32 md:pb-16">
-      <header className="card px-6 pt-6 pb-5 text-center">
-        <p className="inline-flex items-center gap-1.5 text-[13px] text-ink-2">
-          <Layers size={14} {...ICON} aria-hidden /> Big bill · {date}
-        </p>
-        <h1 className="mt-1 text-[28px] leading-tight font-bold tracking-tight break-words">{meta.title}</h1>
-        <Money value={grandTotal} currency={currency} className="mt-3 block text-[48px] leading-none font-bold tracking-tight" />
-        <p className="mt-2 text-[15px] text-ink-2">
-          {bills.length} {bills.length === 1 ? "bill" : "bills"} · {people.length} {people.length === 1 ? "person" : "people"}
-        </p>
+    <main className="mx-auto max-w-2xl space-y-6 px-4 pb-6 md:pb-16">
+      <BillHeader
+        details={
+          <span className="inline-flex flex-wrap items-center gap-x-1.5">
+            <Layers size={14} {...ICON} aria-hidden /> Big bill · {date} · {bills.length} {bills.length === 1 ? "bill" : "bills"} · {people.length}{" "}
+            {people.length === 1 ? "person" : "people"}
+          </span>
+        }
+        title={meta.title}
+      >
+        <Money value={grandTotal} currency={currency} className="scene-total mt-3" />
+      </BillHeader>
 
         {friends.length > 0 && (
-          <div className="mt-5 text-left" aria-label="Payment progress">
+          <section className="card px-5 py-4" aria-label="Payment progress">
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <span className="flex items-center gap-1.5 font-semibold">
                 {allPaid && <PartyPopper size={20} {...ICON} className="text-accent" aria-hidden />}
@@ -214,9 +217,9 @@ export function EventView({
                 </span>
               )}
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-[var(--field)]">
+            <div className="h-2 overflow-hidden rounded-[2px] bg-[var(--field)]">
               <div
-                className="h-full rounded-full bg-accent"
+                className="h-full rounded-[2px] bg-accent-fill"
                 style={{ width: `${friends.length ? (paidCount / friends.length) * 100 : 0}%` }}
               />
             </div>
@@ -225,9 +228,8 @@ export function EventView({
                 Waiting on: <b className="text-ink">{waitingOn.join(", ")}</b>
               </p>
             )}
-          </div>
+          </section>
         )}
-      </header>
 
       {error && <Callout tone="error">{error}</Callout>}
 

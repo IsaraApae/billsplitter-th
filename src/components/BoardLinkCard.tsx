@@ -71,14 +71,14 @@ export function BoardLinkCard({ name }: { name: string }) {
       <div className="card space-y-3 p-4">
         {id ? (
           <>
-            <Link href={`/o/${id}`} className="block overflow-hidden rounded-[18px] border border-[var(--line)]" aria-label="Open the list">
+            <Link href={`/o/${id}`} className="block overflow-hidden rounded-[8px] border border-[var(--line)]" aria-label="Open the list">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`/api/og/o/${id}?v=${v}`} alt={`Owed to ${name}`} className="aspect-[1200/630] w-full bg-[var(--field)] object-cover" />
             </Link>
             <button
               type="button"
               onClick={copy}
-              className="flex min-h-12 w-full items-center gap-2 rounded-full bg-[var(--field)] py-2 pr-2 pl-4 text-left"
+              className="flex min-h-12 w-full items-center gap-2 rounded-[var(--r)] bg-[var(--field)] py-2 pr-2 pl-4 text-left"
               aria-label="Copy the link"
             >
               <span className="tnum min-w-0 flex-1 truncate font-mono text-[14px]">{url.replace(/^https?:\/\//, "")}</span>

@@ -75,7 +75,7 @@ export function Avatar({
 
 // ---------- Controls ------------------------------------------------------------
 
-/** Switch: a wide capsule with a capsule-shaped white thumb; accent green when on. */
+/** Switch: a wide track with a square-ish white thumb; accent green when on. */
 export function Toggle({
   checked,
   onChange,
@@ -96,13 +96,13 @@ export function Toggle({
       <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span
         aria-hidden
-        className="relative h-[30px] w-[60px] shrink-0 rounded-full bg-[var(--field)] peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent after:absolute after:top-[2px] after:left-[2px] after:h-[26px] after:w-[34px] after:rounded-full after:bg-white after:shadow-[0_3px_8px_rgb(0_0_0/0.18),0_1px_1px_rgb(0_0_0/0.06)] peer-checked:after:left-[24px]"
+        className="relative h-[30px] w-[60px] shrink-0 rounded-[8px] bg-[var(--field)] peer-checked:bg-accent-fill peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent after:absolute after:top-[2px] after:left-[2px] after:h-[26px] after:w-[34px] after:rounded-[6px] after:bg-white after:shadow-[0_3px_8px_rgb(0_0_0/0.18),0_1px_1px_rgb(0_0_0/0.06)] peer-checked:after:left-[24px]"
       />
     </label>
   );
 }
 
-/** Segmented control: glass capsule track, the selected segment is a brighter glass pill. */
+/** Segmented control: the selected segment is solid text colour with inverted text. */
 export function Segmented<T extends string>({
   value,
   options,
@@ -114,14 +114,14 @@ export function Segmented<T extends string>({
   options: { value: T; label: ReactNode }[];
   onChange: (v: T) => void;
   label: string;
-  /** on a card: no blur */
+  /** on a card: flat, no shadow */
   flat?: boolean;
 }) {
   return (
     <div
       role="radiogroup"
       aria-label={label}
-      className={cx("grid auto-cols-fr grid-flow-col gap-1 rounded-full p-1", flat ? "bg-[var(--field)]" : "glass")}
+      className={cx("grid auto-cols-fr grid-flow-col gap-1 rounded-[var(--r)] p-1", flat ? "bg-[var(--field)]" : "raised")}
     >
       {options.map((o) => {
         const on = value === o.value;
@@ -133,9 +133,9 @@ export function Segmented<T extends string>({
             aria-checked={on}
             onClick={() => onChange(o.value)}
             className={cx(
-              "press min-h-10 rounded-full px-3 text-[15px]",
+              "press min-h-10 rounded-[var(--r)] px-3 text-[15px]",
               on
-                ? "bg-[var(--glass-strong)] font-semibold text-ink shadow-[0_3px_10px_-2px_rgb(0_0_0/0.15),inset_0_0.5px_0_var(--glass-highlight)]"
+                ? "bg-ink font-semibold text-[var(--bg)]"
                 : "font-medium text-ink-2",
             )}
           >
@@ -245,7 +245,7 @@ export function QtyStepper({
   label?: string;
 }) {
   return (
-    <div className="flex items-center rounded-full bg-[var(--field)]">
+    <div className="flex items-center rounded-[var(--r)] bg-[var(--field)]">
       <button
         type="button"
         aria-label={`Decrease ${label}`}
@@ -279,7 +279,7 @@ export function Callout({
   const iconColor = { info: "text-info", warn: "text-warn", error: "text-danger", success: "text-accent" }[tone];
   const Default = { info: Info, warn: AlertTriangle, error: XCircle, success: CheckCircle2 }[tone];
   return (
-    <div role={tone === "error" ? "alert" : "status"} className={cx("flex gap-3 rounded-[22px] px-4 py-3.5 text-[15px] leading-snug text-ink", bg)}>
+    <div role={tone === "error" ? "alert" : "status"} className={cx("flex gap-3 rounded-[8px] px-4 py-3.5 text-[15px] leading-snug text-ink", bg)}>
       <span className={cx("mt-px shrink-0", iconColor)} aria-hidden>
         {icon ?? <Default size={20} {...ICON} />}
       </span>
@@ -293,7 +293,7 @@ export function Section({ title, action, children }: { title: ReactNode; action?
   return (
     <section className="space-y-2">
       <div className="flex min-h-8 items-end justify-between gap-2 px-5">
-        <h2 className="text-[13px] text-ink-2">{title}</h2>
+        <h2 className="section-label">{title}</h2>
         {action}
       </div>
       <div className="space-y-3.5">{children}</div>
@@ -304,7 +304,7 @@ export function Section({ title, action, children }: { title: ReactNode; action?
 // ---------- Bottom sheet ------------------------------------------------------
 
 /**
- * Glass sheet on a native <dialog> (focus trap, Esc, inert background for
+ * Sheet on a native <dialog> (focus trap, Esc, inert background for
  * free). Slides up; close circle at top left, optional filled confirm circle
  * at top right. Swipe the handle down or tap outside to close.
  */
@@ -373,7 +373,7 @@ export function Sheet({
     >
       <div className="flex max-h-[inherit] flex-col">
         <div
-          className="flex cursor-grab touch-none justify-center pt-2 pb-1"
+          className="flex cursor-grab touch-none justify-center pt-5 pb-1"
           onPointerDown={(e) => {
             drag.current = { y: e.clientY, dy: 0 };
             e.currentTarget.setPointerCapture(e.pointerId);
@@ -390,7 +390,7 @@ export function Sheet({
             if (moved > 90) onClose();
           }}
         >
-          <span aria-hidden className="h-[5px] w-9 rounded-full bg-[var(--line)]" />
+          <span aria-hidden className="h-[5px] w-9 rounded-[2px] bg-[var(--line)]" />
         </div>
         <header className="grid grid-cols-[44px_1fr_44px] items-center gap-2 px-4 pb-3">
           <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
@@ -406,7 +406,7 @@ export function Sheet({
             <button
               type={confirmForm ? "submit" : "button"}
               form={confirmForm}
-              className="press inline-grid size-11 place-items-center rounded-full bg-accent text-accent-ink disabled:opacity-40"
+              className="press inline-grid size-11 place-items-center rounded-full bg-accent-fill text-accent-ink disabled:opacity-40"
               aria-label={confirmLabel}
               disabled={confirmDisabled}
               onClick={onConfirm}
