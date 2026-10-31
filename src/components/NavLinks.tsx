@@ -15,8 +15,9 @@ const LINKS = [
 ];
 
 /**
- * Floating glass navigation capsule (bottom on phones, top on desktop) with
- * "Scan receipt" as a separate filled green circle beside it.
+ * The bar across the screen (bottom on phones, top on desktop) with "Scan receipt" as a separate
+ * filled green square beside it. Routes are fetched on first touch or hover
+ * rather than all at once on every page load.
  */
 export function NavLinks() {
   const path = usePathname();
@@ -24,19 +25,21 @@ export function NavLinks() {
   const cameraRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:top-0 md:bottom-auto md:pt-4 md:pb-0">
-      <div className="pointer-events-auto mx-auto flex max-w-2xl items-center gap-2.5">
-        <nav aria-label="Main" className="glass flex h-[62px] flex-1 items-center justify-around rounded-full px-1.5">
+    <div className="dock fixed inset-x-0 bottom-0 z-50 md:top-0 md:bottom-auto">
+      <div className="mx-auto flex max-w-2xl items-center gap-2.5 px-3 py-1.5">
+        <nav aria-label="Main" className="flex h-[62px] flex-1 items-center justify-around">
           {LINKS.map(({ href, label, Icon }) => {
             const active = href === "/" ? path === "/" : path.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
+                onPointerEnter={() => router.prefetch(href)}
                 aria-current={active ? "page" : undefined}
                 className={cx(
-                  "press flex h-[52px] min-w-[64px] flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-semibold md:flex-row md:gap-2 md:text-[15px]",
-                  active ? "bg-[var(--hover)] text-accent" : "text-ink-2",
+                  "press flex h-[52px] min-w-[64px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[var(--r)] text-[11px] font-semibold md:flex-row md:gap-2 md:text-[15px]",
+                  active ? "bg-accent-soft text-accent-strong" : "text-ink-2",
                 )}
               >
                 <Icon size={22} {...ICON} aria-hidden />
@@ -48,7 +51,7 @@ export function NavLinks() {
         <button
           type="button"
           aria-label="Scan receipt"
-          className="press grid size-[62px] shrink-0 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-6px_rgb(4_120_87/0.5),0_2px_6px_rgb(0_0_0/0.08)]"
+          className="press grid size-[62px] shrink-0 place-items-center rounded-[8px] bg-accent-fill text-accent-ink shadow-[var(--raised-shadow)]"
           onClick={() => cameraRef.current?.click()}
         >
           <Camera size={24} {...ICON} aria-hidden />

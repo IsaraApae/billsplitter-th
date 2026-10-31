@@ -169,7 +169,7 @@ export function SlipUpload<T extends SlipResult>({
       {preview && (busy || msgs.length > 0) && (
         // The slip being checked, so it's clear which picture this is about.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={preview} alt="Your slip" className="mx-auto max-h-56 rounded-2xl border border-[var(--line)] object-contain" />
+        <img src={preview} alt="Your slip" className="mx-auto max-h-56 rounded-[8px] border border-[var(--line)] object-contain" />
       )}
       {progress ? (
         <div className="space-y-2 py-1" aria-live="polite">
@@ -186,9 +186,9 @@ export function SlipUpload<T extends SlipResult>({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={progress.pct}
-            className="h-2 overflow-hidden rounded-full bg-[var(--field)]"
+            className="h-2 overflow-hidden rounded-[2px] bg-[var(--field)]"
           >
-            <div className="h-full rounded-full bg-accent transition-[width] duration-200" style={{ width: `${progress.pct}%` }} />
+            <div className="h-full rounded-[2px] bg-accent-fill transition-[width] duration-200" style={{ width: `${progress.pct}%` }} />
           </div>
           <ol className="flex justify-between text-[13px] text-ink-2">
             {(["preparing", "uploading", "checking"] as Stage[]).map((st, i) => {

@@ -156,7 +156,7 @@ export function MeSettings() {
                   <img
                     src={qrImageUrl(p.ownerId!, p.qrVersion)}
                     alt="Your PromptPay QR"
-                    className="size-32 rounded-2xl bg-white object-contain p-2 shadow-[var(--card-shadow)]"
+                    className="size-32 rounded-[8px] bg-white object-contain p-2 shadow-[var(--card-shadow)]"
                   />
                   <div className="flex flex-1 flex-col gap-2">
                     <button type="button" className="btn-secondary h-11" disabled={uploading} onClick={() => galleryRef.current?.click()}>
@@ -241,7 +241,7 @@ export function MeSettings() {
           <label className="block space-y-1.5">
             <span className="label">Bank details / note (optional)</span>
             <textarea
-              className="input min-h-20 rounded-[20px] py-3"
+              className="input min-h-20 rounded-[8px] py-3"
               maxLength={300}
               placeholder="e.g. KBank 123-4-56789-0"
               value={p.note}

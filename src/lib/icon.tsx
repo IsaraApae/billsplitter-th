@@ -1,67 +1,34 @@
 import { ImageResponse } from "next/og";
 
-// Top to bottom, ending in the scallops' colour so the edge is seamless.
-const GREEN = "linear-gradient(180deg, #10b981 0%, #047857 100%)";
+const GREEN = "#00B368";
+const DARK = "#04261A";
+const LIGHT = "#ffffff";
 
-/** ÷ drawn with shapes (crisp at any size, no font needed). */
-function Divide({ size, color }: { size: number; color: string }) {
-  const dot = size * 0.27;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ width: dot, height: dot, borderRadius: dot, background: color }} />
-      <div style={{ width: size, height: size * 0.19, borderRadius: size, background: color, margin: `${size * 0.15}px 0` }} />
-      <div style={{ width: dot, height: dot, borderRadius: dot, background: color }} />
-    </div>
-  );
-}
-
-/** The logo: a green receipt with a white ÷, on a transparent background. */
+/**
+ * The logo, on a 16-unit grid so it stays crisp down to a 16px favicon: a green
+ * tile with a square-cut ÷ above two rows of a chessboard. scripts/make-art.py
+ * draws the same grid for the static favicon files.
+ */
 export function LogoMark({ px }: { px: number }) {
-  const w = px * 0.56;
-  const h = px * 0.62;
-  const bump = w / 4;
+  const u = px / 16;
+  const block = (x: number, y: number, w: number, h: number, c: string) => (
+    <div key={`${x}-${y}`} style={{ position: "absolute", left: x * u, top: y * u, width: w * u, height: h * u, background: c }} />
+  );
+  const squares = [];
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < 8; col++) squares.push(block(col * 2, 12 + row * 2, 2, 2, (col + row) % 2 ? DARK : LIGHT));
+  }
   return (
-    <div
-      style={{
-        width: px,
-        height: px,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: -px * 0.04 }}>
-        <div
-          style={{
-            width: w,
-            height: h,
-            borderRadius: `${px * 0.07}px ${px * 0.07}px 0 0`,
-            background: GREEN,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Divide size={px * 0.3} color="#ffffff" />
-        </div>
-        {/* Scalloped bottom edge of the receipt. */}
-        <div style={{ display: "flex" }}>
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} style={{ width: bump, height: bump / 2, borderRadius: `0 0 ${bump}px ${bump}px`, background: "#047857" }} />
-          ))}
-        </div>
-      </div>
+    <div style={{ position: "relative", display: "flex", width: px, height: px, borderRadius: 3.5 * u, overflow: "hidden", background: GREEN }}>
+      {block(7, 2, 2, 2, DARK)}
+      {block(3, 5, 10, 2, DARK)}
+      {block(7, 8, 2, 2, DARK)}
+      {squares}
     </div>
   );
 }
 
-/** The logo as a PNG: the receipt filling most of the square, background transparent. */
+/** The logo as a PNG. */
 export function iconResponse(px: number) {
-  return new ImageResponse(
-    // Nudged down a little so the receipt (with its scalloped edge) sits in the middle.
-    <div style={{ width: px, height: px, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", paddingTop: px * 0.05 }}>
-      <LogoMark px={px * 1.3} />
-    </div>,
-    { width: px, height: px },
-  );
+  return new ImageResponse(<LogoMark px={px} />, { width: px, height: px });
 }

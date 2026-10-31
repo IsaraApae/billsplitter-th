@@ -188,6 +188,35 @@ export function ItemsStep({
     <div className="space-y-6">
       <div className="space-y-3.5">
         <h1 className="large-title">{editing ? "Edit split" : "New split"}</h1>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button type="button" className={cx(doc.items.length ? "btn-secondary" : "btn-primary", "h-[52px] gap-2 px-3 whitespace-nowrap")} disabled={busy} onClick={() => cameraRef.current?.click()}>
+            <Camera size={22} {...ICON} aria-hidden /> Scan receipt
+          </button>
+          <button type="button" className="btn-secondary h-[52px] gap-2 px-3 whitespace-nowrap" disabled={busy} onClick={() => galleryRef.current?.click()}>
+            <ImageIcon size={22} {...ICON} aria-hidden /> From photos
+          </button>
+          <input
+            ref={cameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              handleFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={galleryRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              handleFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </div>
         <div className="card rows">
           <div className="px-5 py-4">
             <input
@@ -204,36 +233,6 @@ export function ItemsStep({
             <DateField label="Bill date" value={billDay(doc)} onChange={(date) => setDoc((d) => ({ ...d, date }))} />
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2.5">
-        <button type="button" className="btn glass h-[52px] gap-2 px-3 whitespace-nowrap text-ink" disabled={busy} onClick={() => cameraRef.current?.click()}>
-          <Camera size={22} {...ICON} aria-hidden /> Scan receipt
-        </button>
-        <button type="button" className="btn glass h-[52px] gap-2 px-3 whitespace-nowrap text-ink" disabled={busy} onClick={() => galleryRef.current?.click()}>
-          <ImageIcon size={22} {...ICON} aria-hidden /> From photos
-        </button>
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            handleFile(e.target.files?.[0]);
-            e.target.value = "";
-          }}
-        />
-        <input
-          ref={galleryRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            handleFile(e.target.files?.[0]);
-            e.target.value = "";
-          }}
-        />
       </div>
 
       {busy && (
@@ -312,7 +311,7 @@ export function ItemsStep({
           )}
           {info && (
             <div className="flex flex-wrap items-center gap-2 px-1">
-              <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-accent-soft px-3 text-[13px] font-semibold text-accent-strong">
+              <span className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--r)] bg-accent-soft px-3 text-[13px] font-semibold text-accent-strong">
                 <Sparkles size={16} {...ICON} aria-hidden /> Scanned with Gemini
               </span>
               {info.model && <span className="text-[13px] text-ink-2">{info.model}</span>}
@@ -351,7 +350,7 @@ export function ItemsStep({
           doc.items.length > 0 && (
             <button
               type="button"
-              className="press min-h-8 rounded-full px-2 text-[13px] font-semibold text-ink-2"
+              className="press min-h-8 rounded-[var(--r)] px-2 text-[13px] font-semibold text-ink-2"
               onClick={async () => {
                 if (await askConfirm({ title: "Remove all items?", confirmLabel: "Remove all", destructive: true }))
                   setDoc((d) => ({ ...d, items: [], receipt: { subtotal: null, total: null } }));
@@ -364,7 +363,7 @@ export function ItemsStep({
       >
         {mismatch && (
           <div className="sticky top-3 z-20">
-            <div className="glass flex items-start gap-3 rounded-[22px] p-4" role="status">
+            <div className="raised flex items-start gap-3 rounded-[8px] p-4" role="status">
               <AlertTriangle size={20} {...ICON} className="mt-0.5 shrink-0 text-warn" aria-hidden />
               <p className="text-[15px] leading-snug">
                 Items add up to <b className="tnum">{formatMoney(sub, currency)}</b> but the receipt says{" "}
@@ -425,7 +424,7 @@ export function ItemsStep({
             ))}
           </ul>
         )}
-        <button type="button" className="btn glass h-12 w-full text-ink" onClick={addItem}>
+        <button type="button" className="btn raised h-12 w-full text-ink" onClick={addItem}>
           <Plus size={22} {...ICON} aria-hidden /> Add item
         </button>
       </Section>

@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
   devIndicators: false, // the badge overlaps the bottom action bar on phones
   async headers() {
     return [
+      // The art rarely changes; keep it on phones between visits.
+      ...["/meadow/:file*", "/scene/:file*"].map((source) => ({
+        source,
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=604800" }],
+      })),
       {
         source: "/:path*",
         headers: [

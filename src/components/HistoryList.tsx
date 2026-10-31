@@ -284,7 +284,7 @@ function EntryRow({
                   onClick={() => onFilter(m)}
                   className={cx(
                     // 32px chip with a 44px-tall hit area.
-                    "press relative z-10 inline-flex h-8 max-w-40 items-center gap-1.5 rounded-full pr-3 pl-1 text-[13px] after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']",
+                    "press relative z-10 inline-flex h-8 max-w-40 items-center gap-1.5 rounded-[var(--r)] pr-3 pl-1 text-[13px] after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']",
                     on ? "bg-accent-soft font-semibold text-accent" : "bg-[var(--field)] text-ink",
                   )}
                 >
@@ -305,9 +305,9 @@ function EntryRow({
             })}
           </div>
         )}
-        <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-[var(--field)]">
+        <div className="mt-2.5 h-1 overflow-hidden rounded-[2px] bg-[var(--field)]">
           <div
-            className="h-full rounded-full bg-accent"
+            className="h-full rounded-[2px] bg-accent-fill"
             style={{
               width: `${h.people ? Math.min(100, (h.paid / h.people) * 100) : 0}%`,
             }}
@@ -404,7 +404,7 @@ function EventRow({
       </div>
       {entries.length > 0 && (
         // The small bills inside, on a faint rail.
-        <ul className="relative mb-3 ml-5 space-y-1 before:absolute before:top-1 before:bottom-1 before:left-0 before:w-0.5 before:rounded-full before:bg-[var(--line)]">
+        <ul className="relative mb-3 ml-5 space-y-1 before:absolute before:top-1 before:bottom-1 before:left-0 before:w-0.5 before:rounded-[2px] before:bg-[var(--line)]">
           {entries.map((h) => (
             <EntryRow
               key={h.id}

@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardCheck, ReceiptText, Share2, SlidersHorizontal, UsersRound } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { calculate } from "@/lib/calc";
 import { rememberPeople, rememberPromptPays } from "@/lib/client/friendsStore";
 import { claimSplit } from "@/lib/client/claim";
@@ -23,14 +24,27 @@ import { toPeople } from "@/lib/friends";
 import { paymentSummary, settlesDirectly } from "@/lib/settle";
 import type { Person, SplitDoc } from "@/lib/types";
 import { CrewSheet } from "../CrewSheet";
+import { Pawn, Queen } from "../Poster";
 import { Callout, ICON, Money, cx } from "../ui";
-import { ExtrasStep } from "./ExtrasStep";
 import { ItemsStep } from "./ItemsStep";
-import { PeopleStep } from "./PeopleStep";
-import { ReviewStep } from "./ReviewStep";
-import { ShareStep } from "./ShareStep";
 
-const STEPS = ["Items", "People", "Extras", "Review", "Share"] as const;
+// The first screen is Items; the later steps load just after it.
+const loadPeople = () => import("./PeopleStep").then((m) => m.PeopleStep);
+const loadExtras = () => import("./ExtrasStep").then((m) => m.ExtrasStep);
+const loadReview = () => import("./ReviewStep").then((m) => m.ReviewStep);
+const loadShare = () => import("./ShareStep").then((m) => m.ShareStep);
+const PeopleStep = dynamic(loadPeople);
+const ExtrasStep = dynamic(loadExtras);
+const ReviewStep = dynamic(loadReview);
+const ShareStep = dynamic(loadShare);
+
+const STEPS = [
+  { label: "Items", Icon: ReceiptText },
+  { label: "People", Icon: UsersRound },
+  { label: "Extras", Icon: SlidersHorizontal },
+  { label: "Review", Icon: ClipboardCheck },
+  { label: "Share", Icon: Share2 },
+] as const;
 const DRAFT_KEY = "bs:draft";
 
 export interface DraftState {
@@ -106,6 +120,18 @@ export function Wizard() {
     window.addEventListener(SCAN_EVENT, open);
     return () => window.removeEventListener(SCAN_EVENT, open);
   }, []);
+
+  // Fetch the later steps once the first one is up, so tapping Next is instant.
+  useEffect(() => {
+    const t = setTimeout(() => void Promise.all([loadPeople(), loadExtras(), loadReview(), loadShare()]).catch(() => {}), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // The home poster shrinks to a strip once there's work on the page.
+  const working = !!state && (state.step > 0 || state.doc.items.length > 0);
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-compact", working);
+  }, [working]);
 
   const calc = useMemo(() => (state ? calculate(state.doc) : null), [state]);
 
@@ -202,35 +228,41 @@ export function Wizard() {
   ][step];
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-[260px] md:pb-44">
-      {/* Step tabs: segmented control on a glass track */}
+    <div className="mx-auto max-w-2xl px-4 pb-[150px] md:pb-44">
+      {/* The steps are a rank of a chessboard; the pawn walks along it and promotes on Share. */}
       <nav aria-label="Steps" className="mb-6">
-        <ol className="glass grid grid-cols-5 gap-1 rounded-full p-1">
-          {STEPS.map((label, i) => {
-            const reachable = i < 4 || (state.editingId !== null && step === 4);
-            const current = i === step;
-            return (
-              <li key={label}>
-                <button
-                  type="button"
-                  disabled={!reachable || current}
-                  onClick={() => go(i)}
-                  aria-current={current ? "step" : undefined}
-                  className={cx(
-                    "press flex min-h-10 w-full items-center justify-center rounded-full text-[13px] disabled:cursor-default",
-                    current
-                      ? "bg-[var(--glass-strong)] font-semibold text-ink shadow-[0_3px_10px_-2px_rgb(0_0_0/0.15),inset_0_0.5px_0_var(--glass-highlight)]"
-                      : i < step
-                        ? "font-medium text-accent"
-                        : "font-medium text-ink-2",
-                  )}
-                >
-                  {label}
-                </button>
-              </li>
-            );
-          })}
-        </ol>
+        <div className="rank" style={{ "--step": step } as CSSProperties}>
+          <span className="rank-track" aria-hidden />
+          <ol className="relative grid grid-cols-5">
+            {STEPS.map(({ label, Icon }, i) => {
+              const reachable = i < 4 || (state.editingId !== null && step === 4);
+              const current = i === step;
+              return (
+                <li key={label}>
+                  <button
+                    type="button"
+                    disabled={!reachable || current}
+                    onClick={() => go(i)}
+                    aria-current={current ? "step" : undefined}
+                    className={cx("rank-square disabled:cursor-default", !current && (i < step ? "text-accent-strong" : "text-ink-2"))}
+                  >
+                    <Icon size={22} {...ICON} aria-hidden />
+                    {label}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <span className="rank-piece" aria-hidden>
+            {step === 4 ? (
+              <span className="rank-promote">
+                <Queen size={15} />
+              </span>
+            ) : (
+              <Pawn size={15} />
+            )}
+          </span>
+        </div>
       </nav>
 
       {state.editingId && step < 4 && (
@@ -265,9 +297,9 @@ export function Wizard() {
         }}
       />
 
-      {/* Floating glass action bar: above the navigation on phones, at the bottom on desktop. */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(12px,env(safe-area-inset-bottom))+72px)] z-40 px-4 md:bottom-4">
-        <div className="glass pointer-events-auto mx-auto max-w-2xl rounded-[30px] p-2">
+      {/* Action bar: above the navigation on phones, at the bottom on desktop. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--dock-h)+8px)] z-40 px-4 md:bottom-4">
+        <div className="raised pointer-events-auto mx-auto max-w-2xl rounded-[10px] p-2">
           {error && (
             <div className="mb-2">
               <Callout tone="error">{error}</Callout>
@@ -275,7 +307,7 @@ export function Wizard() {
           )}
           <div className="flex items-center gap-2">
             {step > 0 && step < 4 && (
-              <button type="button" className="press glass-flat grid size-11 shrink-0 place-items-center rounded-full text-ink" aria-label="Back" onClick={() => go(step - 1)}>
+              <button type="button" className="press raised-flat grid size-11 shrink-0 place-items-center rounded-full text-ink" aria-label="Back" onClick={() => go(step - 1)}>
                 <ChevronLeft size={22} {...ICON} />
               </button>
             )}
@@ -283,7 +315,7 @@ export function Wizard() {
               <span className="block truncate text-[13px] text-ink-2">
                 {!canNext && nextHint ? <span className="text-warn">{nextHint}</span> : "Grand total"}
               </span>
-              <Money value={calc.total} currency={doc.currency} className="text-[20px] font-bold tracking-tight" />
+              <Money value={calc.total} currency={doc.currency} className="font-display text-[20px] font-black" />
             </div>
             {step < 3 && (
               <button type="button" className="btn-primary h-11 shrink-0 px-5" disabled={!canNext} onClick={() => go(step + 1)}>

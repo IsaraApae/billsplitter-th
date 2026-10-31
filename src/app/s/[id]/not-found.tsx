@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <main className="mx-auto max-w-2xl px-4 pt-4 pb-32 md:pb-16">
+    <main className="mx-auto max-w-2xl px-4 pt-4 pb-6 md:pb-16">
       <div className="card p-8 text-center">
         <div className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-accent-soft text-accent">
           <ReceiptText size={28} strokeWidth={2} aria-hidden />

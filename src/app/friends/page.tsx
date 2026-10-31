@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: "Friends" };
 
 export default function FriendsPage() {
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-32 md:pb-16">
+    <main className="mx-auto max-w-2xl px-4 pb-6 md:pb-16">
       <FriendsClient />
     </main>
   );

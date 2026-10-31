@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Promise-based confirmation, rendered by <ConfirmHost/> as a compact glass
+ * Promise-based confirmation, rendered by <ConfirmHost/> as a compact
  * dialog with two capsule buttons (replaces the browser's confirm()).
  */
 export interface ConfirmRequest {

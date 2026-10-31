@@ -132,7 +132,7 @@ function CrewPicker({ people, onConfirm }: { people: Person[]; onConfirm: (peopl
           <span className="flex-1 font-semibold">
             {me.name || "Me"} <span className="text-[13px] font-normal text-ink-2">(you)</span>
           </span>
-          <span className="grid size-7 place-items-center rounded-full bg-accent text-accent-ink" aria-label="Always included">
+          <span className="grid size-7 place-items-center rounded-full bg-accent-fill text-accent-ink" aria-label="Always included">
             <Check size={16} {...ICON} />
           </span>
         </li>
@@ -162,7 +162,7 @@ function CrewPicker({ people, onConfirm }: { people: Person[]; onConfirm: (peopl
                   aria-hidden
                   className={cx(
                     "grid size-7 place-items-center rounded-full peer-focus-visible:outline-2 peer-focus-visible:outline-accent",
-                    on ? "bg-accent text-accent-ink" : "bg-[var(--field)]",
+                    on ? "bg-accent-fill text-accent-ink" : "bg-[var(--field)]",
                   )}
                 >
                   {on && <Check size={16} {...ICON} />}

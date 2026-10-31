@@ -6,7 +6,7 @@ import { cx } from "./ui";
 
 type Pending = ConfirmRequest & { resolve: (ok: boolean) => void };
 
-/** Compact centred glass dialog for confirmations; scales in from 88%. */
+/** Compact centred raised dialog for confirmations; scales in from 88%. */
 export function ConfirmHost() {
   const [req, setReq] = useState<Pending | null>(null);
   const ref = useRef<HTMLDialogElement>(null);
@@ -48,7 +48,7 @@ export function ConfirmHost() {
             <button
               type="button"
               autoFocus
-              className={cx("btn h-12 glass-flat font-semibold", req.destructive ? "text-ink" : "text-accent")}
+              className={cx("btn h-12 raised-flat font-semibold", req.destructive ? "text-ink" : "text-accent")}
               onClick={() => answer(true)}
             >
               {req.confirmLabel ?? "OK"}
