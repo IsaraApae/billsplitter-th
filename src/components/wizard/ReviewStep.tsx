@@ -129,7 +129,7 @@ export function ReviewStep({
         <Link href="/me" className="card flex min-h-[68px] items-center gap-3 py-3 pr-4 pl-5">
           {profile.qrMode === "upload" && profile.ownerId ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={qrImageUrl(profile.ownerId, profile.qrVersion)} alt="" className="size-12 rounded-[14px] bg-white object-contain p-1" />
+            <img src={qrImageUrl(profile.ownerId, profile.qrVersion)} alt="" className="size-12 rounded-[8px] bg-white object-contain p-1" />
           ) : (
             <span className="grid size-12 place-items-center rounded-full bg-accent-soft text-accent-strong">
               <QrCode size={22} {...ICON} aria-hidden />

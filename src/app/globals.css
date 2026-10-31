@@ -4,10 +4,13 @@
 
 @theme inline {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Thonburi", "Noto Sans Thai", system-ui, sans-serif;
+  /* Poster type: ultra-wide black caps, Thai falling through to Kanit. */
+  --font-display: var(--font-anybody), var(--font-kanit), "Arial Black", system-ui, sans-serif;
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-accent-strong: var(--accent-strong);
@@ -26,75 +29,70 @@
 }
 
 /* ---------- Tokens --------------------------------------------------------
-   Two layers: content cards (opaque-ish, never blurred) and a control layer of
-   frosted glass (navigation, toolbars, buttons, chips, sheets).
-   All text tokens meet 4.5:1 on cards and on glass over the glow wash. */
+   The scene with poster type at the top, solid working panels below, a meadow at the end.
+   No blur anywhere: everything here is cheap to paint on a phone.
+   All text tokens meet 4.5:1 on panels and on the page. */
 :root {
   color-scheme: light;
-  --bg: #f5f3f7;
-  /* One solid colour for the page's top and bottom edges: the average of the
-     background's top edge (--bg under the first glow). iPhone in-app browsers
-     (LINE, Facebook…) fill the strips behind the status bar and their toolbar
-     with a single solid colour, and fixed layers aren't drawn there. */
-  --edge-solid: #eaf1f2;
-  /* The soft green wash the glass blurs (emerald, teal, mint, lime). */
-  --blob-1: rgb(52 211 153 / 0.22);
-  --blob-2: rgb(20 184 166 / 0.16);
-  --blob-3: rgb(94 234 212 / 0.18);
-  --blob-4: rgb(163 230 53 / 0.12);
+  --r: 8px; /* controls */
+  --dock-h: calc(74px + env(safe-area-inset-bottom)); /* the bottom bar; none on desktop */
+  --bg: #eef4ee;
+  --edge-solid: #eef4ee; /* in-app browsers' status bar and toolbar strips */
 
-  --ink: #1c1c1e;
-  --ink-2: #636366;
-  --ink-3: #5e5e63; /* 4.5:1 even as placeholder on a field */
-  --accent: #047857;
-  --accent-ink: #ffffff;
-  --accent-soft: rgb(4 120 87 / 0.12);
-  --accent-strong: #065f46; /* accent text on accent-soft */
-  --positive: #35805a;
-  --danger: #c24a44; /* the only red: negative amounts and errors */
-  --danger-soft: rgb(194 74 68 / 0.1);
-  --warn: #8a5a12;
-  --warn-soft: rgb(232 172 114 / 0.2);
-  --info: #3a6a94;
-  --info-soft: rgb(134 178 222 / 0.2);
+  --ink: #0b1b14;
+  --ink-2: #47574f;
+  --ink-3: #4f5f57;
+  --accent: #007a50; /* text and icons on light surfaces */
+  --accent-fill: #00b368; /* the brand green: buttons, tracks, squares */
+  --accent-ink: #04261a; /* text on the brand green */
+  --accent-soft: rgb(0 179 104 / 0.14);
+  --accent-strong: #006b47; /* accent text on accent-soft */
+  --positive: #1f7a50;
+  --danger: #b93e38; /* the only red: negative amounts and errors */
+  --danger-soft: rgb(185 62 56 / 0.1);
+  --warn: #7a4e0c;
+  --warn-soft: rgb(232 172 114 / 0.22);
+  --info: #2f5f8a;
+  --info-soft: rgb(134 178 222 / 0.22);
 
-  --card: rgb(255 255 255 / 0.75);
-  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.03), 0 8px 24px -14px rgb(0 0 0 / 0.14);
-  --line: rgb(60 60 67 / 0.22);
-  --field: rgb(118 118 128 / 0.12);
-  --hover: rgb(118 118 128 / 0.1);
+  --card: #ffffff;
+  --card-shadow: none;
+  --line: rgb(11 27 20 / 0.14);
+  --field: rgb(11 27 20 / 0.06);
+  --hover: rgb(11 27 20 / 0.06);
 
-  /* Glass material (controls). */
-  --glass: rgb(255 255 255 / 0.55);
-  --glass-strong: rgb(255 255 255 / 0.85); /* selected segment */
-  --glass-blur: blur(22px) saturate(190%);
-  --glass-border: rgb(255 255 255 / 0.7);
-  --glass-highlight: rgb(255 255 255 / 0.9);
-  --glass-highlight-bottom: rgb(255 255 255 / 0.35);
-  --glass-shadow: 0 10px 30px -6px rgb(0 0 0 / 0.15), 0 2px 6px rgb(0 0 0 / 0.06);
-  /* Large panels (sheets, dialogs). */
-  --panel: rgb(245 243 247 / 0.8);
-  --panel-blur: blur(40px) saturate(200%);
-  --glass-solid: #ffffff;
-  --scrim: rgb(0 0 0 / 0.28);
+  --raised: #ffffff; /* the bar, action bar, secondary buttons */
+  --raised-line: rgb(11 27 20 / 0.16);
+  --raised-shadow: 0 10px 24px -12px rgb(11 27 20 / 0.32), 0 2px 4px rgb(11 27 20 / 0.06);
+  --panel: #f6faf5; /* sheets and dialogs */
+  --panel-shadow: 0 24px 60px -14px rgb(3 14 10 / 0.45);
+  --scrim: rgb(3 14 10 / 0.45);
+
+  /* The rank of step squares, and checker rules. */
+  --square-a: #dcebdf;
+  --square-b: #c5dfcc;
+  --check: var(--accent-fill);
+
+  /* The scene at the top of pages; a <900px screen gets the smaller file. */
+  --scene: url("/scene/day-1000.webp");
+  --scene-sky: #0c3fb0;
+  --on-scene: #ffffff;
+  --on-scene-2: #f0f6ff;
 }
 
 .dark {
   color-scheme: dark;
-  --bg: #000000;
-  --edge-solid: #04110d;
-  --blob-1: rgb(52 211 153 / 0.32);
-  --blob-2: rgb(20 184 166 / 0.24);
-  --blob-3: rgb(94 234 212 / 0.2);
-  --blob-4: rgb(163 230 53 / 0.18);
+  --bg: #060d0a;
+  --edge-solid: #060d0a;
 
-  --ink: #f2f2f7;
-  --ink-2: #a1a1a8;
-  --ink-3: #98989e;
-  --accent: #34d399;
-  --accent-ink: #032419;
-  --accent-soft: rgb(52 211 153 / 0.16);
-  --accent-strong: #6ee7b7;
+  --ink: #f1f7f2;
+  --ink-2: #a8b8ae;
+  --ink-3: #9dada3;
+  --accent: #2ee08f;
+  --accent-fill: #00b368;
+  --accent-ink: #04261a;
+  --accent-soft: rgb(46 224 143 / 0.16);
+  --accent-strong: #7cf0b8;
   --positive: #8fd3a0;
   --danger: #f0958e;
   --danger-soft: rgb(240 149 142 / 0.14);
@@ -103,54 +101,45 @@
   --info: #86b2de;
   --info-soft: rgb(134 178 222 / 0.14);
 
-  --card: rgb(28 28 30 / 0.75);
-  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -14px rgb(0 0 0 / 0.6);
-  --line: rgb(84 84 88 / 0.6);
-  --field: rgb(118 118 128 / 0.24);
-  --hover: rgb(118 118 128 / 0.18);
+  --card: #101a15;
+  --card-shadow: none;
+  --line: rgb(190 235 210 / 0.16);
+  --field: rgb(190 235 210 / 0.1);
+  --hover: rgb(190 235 210 / 0.08);
 
-  --glass: rgb(58 58 60 / 0.5);
-  --glass-strong: rgb(99 99 102 / 0.6);
-  --glass-border: rgb(255 255 255 / 0.14);
-  --glass-highlight: rgb(255 255 255 / 0.18);
-  --glass-highlight-bottom: rgb(255 255 255 / 0.06);
-  --glass-shadow: 0 10px 30px -6px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
-  --panel: rgb(0 0 0 / 0.8);
-  --glass-solid: #2c2c2e;
-  --scrim: rgb(0 0 0 / 0.5);
+  --raised: #18241e;
+  --raised-line: rgb(190 235 210 / 0.2);
+  --raised-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.8), 0 2px 4px rgb(0 0 0 / 0.3);
+  --panel: #0c1511;
+  --panel-shadow: 0 24px 60px -14px rgb(0 0 0 / 0.8);
+  --scrim: rgb(0 0 0 / 0.6);
+
+  --square-a: #12201a;
+  --square-b: #1c2e25;
+
+  --scene: url("/scene/night-1000.webp");
+  --scene-sky: #020612;
+  --on-scene: #5cf0b4;
+  --on-scene-2: #d8f7e7;
 }
-
-/* Solid fallbacks: no backdrop-filter support, reduced transparency, or more contrast. */
-@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  :root,
+@media (min-width: 900px) {
+  :root {
+    --scene: url("/scene/day-1800.webp");
+  }
   .dark {
-    --glass: var(--glass-solid);
-    --panel: var(--glass-solid);
+    --scene: url("/scene/night-1800.webp");
   }
 }
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :root,
-  .dark {
-    --glass: var(--glass-solid);
-    --panel: var(--glass-solid);
-    --card: var(--glass-solid);
-    --glass-blur: none;
-    --panel-blur: none;
-    /* No glow wash here, so the edges are just the background. */
-    --edge-solid: var(--bg);
-  }
-  .app-bg,
-  .edge-blur {
-    display: none;
+
+@media (min-width: 768px) {
+  :root {
+    --dock-h: 0px;
   }
 }
 
 /* ---------- Base ------------------------------------------------------------ */
-/* Only the root gets the solid colour: an opaque <body> would paint over the
-   fixed glow layer (z-index -1) below it. It's the edge colour, which in-app
-   browsers use for the strips behind the status bar and toolbar. */
 html {
-  background-color: var(--edge-solid);
+  background-color: var(--bg);
 }
 
 body {
@@ -161,13 +150,27 @@ body {
   line-height: 1.45;
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
   overflow-x: hidden;
 }
 
+/* Room for the status bar on phones and the navigation on desktop. */
+.page-top {
+  --page-top: max(16px, env(safe-area-inset-top));
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  padding-top: var(--page-top);
+  padding-bottom: calc(var(--dock-h) + clamp(120px, 18vw, 220px));
+}
+@media (min-width: 768px) {
+  .page-top {
+    --page-top: 96px;
+  }
+}
+
 ::selection {
-  background: var(--accent-soft);
-  color: var(--ink);
+  background: var(--accent-fill);
+  color: var(--accent-ink);
 }
 input,
 textarea {
@@ -181,99 +184,8 @@ textarea {
 dialog:focus-visible {
   outline: none;
 }
-
-/* Scrolls with the page behind the fixed wash, in the edge colour: where an
-   in-app browser doesn't draw fixed layers (behind the status bar and its
-   toolbar) this shows instead, so the colour carries on while scrolling. */
-#strip {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background: var(--edge-solid);
-}
-
-/* Fixed soft wash of four large green glows behind everything. It starts and
-   ends in the edge colour so the page meets those strips without a seam. */
-.app-bg {
-  position: fixed;
-  inset: 0;
-  /* iOS 26 Safari paints a solid colour under its bottom bar when a fixed
-     element touches the bottom edge (within 3px, 80%+ wide); stopping short
-     lets the page scroll visibly behind the bar. #strip, in the same colour,
-     shows in the gap. */
-  bottom: 6px;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    linear-gradient(var(--edge-solid), transparent 120px),
-    linear-gradient(transparent calc(100% - 120px), var(--edge-solid)),
-    radial-gradient(48% 38% at 10% 4%, var(--blob-1), transparent 72%),
-    radial-gradient(44% 36% at 95% 22%, var(--blob-2), transparent 72%),
-    radial-gradient(52% 40% at 82% 92%, var(--blob-3), transparent 74%),
-    radial-gradient(46% 36% at 6% 76%, var(--blob-4), transparent 72%),
-    var(--bg);
-}
-
-/* Blur where content slides under floating chrome, instead of a solid bar. */
-.edge-blur {
-  position: fixed;
-  left: 0;
-  right: 0;
-  z-index: 30; /* above the page, below the navigation (z-50) */
-  pointer-events: none;
-}
-/* Progressive blur under the bottom navigation, built from stacked layers
-   (each shorter and stronger) because iOS ignores a backdrop-filter that also
-   has a mask-image. */
-.edge-blur-bottom {
-  bottom: 0;
-  height: calc(env(safe-area-inset-bottom) + 96px);
-  transform: translateZ(0); /* its own layer, above cards and charts */
-}
-.edge-blur-bottom > span {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-}
-.edge-blur-bottom > span:nth-child(1) {
-  height: 100%;
-  -webkit-backdrop-filter: blur(0.5px);
-  backdrop-filter: blur(0.5px);
-}
-.edge-blur-bottom > span:nth-child(2) {
-  height: 80%;
-  -webkit-backdrop-filter: blur(1px);
-  backdrop-filter: blur(1px);
-}
-.edge-blur-bottom > span:nth-child(3) {
-  height: 62%;
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-}
-.edge-blur-bottom > span:nth-child(4) {
-  height: 45%;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-}
-.edge-blur-bottom > span:nth-child(5) {
-  height: 30%;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-.edge-blur-bottom > span:nth-child(6) {
-  height: 16%;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-}
-/* Desktop (navigation at the top): the masked blur works in desktop browsers. */
-.edge-blur-top {
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  top: 0;
-  height: 96px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent);
-  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+html {
+  scrollbar-color: var(--accent-fill) transparent;
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -303,103 +215,306 @@ input[type="number"]::-webkit-outer-spin-button {
   transform-origin: top;
 }
 
+/* ---------- Scene, bar and meadow ------------------------------------------- */
+.scene {
+  position: relative;
+  margin-top: calc(-1 * var(--page-top));
+  padding-top: calc(var(--page-top) + 12px);
+  padding-bottom: 44px;
+  background: var(--scene) center var(--scene-y, 74%) / cover no-repeat, var(--scene-sky);
+  color: var(--on-scene);
+}
+/* The picture breaks up into the page in two rows of squares. */
+.scene::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 20px;
+  background: repeating-conic-gradient(var(--bg) 0 25%, transparent 0 50%) 0 0 / 20px 20px;
+}
+/* Full width from inside a centred column. */
+.scene-bleed {
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+}
+.scene-sub {
+  color: var(--on-scene-2);
+  font-size: 15px;
+  font-weight: 600;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.35);
+}
+.scene-title {
+  font-size: calc(var(--t, 34) * 1px);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  text-shadow: 0 2px 12px rgb(0 0 0 / 0.25);
+}
+.scene-total {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 14px rgb(0 0 0 / 0.3);
+}
+@media (min-width: 768px) {
+  .scene-title {
+    font-size: calc(var(--t, 34) * 1.35px);
+  }
+  .scene-total {
+    font-size: 64px;
+  }
+}
+
+/* The home title: poster size until there's work on the page. */
+.mast {
+  height: clamp(270px, 44svh, 400px);
+}
+.mast-title {
+  font-size: min(12vw, 88px);
+  text-shadow: 0 2px 14px rgb(0 0 0 / 0.25);
+}
+@media (min-width: 768px) {
+  /* Wide screens show less of the sky, so the title stays small enough to clear the pieces. */
+  .mast {
+    height: 500px;
+    --scene-y: 62%;
+  }
+  .mast-title {
+    font-size: 48px;
+  }
+  .scene-bleed {
+    --scene-y: 60%;
+  }
+}
+.mast-title > span {
+  display: block;
+}
+[data-compact] .mast {
+  height: auto;
+  padding-top: calc(var(--page-top) + 4px);
+  padding-bottom: 32px;
+  --scene-y: 2%;
+}
+[data-compact] .mast-title {
+  font-size: 22px;
+}
+[data-compact] .mast-title > span {
+  display: inline;
+}
+
+/* The navigation bar: solid, across the screen. */
+.dock {
+  background: var(--raised);
+  border-top: 1px solid var(--raised-line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@media (min-width: 768px) {
+  .dock {
+    border-top: 0;
+    border-bottom: 1px solid var(--raised-line);
+    padding-bottom: 0;
+  }
+}
+
+/* Grass and flowers grow from the bottom of the page, up from the bar on phones. */
+.meadow {
+  position: absolute;
+  inset: auto 0 var(--dock-h);
+  z-index: -1;
+  height: clamp(170px, 24vw, 300px);
+  overflow: hidden;
+  pointer-events: none;
+}
+.meadow img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 100%;
+}
+.meadow-night,
+.dark .meadow-day {
+  display: none;
+}
+.dark .meadow-night {
+  display: block;
+}
+
+/* The five steps as a rank of a chessboard. The pawn's square travels along it. */
+.rank {
+  position: relative;
+  border-radius: var(--r);
+  overflow: hidden;
+  box-shadow: var(--raised-shadow);
+}
+.rank-square {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  height: 60px;
+  font-size: 12px;
+  font-weight: 600;
+}
+li:nth-child(odd) > .rank-square {
+  background-color: var(--square-a);
+}
+li:nth-child(even) > .rank-square {
+  background-color: var(--square-b);
+}
+.rank-square[aria-current] {
+  background-color: transparent !important;
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+.rank-piece {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: 20%;
+  height: 60px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 3px 3px 0 0;
+  color: var(--accent-ink);
+  pointer-events: none;
+  transform: translateX(calc(var(--step, 0) * 100%));
+  transition: transform 0.45s var(--ease-spring);
+}
+.rank-track {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 20%;
+  background: var(--accent-fill);
+  transform: translateX(calc(var(--step, 0) * 100%));
+  transition: transform 0.45s var(--ease-spring);
+}
+/* Visible by default: the entrance only adds the pop. */
+.rank-promote {
+  display: flex;
+  animation: promote 0.35s var(--ease-spring);
+}
+@keyframes promote {
+  from {
+    transform: scale(0.4) translateY(8px);
+  }
+}
+
 /* ---------- Materials ------------------------------------------------------- */
 
-/* Frosted glass for floating controls (nav, toolbars, step tabs). */
-@utility glass {
-  background-color: var(--glass);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 0.5px solid var(--glass-border);
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    inset 0 -1px 0 var(--glass-highlight-bottom),
-    var(--glass-shadow);
+/* Poster type. Sizes are set where it's used; never for running text. */
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+  text-transform: uppercase;
 }
-/* Same look without the blur, for controls sitting on a card (blurring a flat
-   card adds nothing and stacks blurs). */
-@utility glass-flat {
-  background-color: var(--glass);
-  border: 0.5px solid var(--glass-border);
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    inset 0 -1px 0 var(--glass-highlight-bottom),
-    0 4px 12px -6px rgb(0 0 0 / 0.12);
+/* Solid floating controls (action bar, toolbar circles). */
+@utility raised {
+  background-color: var(--raised);
+  border: 1px solid var(--raised-line);
+  box-shadow: var(--raised-shadow);
 }
-/* Large panels: sheets and dialogs. */
+/* The same on a card, where it doesn't need to lift off anything. */
+@utility raised-flat {
+  background-color: var(--raised);
+  border: 1px solid var(--raised-line);
+}
+/* Large panels: sheets and dialogs, with two rows of squares along the top. */
 @utility panel {
-  background-color: var(--panel);
-  -webkit-backdrop-filter: var(--panel-blur);
-  backdrop-filter: var(--panel-blur);
-  border: 0.5px solid var(--glass-border);
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    0 24px 60px -12px rgb(0 0 0 / 0.35);
+  background: repeating-conic-gradient(var(--check) 0 25%, transparent 0 50%) 0 0 / 16px 16px repeat-x, var(--panel);
+  border: 1px solid var(--raised-line);
+  box-shadow: var(--panel-shadow);
 }
-/* Content layer: slightly see-through, never glass. */
+/* Content layer. */
 @utility card {
   background-color: var(--card);
-  border-radius: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   box-shadow: var(--card-shadow);
 }
 
-/* ---------- Controls (all capsules or circles) ------------------------------ */
+/* ---------- Controls --------------------------------------------------------- */
 @utility press {
   transition: transform 0.2s var(--ease-spring);
   &:active {
-    transform: scale(0.94);
+    transform: scale(0.95);
   }
 }
 @utility btn {
-  @apply press inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[17px] font-semibold select-none disabled:pointer-events-none disabled:opacity-40;
+  @apply press inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--r)] px-5 text-[17px] font-semibold select-none disabled:pointer-events-none disabled:opacity-40;
 }
 @utility btn-primary {
-  @apply btn bg-accent text-accent-ink shadow-[0_8px_20px_-8px_rgb(4_120_87/0.45)];
+  @apply btn bg-accent-fill font-bold text-accent-ink;
+  box-shadow: 0 8px 16px -10px rgb(0 135 90 / 0.8);
 }
 @utility btn-secondary {
-  @apply btn glass-flat text-ink;
+  @apply btn raised-flat text-ink hover:bg-[var(--hover)];
 }
 @utility btn-ghost {
   @apply btn text-accent hover:bg-[var(--hover)];
 }
-/* 44px glass circle with a 22px line icon (floating toolbars). */
+/* 44px circle with a 22px line icon (floating toolbars). */
 @utility icon-btn {
-  @apply press glass inline-grid size-11 shrink-0 place-items-center rounded-full text-ink;
+  @apply press raised inline-grid size-11 shrink-0 place-items-center rounded-full text-ink;
 }
 /* 44px plain circle for actions inside a card row. */
 @utility icon-plain {
   @apply press inline-grid size-11 shrink-0 place-items-center rounded-full text-ink-2 hover:bg-[var(--hover)];
 }
 @utility chip {
-  @apply press glass-flat inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-[15px] font-medium text-ink;
+  @apply press raised-flat inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] px-4 text-[15px] font-medium text-ink;
 }
 /* Selected chip: solid text colour with inverted text. */
 @utility chip-on {
-  @apply press inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-4 text-[15px] font-semibold text-[var(--bg)];
+  @apply press inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] bg-ink px-4 text-[15px] font-semibold text-[var(--bg)];
 }
 /* Selected chip, accent-tinted (assigning people). */
 @utility chip-accent {
-  @apply press inline-flex min-h-11 items-center gap-2 rounded-full bg-accent-soft px-4 text-[15px] font-semibold text-accent-strong shadow-[inset_0_0_0_1px_rgb(4_120_87/0.25)];
+  @apply press inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] bg-accent-soft px-4 text-[15px] font-semibold text-accent-strong shadow-[inset_0_0_0_1px_var(--accent)];
 }
 @utility input {
-  @apply min-h-12 w-full rounded-full bg-field px-5 text-[17px] text-ink outline-none placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent;
+  @apply min-h-12 w-full rounded-[var(--r)] bg-field px-4 text-[17px] text-ink outline-none placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent;
 }
 @utility label {
   @apply text-[13px] text-ink-2;
 }
+/* The label above a card. */
+@utility section-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
 @utility large-title {
-  @apply text-[32px] leading-[1.15] font-bold tracking-[-0.02em] text-ink;
+  @apply display text-[30px] text-ink md:text-[38px];
+  &::after {
+    content: "";
+    display: block;
+    width: 96px;
+    height: 12px;
+    margin-top: 10px;
+    background: repeating-conic-gradient(var(--check) 0 25%, transparent 0 50%) 0 0 / 12px 12px;
+  }
 }
 
 /* ---------- Sheets and dialogs (native <dialog>) ----------------------------- */
 dialog.sheet {
-  /* Inset 8px from the screen edges so the corners sit concentric with the device. */
-  margin: auto 8px max(8px, env(safe-area-inset-bottom));
+    margin: auto 8px max(8px, env(safe-area-inset-bottom));
   width: calc(100% - 16px);
   max-width: 640px;
   max-height: min(90dvh, 900px);
   padding: 0;
-  border-radius: 36px;
+  border-radius: 12px;
   color: var(--ink);
   transform: translateY(0);
   transition:
@@ -425,7 +540,7 @@ dialog.alert {
   margin: auto;
   width: min(320px, calc(100% - 48px));
   padding: 0;
-  border-radius: 34px;
+  border-radius: 12px;
   color: var(--ink);
   opacity: 1;
   transform: scale(1);

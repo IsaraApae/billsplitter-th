@@ -80,7 +80,7 @@ export function PayChooser({
                     aria-hidden
                     className={cx(
                       "grid size-7 shrink-0 place-items-center rounded-full",
-                      on ? "bg-accent text-accent-ink" : "border-2 border-[var(--line)]",
+                      on ? "bg-accent-fill text-accent-ink" : "border-2 border-[var(--line)]",
                     )}
                   >
                     {on && <Check size={16} {...ICON} />}

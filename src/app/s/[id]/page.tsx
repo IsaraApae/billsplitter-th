@@ -32,7 +32,7 @@ export default async function SharedPage({ params }: PageProps<"/s/[id]">) {
   if (!isValidId(id)) notFound();
   if (!storageReady) {
     return (
-      <main className="mx-auto max-w-2xl px-4 pb-32 md:pb-16">
+      <main className="mx-auto max-w-2xl px-4 pb-6 md:pb-16">
         <div className="card p-8 text-center">
           <h1 className="text-[24px] font-bold tracking-tight">Sharing isn&apos;t set up yet</h1>
           <p className="mt-2 text-ink-2">The Redis database isn&apos;t connected to this deployment.</p>

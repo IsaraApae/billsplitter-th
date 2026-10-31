@@ -14,7 +14,9 @@ const font = (f: string) => readFile(join(process.cwd(), "assets/fonts", f));
 // The app's palette (light mode).
 const INK = "#1C1C1E";
 const INK_2 = "#636366";
-const ACCENT = "#047857";
+const ACCENT = "#00875A"; // on the white receipt
+const GREEN = "#00B368";
+const ON_GREEN = "#04261A";
 
 interface Card {
   /** small line above the title, e.g. "Tue, 6 Oct 2026" or "Big bill · 3 bills" */
@@ -35,15 +37,18 @@ interface Card {
 }
 
 /**
- * The link preview (LINE, Messenger…): a white page with the site's soft
- * green glows, the bill's date and title on the left, and the total on a
+ * The link preview (LINE, Messenger…): a cloudy sky, the bill's date and title in
+ * poster type on the left, the meadow along the bottom, and the total on a
  * paper receipt with the people and a "See what you owe" button.
  */
 export async function shareImage(card: Card | null) {
-  const [latin700, thai700, latin400] = await Promise.all([
+  const [latin700, thai700, latin400, display, meadow, clouds] = await Promise.all([
     font("NotoSansThai-latin-700.woff"),
     font("NotoSansThai-thai-700.woff"),
     font("NotoSansThai-latin-400.woff"),
+    font("Anybody-Expanded-Black.ttf"),
+    readFile(join(process.cwd(), "assets/og/meadow.png")),
+    readFile(join(process.cwd(), "assets/og/clouds.jpg")),
   ]);
   const money = card ? formatMoney(card.total, card.currency) : "";
   // "฿1,800.00" → big whole part, smaller decimals (like the app). The font
@@ -52,7 +57,11 @@ export async function shareImage(card: Card | null) {
   const m = /^(.*?)([.,]\d+)?$/.exec(baht ? money.slice(1) : money);
   const whole = m?.[1] ?? money;
   const cents = m?.[2] ?? "";
-  const title = card ? (card.title.length > 48 ? `${card.title.slice(0, 46)}…` : card.title) : "Bill Splitter";
+  const title = (card ? (card.title.length > 40 ? `${card.title.slice(0, 38)}…` : card.title) : "Bill Splitter").toUpperCase();
+  const titleSize = title.length <= 12 ? 58 : title.length <= 24 ? 46 : 36;
+  // Poster digits are wide: the longer the amount, the smaller, so it stays on the receipt.
+  const moneySize = whole.length <= 5 ? 56 : whole.length <= 7 ? 44 : 36;
+  const cta = (card ? (card.cta ?? "See what you owe →") : "Split a bill →").replace(/\s*→$/, "");
 
   const bump = 24;
   const paper = 456;
@@ -73,23 +82,29 @@ export async function shareImage(card: Card | null) {
           display: "flex",
           gap: 48,
           padding: "0 64px",
-          background:
-            "radial-gradient(circle at 6% 6%, rgba(52,211,153,0.30), rgba(52,211,153,0) 40%), radial-gradient(circle at 96% 18%, rgba(20,184,166,0.20), rgba(20,184,166,0) 38%), radial-gradient(circle at 88% 104%, rgba(94,234,212,0.30), rgba(94,234,212,0) 44%), #ffffff",
+          position: "relative",
+          background: "#A9D8F4",
           fontFamily: "Noto",
           color: INK,
         }}
       >
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "64px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 32, fontWeight: 700, marginLeft: -14 }}>
-            <LogoMark px={84} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`data:image/jpeg;base64,${clouds.toString("base64")}`} width={1200} height={630} alt="" style={{ position: "absolute", left: 0, top: 0 }} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`data:image/png;base64,${meadow.toString("base64")}`} width={1200} height={345} alt="" style={{ position: "absolute", left: 0, bottom: -72 }} />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 44, padding: "52px 0 0", color: ON_GREEN }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 30, fontWeight: 700 }}>
+            <div style={{ display: "flex", padding: 3, borderRadius: 16, background: "#ffffff" }}>
+              <LogoMark px={56} />
+            </div>
             Bill Splitter
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 30, color: INK_2 }}>{card?.kicker ?? "Split the bill with friends"}</div>
-            <div style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.15, letterSpacing: -1, marginTop: 8 }}>{title}</div>
-          </div>
-          <div style={{ fontSize: 28, color: INK_2 }}>
-            {card ? (card.tagline ?? "Tap to see what you owe and mark it paid") : "Scan the receipt, share one link"}
+            <div style={{ fontFamily: "Display", fontSize: titleSize, fontWeight: 900, lineHeight: 1.04 }}>{title}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, marginTop: 12 }}>{card?.kicker ?? "Split the bill with friends"}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, marginTop: 14 }}>
+              {card ? (card.tagline ?? "Tap to see what you owe and mark it paid") : "Scan the receipt, share one link"}
+            </div>
           </div>
         </div>
 
@@ -102,26 +117,26 @@ export async function shareImage(card: Card | null) {
               alignItems: "center",
               justifyContent: "space-between",
               padding: "40px 36px 28px",
-              borderRadius: "22px 22px 0 0",
+              borderRadius: "12px 12px 0 0",
               background: "#ffffff",
-              boxShadow: "0 24px 60px -18px rgba(4,120,87,0.35), 0 2px 10px rgba(0,0,0,0.06)",
+              boxShadow: "0 24px 50px -16px rgba(3,20,30,0.55)",
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: 6, color: INK_2 }}>{card?.label ?? "TOTAL"}</div>
+              <div style={{ fontFamily: "Display", fontSize: 20, fontWeight: 900, color: INK_2 }}>{card?.label ?? "TOTAL"}</div>
               {dashes}
               {card ? (
-                <div style={{ display: "flex", alignItems: "baseline", letterSpacing: -2, color: ACCENT }}>
-                  {baht && <BahtSign size={84} color={ACCENT} />}
-                  <div style={{ fontSize: 84, fontWeight: 700, lineHeight: 1 }}>{whole}</div>
-                  <div style={{ fontSize: 42, fontWeight: 700, color: "#34A37F" }}>{cents}</div>
+                <div style={{ display: "flex", alignItems: "baseline", fontFamily: "Display", fontWeight: 900, color: ACCENT }}>
+                  {baht && <BahtSign size={moneySize * 0.62} color={ACCENT} />}
+                  <div style={{ fontSize: moneySize, lineHeight: 1 }}>{whole}</div>
+                  <div style={{ fontSize: moneySize * 0.5 }}>{cents}</div>
                 </div>
               ) : (
                 <div style={{ fontSize: 40, fontWeight: 700, color: ACCENT }}>Split it fairly</div>
               )}
               {dashes}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-                <Avatars people={card?.people ?? []} />
+                <Avatars people={[...(card?.people ?? []).filter((p) => !p.organiser), ...(card?.people ?? []).filter((p) => p.organiser)]} />
                 {card && card.people.length > 0 && (
                   <div style={{ maxWidth: paper - 72, fontSize: 28, fontWeight: 700, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                     {cardNames(card.people)}
@@ -137,14 +152,18 @@ export async function shareImage(card: Card | null) {
                 justifyContent: "center",
                 alignSelf: "stretch",
                 height: 64,
-                borderRadius: 32,
-                background: ACCENT,
-                color: "#ffffff",
+                borderRadius: 12,
+                background: GREEN,
+                color: ON_GREEN,
                 fontSize: 27,
                 fontWeight: 700,
+                gap: 12,
               }}
             >
-              {card ? (card.cta ?? "See what you owe →") : "Split a bill →"}
+              {cta}
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={ON_GREEN} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
             </div>
           </div>
           {/* Scalloped bottom edge of the receipt. */}
@@ -162,6 +181,7 @@ export async function shareImage(card: Card | null) {
         { name: "Noto", data: latin700, weight: 700, style: "normal" },
         { name: "Noto", data: thai700, weight: 700, style: "normal" },
         { name: "Noto", data: latin400, weight: 400, style: "normal" },
+        { name: "Display", data: display, weight: 900, style: "normal" },
       ],
     },
   );
