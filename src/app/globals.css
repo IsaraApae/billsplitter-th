@@ -270,6 +270,7 @@ input[type="number"]::-webkit-outer-spin-button {
 /* The home title: poster size until there's work on the page. */
 .mast {
   height: clamp(270px, 44svh, 400px);
+  transition: height 0.45s var(--ease-spring);
 }
 .mast-title {
   font-size: min(12vw, 88px);
@@ -292,7 +293,7 @@ input[type="number"]::-webkit-outer-spin-button {
   display: block;
 }
 [data-compact] .mast {
-  height: auto;
+  height: calc(var(--page-top) + 66px);
   padding-top: calc(var(--page-top) + 4px);
   padding-bottom: 32px;
   --scene-y: 2%;
