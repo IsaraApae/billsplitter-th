@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { ConfirmHost } from "@/components/ConfirmHost";
+import { Meadow } from "@/components/Meadow";
 import { NavLinks } from "@/components/NavLinks";
 import { siteUrl } from "@/lib/site";
 import "./globals.css";
@@ -72,13 +73,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-dvh font-sans">
         <div className="page-top">
           {children}
-          {/* The meadow at the end of every page; never loaded until it's near the screen. */}
-          <div className="meadow" aria-hidden>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="meadow-day" src="/meadow/day.webp" alt="" width={1300} height={272} loading="lazy" decoding="async" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="meadow-night" src="/meadow/night.webp" alt="" width={1300} height={272} loading="lazy" decoding="async" />
-          </div>
+          <Meadow />
         </div>
         <NavLinks />
         <ConfirmHost />

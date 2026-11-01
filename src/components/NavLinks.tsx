@@ -3,7 +3,7 @@
 import { Camera, Clock3, House, UserRound, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { setPendingScan } from "@/lib/client/pendingScan";
 import { ICON, cx } from "./ui";
 
@@ -23,6 +23,20 @@ export function NavLinks() {
   const path = usePathname();
   const router = useRouter();
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  // Once the page has settled, fetch the other tabs so the first tap is instant.
+  // Not for friends opening a shared link, or on Data Saver.
+  useEffect(() => {
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+    if (saveData || /^\/[seo]\//.test(window.location.pathname)) return;
+    const t = setTimeout(() => {
+      LINKS.forEach(({ href }) => router.prefetch(href));
+      void Promise.all([import("./wizard/Wizard"), import("./HistoryList"), import("./FriendsManager"), import("./MeSettings")]).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(t);
+    // Once per visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="dock fixed inset-x-0 bottom-0 z-50 md:top-0 md:bottom-auto">
