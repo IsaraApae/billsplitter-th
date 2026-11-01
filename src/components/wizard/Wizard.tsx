@@ -2,7 +2,6 @@
 
 import { ChevronLeft, ChevronRight, ClipboardCheck, ReceiptText, Share2, SlidersHorizontal, UsersRound } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { calculate } from "@/lib/calc";
 import { rememberPeople, rememberPromptPays } from "@/lib/client/friendsStore";
@@ -26,17 +25,11 @@ import type { Person, SplitDoc } from "@/lib/types";
 import { CrewSheet } from "../CrewSheet";
 import { Pawn, Queen } from "../Poster";
 import { Callout, ICON, Money, cx } from "../ui";
+import { ExtrasStep } from "./ExtrasStep";
 import { ItemsStep } from "./ItemsStep";
-
-// The first screen is Items; the later steps load just after it.
-const loadPeople = () => import("./PeopleStep").then((m) => m.PeopleStep);
-const loadExtras = () => import("./ExtrasStep").then((m) => m.ExtrasStep);
-const loadReview = () => import("./ReviewStep").then((m) => m.ReviewStep);
-const loadShare = () => import("./ShareStep").then((m) => m.ShareStep);
-const PeopleStep = dynamic(loadPeople);
-const ExtrasStep = dynamic(loadExtras);
-const ReviewStep = dynamic(loadReview);
-const ShareStep = dynamic(loadShare);
+import { PeopleStep } from "./PeopleStep";
+import { ReviewStep } from "./ReviewStep";
+import { ShareStep } from "./ShareStep";
 
 const STEPS = [
   { label: "Items", Icon: ReceiptText },
@@ -119,12 +112,6 @@ export function Wizard() {
     if (hasPendingScan()) open();
     window.addEventListener(SCAN_EVENT, open);
     return () => window.removeEventListener(SCAN_EVENT, open);
-  }, []);
-
-  // Fetch the later steps once the first one is up, so tapping Next is instant.
-  useEffect(() => {
-    const t = setTimeout(() => void Promise.all([loadPeople(), loadExtras(), loadReview(), loadShare()]).catch(() => {}), 1500);
-    return () => clearTimeout(t);
   }, []);
 
   // The home poster shrinks to a strip once there's work on the page.
