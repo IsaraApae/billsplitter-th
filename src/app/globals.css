@@ -232,6 +232,18 @@ input[type="number"]::-webkit-outer-spin-button {
   background: var(--scene) center var(--scene-y, 74%) / cover no-repeat, var(--scene-sky);
   color: var(--on-scene);
 }
+/* While the page is at the top, phone browsers paint the strip behind the clock
+   in --edge-solid over whatever is there. So on phones the picture starts below
+   that strip, breaking up into it in a row of squares like its lower edge. */
+@media (max-width: 767px) {
+  .scene {
+    background:
+      linear-gradient(var(--edge-solid) 0 0) top / 100% env(safe-area-inset-top) no-repeat,
+      repeating-linear-gradient(90deg, var(--edge-solid) 0 10px, transparent 0 20px) 0 env(safe-area-inset-top) / 100% 10px no-repeat,
+      var(--scene) center var(--scene-y, 74%) / cover no-repeat,
+      var(--scene-sky);
+  }
+}
 /* The picture breaks up into the page in two rows of squares. */
 .scene::after {
   content: "";
@@ -313,15 +325,25 @@ input[type="number"]::-webkit-outer-spin-button {
 [data-compact] .mast-title > span {
   display: inline;
 }
+/* Clear of the squares under the status bar strip. */
+@media (max-width: 767px) {
+  [data-compact] .mast {
+    height: calc(var(--page-top) + 76px);
+    padding-top: calc(var(--page-top) + 14px);
+  }
+}
 
-/* The navigation bar: solid, across the screen. */
+/* The navigation bar: solid, across the screen. On phones it touches the bottom
+   edge, so iPhone Safari paints the strip under its toolbar in --edge-solid; the
+   bar takes that colour too so the two read as one. */
 .dock {
-  background: var(--raised);
+  background: var(--edge-solid);
   border-top: 1px solid var(--raised-line);
   padding-bottom: env(safe-area-inset-bottom);
 }
 @media (min-width: 768px) {
   .dock {
+    background: var(--raised);
     border-top: 0;
     border-bottom: 1px solid var(--raised-line);
     padding-bottom: 0;

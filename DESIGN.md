@@ -256,7 +256,7 @@ One saturated brand green on green-tinted neutrals, with all other hue left to t
 - **Person Tags**: Muted avatar colours from `src/lib/colors.ts` (#93c79c, #86b2de, #9f9dda, #e39ab4, #e8ac72, #7fc4bd, #92c1d1, #a9a9b0) with dark text. They identify people and carry no status.
 
 ### Neutral
-- **Pale Meadow Mist** (#eef4ee, night #060d0a): The page, and the in-app browser's status bar and toolbar strips.
+- **Pale Meadow Mist** (#eef4ee, night #060d0a): The page, the phone navigation bar, the browsers' status bar and toolbar strips, and the row of squares where the scene starts below the status bar on phones.
 - **Ink** (#0b1b14, night #f1f7f2): Primary text. Inverted, it fills selected chips and segments.
 - **Ink 2 and Ink 3** (#47574f and #4f5f57, night #a8b8ae and #9dada3): Secondary text, labels and placeholders.
 - **White Card, White Raised and Pale Panel** (#ffffff, #ffffff, #f6faf5; night #101a15, #18241e, #0c1511): Content, then floating controls and the nav bar, then sheets and dialogs.
@@ -355,7 +355,7 @@ Firm and direct, with a slight squeeze when pressed.
 - **Error / Disabled:** Invalid or negative money turns the text Danger Red.
 
 ### Navigation
-A solid bar across the whole screen, White Raised with a single 1px border on its inner edge. It carries four links with 22px line icons: stacked 11px labels on phones, side by side at 15px from 768px, both weight 600. Inactive links are Ink 2. The active link is a 52px Soft Green block with Strong Green text. Scan receipt is a separate 62px Brand Green square beside the links, with the Raised shadow, and opens the camera directly from any page.
+A solid bar across the whole screen with a single 1px border on its inner edge: Pale Meadow Mist on phones, so it runs into the strip iPhone Safari paints under its toolbar, and White Raised along the top on desktop. It carries four links with 22px line icons: stacked 11px labels on phones, side by side at 15px from 768px, both weight 600. Inactive links are Ink 2. The active link is a 52px Soft Green block with Strong Green text. Scan receipt is a separate 62px Brand Green square beside the links, with the Raised shadow, and opens the camera directly from any page.
 
 ### Sheets and Dialogs
 Native dialogs in Pale Panel with the checker band along the top, 12px corners and the Panel shadow over a scrim. Sheets slide up over 0.45s, hold a drag handle and a 44px close circle at the top left, and dismiss on a 90px swipe. They rest 8px from the screen edges on phones and centre at 640px wide. Alerts are 320px wide and scale in from 0.88 over 0.35s. All motion uses one spring, `cubic-bezier(0.16, 1, 0.3, 1)`, and is removed under reduced-motion.
