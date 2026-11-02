@@ -55,3 +55,16 @@ Same receipt, app-sized (2048 px, 564 KB), 10 requests 5 s apart:
 Every result: 10 items, ฿1,500 subtotal. The slow ones (12–18 s) had several models busy
 (503) or out of quota at once on the free tier; with a paid key the top models are
 answered first and faster.
+
+## Latest (2026-11-02): Flash-Lite races the best model, second opinions
+
+The best model and Flash-Lite now start together. One model's garbled answer, refused
+photo or "no items" no longer ends the scan: the next model is asked.
+
+Same receipt, 3 requests 8 s apart (a quick check, not the 10-request run above):
+
+| Success | Median | Answered by |
+|---|---|---|
+| **3/3** | **3.7 s** (3.4–3.9 s) | 3.5-flash-lite ×3 |
+
+Every result: 10 items, ฿1,500 subtotal.
