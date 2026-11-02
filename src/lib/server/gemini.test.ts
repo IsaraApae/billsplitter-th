@@ -93,3 +93,54 @@ describe("readImageJson with fastFirst", () => {
     expect(r).toMatchObject({ ok: true, text: "bad", model: "gemini-3.5-flash-lite" });
   });
 });
+
+describe("readImageJson with judge", () => {
+  const judge = (text: string) => (text === "good" ? "good" : text === "none" ? "weak" : "bad") as "good" | "weak" | "bad";
+  const judged = () => readImageJson({ evt: "test", prompt: "", schema: {}, legacySchema: {}, mime: "image/jpeg", data: "", judge });
+
+  beforeEach(() => {
+    process.env.GEMINI_API_KEY = "test";
+    vi.spyOn(console, "info").mockImplementation(() => {});
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("asks the next model when one's answer is garbled", async () => {
+    fakeGemini({
+      "gemini-3.8-flash": { ms: 5, text: "{garbled" },
+      "gemini-3.7-flash": { ms: 5, text: "{garbled" },
+      "gemini-3.6-flash": { ms: 20, text: "good" },
+    });
+    expect(await judged()).toMatchObject({ ok: true, text: "good", model: "gemini-3.6-flash" });
+  });
+
+  it("asks the next model when one refuses the photo", async () => {
+    fakeGemini({
+      "gemini-3.8-flash": { ms: 5, status: 403 },
+      "gemini-3.7-flash": { ms: 20, text: "good" },
+    });
+    expect(await judged()).toMatchObject({ ok: true, text: "good", model: "gemini-3.7-flash" });
+  });
+
+  it("gets a second opinion when a model finds nothing", async () => {
+    fakeGemini({
+      "gemini-3.8-flash": { ms: 5, text: "none" },
+      "gemini-3.7-flash": { ms: 20, text: "good" },
+    });
+    expect(await judged()).toMatchObject({ ok: true, text: "good" });
+  });
+
+  it("accepts nothing found once two models agree", async () => {
+    const started = fakeGemini({
+      "gemini-3.8-flash": { ms: 5, text: "none" },
+      "gemini-3.7-flash": { ms: 5, text: "none" },
+    });
+    expect(await judged()).toMatchObject({ ok: true, text: "none" });
+    expect(started.length).toBeLessThan(6);
+  });
+
+  it("says why when every model fails", async () => {
+    const all = ["3.8-flash", "3.7-flash", "3.6-flash", "3.5-flash", "3.5-flash-lite", "3.1-flash-lite"];
+    fakeGemini(Object.fromEntries(all.map((m) => [`gemini-${m}`, { ms: 1, text: "{garbled" }])));
+    expect(await judged()).toMatchObject({ ok: false, reason: "bad_output" });
+  });
+});

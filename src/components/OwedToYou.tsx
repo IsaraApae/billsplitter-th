@@ -199,12 +199,12 @@ function FriendRow({
               <Link href={`/s/${b.id}`} className="flex min-h-[52px] min-w-0 flex-1 items-center gap-3 py-1.5 pr-3 pl-1 text-[15px]">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{b.title}</span>
-                  <span className="block text-[13px] text-ink-2">
+                  <span className="block truncate text-[13px] text-ink-2">
                     {new Date(b.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                     {b.part && <span className="font-semibold text-accent"> · Part paid</span>}
                   </span>
                 </span>
-                <span className="text-right leading-tight">
+                <span className="shrink-0 text-right leading-tight whitespace-nowrap">
                   {b.part && <span className="block text-[11px] text-ink-2">left to pay</span>}
                   <Money value={b.left} currency={f.currency} />
                 </span>

@@ -78,12 +78,12 @@ export function BoardView({
                   <PaidMark status={bill.part ? "part" : "none"} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{bill.title}</span>
-                    <span className="block text-[13px] text-ink-2">
+                    <span className="block truncate text-[13px] text-ink-2">
                       {new Date(bill.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                       {bill.part && <span className="font-semibold text-accent"> · Part paid</span>}
                     </span>
                   </span>
-                  <span className="text-right leading-tight">
+                  <span className="shrink-0 text-right leading-tight whitespace-nowrap">
                     {bill.part && <span className="block text-[11px] text-ink-2">left to pay</span>}
                     <Money value={bill.left} currency={currency} className="text-[17px] font-bold tracking-tight" />
                   </span>

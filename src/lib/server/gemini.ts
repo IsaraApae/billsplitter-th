@@ -50,6 +50,8 @@ export interface ImageJsonRequest {
    * kept as a fallback while the other models answer.
    */
   accept?: (text: string) => boolean;
+  /** Any model's answer. "bad": unusable, ask the next model. "weak": usable, but worth a second opinion. */
+  judge?: (text: string) => "good" | "weak" | "bad";
 }
 
 export type ImageJsonResult =
@@ -148,7 +150,7 @@ async function callModel(
       if (res.status === 500 || res.status === 503 || res.status === 504) return { ...done(res.status, "busy"), cooldownSec: 60 };
       // Unknown or retired model name: skip it for a day and try the next one.
       if (res.status === 404) return { ...done(404, "network"), cooldownSec: 86_400 };
-      return done(res.status, "api_error"); // 400 etc.: bad image or blocked — another model won't help
+      return done(res.status, "api_error"); // 400 etc.: bad image or blocked
     }
     const json = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
@@ -180,6 +182,8 @@ const START_WITH = 2;
 const HEDGE_MS = 4_000;
 /** Most models asked at the same time. */
 const MAX_PARALLEL = 3;
+/** "Weak" answers (e.g. no items) that settle it: two models saw the same. */
+const WEAK_ENOUGH = 2;
 
 /**
  * Asks the model chain to read one image, racing for speed: the two best
@@ -187,9 +191,9 @@ const MAX_PARALLEL = 3;
  * the next starts at once, and if they're merely slow another starts after
  * HEDGE_MS. The first good answer wins and the others are cancelled, except
  * that a fastFirst Flash-Lite answer failing `accept` only wins if no other
- * model answers. A 400
- * (bad image) stops everything. Models that recently ran out of quota,
- * timed out or were busy go last.
+ * model answers. An unusable answer (see `judge`) or a refused photo counts
+ * as that model failing, because another model often reads it fine. Models
+ * that recently ran out of quota, timed out or were busy go last.
  */
 export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonResult> {
   const key = process.env.GEMINI_API_KEY;
@@ -217,6 +221,7 @@ export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonRes
     let finished = false;
     let hedge: ReturnType<typeof setTimeout> | undefined;
     let fallback: { text: string; model: string } | undefined;
+    let weakAnswers = 0;
     const fail = (): ImageJsonResult =>
       fallback ? { ok: true, ...fallback, attempts } : { ok: false, reason: summariseFailure(attempts), attempts };
     const finish = (r: ImageJsonResult) => {
@@ -241,15 +246,20 @@ export async function readImageJson(req: ImageJsonRequest): Promise<ImageJsonRes
         if (finished) return; // cancelled after another model answered
         attempts.push(r.attempt);
         if (r.cooldownSec) void setModelCooldown(m, r.cooldownSec);
-        if (r.attempt.outcome === "ok" && r.text !== undefined) {
+        const verdict = r.attempt.outcome === "ok" ? (req.judge?.(r.text ?? "") ?? "good") : undefined;
+        if (verdict === "bad") r.attempt.outcome = "bad_output";
+        if (verdict === "weak") {
+          fallback ??= { text: r.text ?? "", model: m };
+          if (++weakAnswers >= WEAK_ENOUGH) return finish(fail());
+        }
+        if (verdict === "good" && r.text !== undefined) {
           if (m !== quick || !req.accept || req.accept(r.text)) return finish({ ok: true, text: r.text, model: m, attempts });
           log(req.evt, { model: m, note: "quick answer failed the check; waiting for a bigger model" });
           fallback = { text: r.text, model: m };
           if (running === 0) launch(); // nothing else is asking: start the next model
           return;
         }
-        if (r.attempt.outcome === "api_error") return finish(fail());
-        launch(); // failed: ask the next model now
+        launch(); // no use: ask the next model now
       });
     };
     for (let i = 0; i < Math.min(req.startWith ?? START_WITH, MAX_PARALLEL); i++) launch();

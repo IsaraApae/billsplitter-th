@@ -291,15 +291,15 @@ export function SharedView({
 
       <section className="card px-5 py-4">
         <div aria-label="Payment progress">
-          <div className="mb-2 flex items-baseline justify-between gap-2">
-            <span className="flex items-center gap-1.5 font-semibold">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-2">
+            <span className="flex items-center gap-1.5 font-semibold whitespace-nowrap">
               {allPaid && <PartyPopper size={20} {...ICON} className="text-accent" aria-hidden />}
               {allPaid
                 ? "Everyone has paid"
                 : `${paidCount} of ${total} ${direct ? "payments done" : "paid"}${partCount ? ` · ${partCount} part paid` : ""}`}
             </span>
             {!allPaid && (
-              <span className="text-[15px] text-ink-2">
+              <span className="text-[15px] whitespace-nowrap text-ink-2">
                 <Money value={outstanding} currency={doc.currency} className="font-semibold text-ink" /> to go
               </span>
             )}
@@ -414,7 +414,7 @@ export function SharedView({
                       )
                     }
                     status={
-                      <span className={cx("block pl-0.5 text-[13px] font-semibold", status === "none" ? "text-warn" : "text-accent")}>
+                      <span className={cx("flex flex-wrap items-center pl-0.5 text-[13px] font-semibold whitespace-nowrap", status === "none" ? "text-warn" : "text-accent")}>
                         {status === "full" ? "Paid" : status === "part" ? "Part paid · left to pay" : "Unpaid"}
                         {canEdit && slips[t.key]?.length ? <SlipTag /> : null}
                       </span>
@@ -520,7 +520,7 @@ export function SharedView({
                   badge={
                     <span
                       className={cx(
-                        "text-[13px] font-semibold",
+                        "flex flex-wrap items-center text-[13px] font-semibold whitespace-nowrap",
                         p.personId === ME_ID
                           ? "text-ink-2"
                           : isPaid || status === "part"
@@ -536,7 +536,7 @@ export function SharedView({
                         isPaid ? (
                           "Paid back"
                         ) : (
-                          "Gets money back"
+                          "Gets back"
                         )
                       ) : isPaid ? (
                         "Paid"

@@ -123,7 +123,7 @@ export function ItemsStep({
       const res = await fetch("/api/scan", { method: "POST", body: fd, signal: AbortSignal.timeout(CLIENT_TIMEOUT_MS) });
       const data = await res.json().catch(() => null);
       if (res.ok && data && Array.isArray(data.items)) result = data as ScanResult;
-      else reason = data?.reason ?? data?.error ?? "api_error";
+      else reason = data?.reason ?? data?.error ?? (data ? "api_error" : "busy"); // no JSON: the server itself gave up
       console.info("[scan]", { status: res.status, reason: reason || "ok", model: data?.model, attempts: data?.attempts });
     } catch (e) {
       const timedOut = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");

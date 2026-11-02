@@ -1,4 +1,5 @@
 import { scanAddsUp } from "@/lib/draft";
+import { cleanScannedItems } from "@/lib/scanFilter";
 import { extractJson, sanitizeScan, type ScanAttempt } from "@/lib/scanResult";
 import { readImageJson } from "@/lib/server/gemini";
 import { jsonError } from "@/lib/server/http";
@@ -112,6 +113,15 @@ const MESSAGES: Record<Exclude<Reason, "ok">, string> = {
   bad_output: "Couldn't read the scan result.",
 };
 
+/** Garbled output is no use; finding no items might be that model misreading the photo. */
+function judgeScan(text: string): "good" | "weak" | "bad" {
+  try {
+    return cleanScannedItems(sanitizeScan(extractJson(text)).items).items.length > 0 ? "good" : "weak";
+  } catch {
+    return "bad";
+  }
+}
+
 function log(entry: Record<string, unknown>) {
   console.info(JSON.stringify({ evt: "scan", ...entry }));
 }
@@ -149,6 +159,7 @@ export async function POST(req: Request) {
     totalMs: TOTAL_MS - (Date.now() - started),
     // Flash-Lite races the best model; its answer is taken only if the numbers add up.
     fastFirst: true,
+    judge: judgeScan,
     accept: (text) => {
       try {
         return scanAddsUp(sanitizeScan(extractJson(text)));

@@ -204,15 +204,15 @@ export function EventView({
 
         {friends.length > 0 && (
           <section className="card px-5 py-4" aria-label="Payment progress">
-            <div className="mb-2 flex items-baseline justify-between gap-2">
-              <span className="flex items-center gap-1.5 font-semibold">
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-2">
+              <span className="flex items-center gap-1.5 font-semibold whitespace-nowrap">
                 {allPaid && <PartyPopper size={20} {...ICON} className="text-accent" aria-hidden />}
                 {allPaid
                   ? "Everyone has paid"
                   : `${paidCount} of ${friends.length} paid${partCount ? ` · ${partCount} part paid` : ""}`}
               </span>
               {!allPaid && outstanding > 0 && (
-                <span className="text-[15px] text-ink-2">
+                <span className="text-[15px] whitespace-nowrap text-ink-2">
                   <Money value={outstanding} currency={currency} className="font-semibold text-ink" /> to go
                 </span>
               )}
@@ -286,7 +286,7 @@ export function EventView({
           {byTitle(bills, (b) => b.doc.title).map((b) => (
             <li key={b.id}>
               <Link href={`/s/${b.id}`} className="flex min-h-[60px] items-center gap-3 py-2 pr-4 pl-5">
-                <span className="min-w-0 flex-1">
+                <span className="min-w-0 flex-1 overflow-hidden">
                   <span className="block truncate font-semibold">{b.doc.title}</span>
                   <span className="block text-[13px] text-ink-2">
                     {b.doc.people.length} {b.doc.people.length === 1 ? "person" : "people"}
@@ -401,7 +401,7 @@ function PersonRow({
   const left = Math.max(0, p.total - p.paidSoFar);
   return (
     <li>
-      <div className="flex min-h-[60px] items-center gap-2 py-2 pr-3 pl-4">
+      <div className="flex min-h-[60px] flex-wrap items-center gap-x-2 py-2 pr-3 pl-4">
         {p.organiser ? (
           <span className="size-11 shrink-0" aria-hidden />
         ) : canEdit ? (
@@ -426,13 +426,13 @@ function PersonRow({
           onClick={() => setOpen((v) => !v)}
         >
           <Avatar person={p} size={36} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-semibold">
+          <span className="min-w-0 flex-1 overflow-hidden">
+            <span className="line-clamp-2 font-semibold">
               {p.name}
             </span>
             <span
               className={cx(
-                "block text-[13px] font-semibold",
+                "flex flex-wrap items-center text-[13px] font-semibold whitespace-nowrap",
                 p.organiser ? "text-ink-2" : p.status === "none" ? (p.total < 0 ? "text-positive" : "text-warn") : "text-accent",
               )}
             >
@@ -443,7 +443,7 @@ function PersonRow({
               ) : p.status === "part" ? (
                 "Part paid"
               ) : p.total < 0 ? (
-                "Gets money back"
+                "Gets back"
               ) : (
                 "Unpaid"
               )}
@@ -451,12 +451,12 @@ function PersonRow({
             </span>
           </span>
           {p.total < 0 ? (
-            <span className="text-right leading-tight">
+            <span className="shrink-0 text-right leading-tight whitespace-nowrap">
               <span className="block text-[11px] text-ink-2">gets back</span>
               <Money value={-p.total} currency={currency} className="text-[19px] font-bold tracking-tight text-positive" />
             </span>
           ) : p.status === "part" ? (
-            <span className="text-right leading-tight">
+            <span className="shrink-0 text-right leading-tight whitespace-nowrap">
               <span className="block text-[11px] text-ink-2">left to pay</span>
               <Money value={left} currency={currency} className="text-[19px] font-bold tracking-tight" />
             </span>
@@ -467,9 +467,11 @@ function PersonRow({
           <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />
         </button>
         {onPay && !p.organiser && p.status !== "full" && left > 0 && (
-          <button type="button" className="chip-accent min-h-10 px-4" onClick={onPay}>
-            Pay
-          </button>
+          <span className="-mt-1 flex w-full justify-end min-[480px]:mt-0 min-[480px]:w-auto">
+            <button type="button" className="chip-accent min-h-10 px-4" onClick={onPay}>
+              Pay
+            </button>
+          </span>
         )}
       </div>
       {open && (
@@ -497,7 +499,7 @@ function PersonRow({
                 <span className="truncate">{b.title}</span>
               </span>
               {b.status === "part" ? (
-                <span className="text-right leading-tight">
+                <span className="shrink-0 text-right leading-tight whitespace-nowrap">
                   <span className="block text-[11px] text-ink-2">left to pay</span>
                   <Money value={Math.max(0, b.amount - b.paidSoFar)} currency={currency} />
                 </span>

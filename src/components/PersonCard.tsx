@@ -35,7 +35,7 @@ export function PersonCard({
   return (
     // Paid people stay fully visible: the tick and "Paid" say they've paid.
     <li>
-      <div className="flex min-h-[60px] items-center gap-2 py-2 pr-3 pl-4">
+      <div className="flex min-h-[60px] flex-wrap items-center gap-x-2 py-2 pr-3 pl-4">
         {leading}
         <button
           type="button"
@@ -44,20 +44,20 @@ export function PersonCard({
           onClick={() => setOpen((v) => !v)}
         >
           <Avatar person={profile ?? { name: person.name }} size={36} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-semibold">
+          <span className="min-w-0 flex-1 overflow-hidden">
+            <span className="line-clamp-2 font-semibold">
               {person.name}
             </span>
             {badge}
           </span>
           {person.payable < 0 ? (
             // Paid more than their share upfront: the organiser pays them back.
-            <span className="text-right leading-tight">
+            <span className="shrink-0 text-right leading-tight whitespace-nowrap">
               <span className="block text-[11px] text-ink-2">gets back</span>
               <Money value={-person.payable} currency={currency} className="text-[19px] font-bold tracking-tight text-positive" />
             </span>
           ) : leftToPay !== undefined ? (
-            <span className="text-right leading-tight">
+            <span className="shrink-0 text-right leading-tight whitespace-nowrap">
               <span className="block text-[11px] text-ink-2">left to pay</span>
               <Money value={leftToPay} currency={currency} className="text-[19px] font-bold tracking-tight" />
             </span>
@@ -67,7 +67,8 @@ export function PersonCard({
           {/* Every row opens, so every row shows the arrow (also next to a Pay button). */}
           <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />
         </button>
-        {action}
+        {/* No room next to the amount on a phone: goes under it, and the name keeps its space. */}
+        {action && <span className="-mt-1 flex w-full justify-end min-[480px]:mt-0 min-[480px]:w-auto">{action}</span>}
       </div>
       {open && (
         <div className="px-5 pb-4 text-[15px]">

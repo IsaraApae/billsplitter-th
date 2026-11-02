@@ -151,6 +151,14 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  /* Wrap only where it reads well: no lone last word, no word cut unless it can't fit. */
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+h1,
+h2,
+h3 {
+  text-wrap: balance;
 }
 
 /* Room for the status bar on phones and the navigation on desktop. */
@@ -450,7 +458,7 @@ li:nth-child(even) > .rank-square {
   }
 }
 @utility btn {
-  @apply press inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--r)] px-5 text-[17px] font-semibold select-none disabled:pointer-events-none disabled:opacity-40;
+  @apply press inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--r)] px-5 text-[17px] font-semibold whitespace-nowrap select-none disabled:pointer-events-none disabled:opacity-40;
 }
 @utility btn-primary {
   @apply btn bg-accent-fill font-bold text-accent-ink;
@@ -471,15 +479,15 @@ li:nth-child(even) > .rank-square {
   @apply press inline-grid size-11 shrink-0 place-items-center rounded-full text-ink-2 hover:bg-[var(--hover)];
 }
 @utility chip {
-  @apply press raised-flat inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] px-4 text-[15px] font-medium text-ink;
+  @apply press raised-flat inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] px-4 text-[15px] font-medium whitespace-nowrap text-ink;
 }
 /* Selected chip: solid text colour with inverted text. */
 @utility chip-on {
-  @apply press inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] bg-ink px-4 text-[15px] font-semibold text-[var(--bg)];
+  @apply press inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] bg-ink px-4 text-[15px] font-semibold whitespace-nowrap text-[var(--bg)];
 }
 /* Selected chip, accent-tinted (assigning people). */
 @utility chip-accent {
-  @apply press inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] bg-accent-soft px-4 text-[15px] font-semibold text-accent-strong shadow-[inset_0_0_0_1px_var(--accent)];
+  @apply press inline-flex min-h-11 items-center gap-2 rounded-[var(--r)] bg-accent-soft px-4 text-[15px] font-semibold whitespace-nowrap text-accent-strong shadow-[inset_0_0_0_1px_var(--accent)];
 }
 @utility input {
   @apply min-h-12 w-full rounded-[var(--r)] bg-field px-4 text-[17px] text-ink outline-none placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent;

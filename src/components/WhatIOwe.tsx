@@ -304,12 +304,12 @@ export function WhatIOwe() {
                   <PaidMark status={l.part ? "part" : "none"} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{l.title}</span>
-                    <span className="block text-[13px] text-ink-2">
+                    <span className="block truncate text-[13px] text-ink-2">
                       {l.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                       {l.part && <span className="font-semibold text-accent"> · Part paid</span>}
                     </span>
                   </span>
-                  <span className="text-right leading-tight">
+                  <span className="shrink-0 text-right leading-tight whitespace-nowrap">
                     {l.part && <span className="block text-[11px] text-ink-2">left to pay</span>}
                     <Money value={l.left} currency={l.currency} className="text-[17px] font-bold tracking-tight" />
                   </span>
