@@ -192,6 +192,7 @@ export function SharedView({
     };
   }, [id, editToken, slipsVersion]);
 
+  const slipsSeen = useRef({ payments: "", at: 0 });
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible" || pendingRef.current.size > 0) return;
     try {
@@ -205,7 +206,12 @@ export function SharedView({
       if (pendingRef.current.size > 0) return; // a tick is in flight; don't clobber it
       setPaid(new Set(data.paid));
       setPartial(data.partial ?? {});
-      loadSlips();
+      // A new slip changes the payments; a slip on a bill already ticked shows within a minute.
+      const payments = JSON.stringify([data.paid, data.partial]);
+      if (payments !== slipsSeen.current.payments || Date.now() - slipsSeen.current.at > 60_000) {
+        slipsSeen.current = { payments, at: Date.now() };
+        loadSlips();
+      }
       if (data.updatedAt !== version.current) {
         version.current = data.updatedAt;
         router.refresh(); // the creator edited the split — reload the server data

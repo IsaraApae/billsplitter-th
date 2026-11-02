@@ -181,12 +181,8 @@ export function EventView({
     }
   }
 
-  const date = new Date(`${meta.date}T12:00`).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  // Short, so the line under the total stays clear of the computer in the scene.
+  const date = new Date(`${meta.date}T12:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 pb-6 md:pb-16">

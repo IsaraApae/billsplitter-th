@@ -44,12 +44,11 @@ export default async function BoardPage({ params }: PageProps<"/o/[id]">) {
   const { id } = await params;
   const b = await loadBoard(id);
   if (!b) notFound();
-  const today = new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   const n = b.people.length;
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 pb-6 md:pb-16">
       <BillHeader
-        details={n === 0 ? today : `Still to pay · ${today} · ${n} ${n === 1 ? "person" : "people"} · ${b.billCount} ${b.billCount === 1 ? "bill" : "bills"}`}
+        details={n === 0 ? null : `Still to pay · ${n} ${n === 1 ? "person" : "people"} · ${b.billCount} ${b.billCount === 1 ? "bill" : "bills"}`}
         title={`Owed to ${b.organiser.name}`}
       >
         {n === 0 ? (

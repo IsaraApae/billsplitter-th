@@ -16,7 +16,7 @@ import {
 } from "@/lib/client/storage";
 import { askConfirm } from "@/lib/client/confirm";
 import { claimMySplits } from "@/lib/client/claim";
-import { refreshEntry } from "@/lib/client/historyRefresh";
+import { refreshEntries } from "@/lib/client/historyRefresh";
 import { getFriends } from "@/lib/client/friendsStore";
 import { ME_ID } from "@/lib/friends";
 import { formatMoney } from "@/lib/money";
@@ -44,13 +44,18 @@ export function HistoryList() {
     // Let friends' "What I owe" find all of this phone's bills.
     void claimMySplits();
     // Refresh paid progress for the most recent splits.
-    byBillDate(getHistory())
-      .slice(0, 20)
-      .forEach(async (h) => {
-        const patch = await refreshEntry(h);
+    let cancelled = false;
+    void refreshEntries(
+      byBillDate(getHistory()).slice(0, 20),
+      (h, patch) => {
         if (patch === "gone") setGone((g) => new Set(g).add(h.id));
-        else if (patch) setEntries((es) => byBillDate(es.map((e) => (e.id === h.id ? { ...e, ...patch } : e))));
-      });
+        else setEntries((es) => byBillDate(es.map((e) => (e.id === h.id ? { ...e, ...patch } : e))));
+      },
+      () => cancelled,
+    );
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (entries.length === 0) {

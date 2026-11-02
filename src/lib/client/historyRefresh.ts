@@ -4,6 +4,25 @@ import { paymentSummary } from "../settle";
 import type { SplitDoc } from "../types";
 import { historyFromDoc, paidProgress, patchHistory, type HistoryEntry } from "./storage";
 
+const AT_ONCE = 6;
+
+/** Refreshes entries a few at a time, so a long History doesn't flood the phone or the rate limit. Stops when `cancelled` says so. */
+export async function refreshEntries(
+  entries: HistoryEntry[],
+  onResult: (h: HistoryEntry, patch: Partial<HistoryEntry> | "gone") => void,
+  cancelled: () => boolean = () => false,
+): Promise<void> {
+  for (let i = 0; i < entries.length && !cancelled(); i += AT_ONCE) {
+    const batch = entries.slice(i, i + AT_ONCE);
+    const patches = await Promise.all(batch.map(refreshEntry));
+    if (cancelled()) return;
+    batch.forEach((h, k) => {
+      const p = patches[k];
+      if (p) onResult(h, p);
+    });
+  }
+}
+
 /**
  * Fetches a History entry's latest payments and saves them. Entries saved
  * before people/amounts were kept, and bills where friends pay each payer

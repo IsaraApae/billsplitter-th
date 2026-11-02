@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { claimMySplits } from "@/lib/client/claim";
 import { askConfirm } from "@/lib/client/confirm";
-import { refreshEntry } from "@/lib/client/historyRefresh";
+import { refreshEntries, refreshEntry } from "@/lib/client/historyRefresh";
 import { getEditToken, getHistory, type HistoryEntry } from "@/lib/client/storage";
 import { owedToYou, type OwedBill, type OwedFriend } from "@/lib/owed";
 import { getProfile } from "@/lib/client/profile";
@@ -64,24 +64,19 @@ export function OwedToYou() {
     for (const b of f.bills.filter((x) => getEditToken(x.id))) if (!(await save(b, { paid: true }))) break;
   }
 
-  // Fresh payments for every split, a few at a time.
+  // Fresh payments for the splits someone still owes on (bills everyone has paid can't add to this list).
   useEffect(() => {
     void claimMySplits();
     let cancelled = false;
-    (async () => {
-      const all = getHistory();
-      for (let i = 0; i < all.length && !cancelled; i += 6) {
-        const patches = await Promise.all(all.slice(i, i + 6).map(refreshEntry));
-        if (cancelled) return;
-        setEntries((es) =>
-          es.map((e) => {
-            const k = all.slice(i, i + 6).findIndex((h) => h.id === e.id);
-            const p = k >= 0 ? patches[k] : null;
-            return p && p !== "gone" ? { ...e, ...p } : e;
-          }),
-        );
-      }
-    })();
+    const unsettled = new Set(owedToYou(getHistory()).flatMap((f) => f.bills.map((b) => b.id)));
+    void refreshEntries(
+      // Older entries don't say what each person owes yet: they need a look too.
+      getHistory().filter((h) => unsettled.has(h.id) || !h.members || h.members.some((m) => m.amount === undefined)),
+      (h, patch) => {
+        if (patch !== "gone") setEntries((es) => es.map((e) => (e.id === h.id ? { ...e, ...patch } : e)));
+      },
+      () => cancelled,
+    );
     return () => {
       cancelled = true;
     };
