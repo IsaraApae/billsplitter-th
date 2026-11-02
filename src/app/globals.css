@@ -252,7 +252,8 @@ input[type="number"]::-webkit-outer-spin-button {
   text-shadow: 0 1px 8px rgb(0 0 0 / 0.35);
 }
 .scene-title {
-  font-size: calc(var(--t, 34) * 1px);
+  /* Poster letters are about 1em wide: never so big that a word gets cut ("YOSHINO/YA"). */
+  font-size: min(calc(var(--t, 34) * 1px), max(18px, calc((100vw - 40px) / (var(--w, 1) * 1.1))));
   text-wrap: balance;
   overflow-wrap: anywhere;
   text-shadow: 0 2px 12px rgb(0 0 0 / 0.25);
@@ -268,7 +269,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 @media (min-width: 768px) {
   .scene-title {
-    font-size: calc(var(--t, 34) * 1.35px);
+    font-size: min(calc(var(--t, 34) * 1.35px), calc(632px / (var(--w, 1) * 1.1)));
   }
   .scene-total {
     font-size: 64px;

@@ -6,6 +6,9 @@ function titleSize(title: string) {
   return n <= 10 ? 44 : n <= 18 ? 34 : n <= 30 ? 26 : 21;
 }
 
+/** Letters in the title's longest word, which has to fit on one line (see .scene-title). Thai can break between its words by itself. */
+const longestWord = (title: string) => Math.max(1, ...(title.match(/[^\s฀-๿]+/g) ?? []).map((w) => [...w].length));
+
 /**
  * The top of a shared page: the scene, full width, with the title and total in
  * its clear sky. Everything below stays on calm panels.
@@ -14,7 +17,7 @@ export function BillHeader({ details, title, children }: { details: ReactNode; t
   return (
     <header className="scene scene-bleed">
       <div className="mx-auto min-h-[250px] max-w-2xl px-5 pb-6 md:min-h-[360px]">
-        <h1 className="display scene-title" style={{ "--t": titleSize(title) } as CSSProperties}>
+        <h1 className="display scene-title" style={{ "--t": titleSize(title), "--w": longestWord(title) } as CSSProperties}>
           {title}
         </h1>
         {children}

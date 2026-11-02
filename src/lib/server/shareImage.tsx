@@ -58,7 +58,9 @@ export async function shareImage(card: Card | null) {
   const whole = m?.[1] ?? money;
   const cents = m?.[2] ?? "";
   const title = (card ? (card.title.length > 40 ? `${card.title.slice(0, 38)}…` : card.title) : "Bill Splitter").toUpperCase();
-  const titleSize = title.length <= 12 ? 58 : title.length <= 24 ? 46 : 36;
+  // Poster letters are about 1em wide: the longest word has to fit the 568 px column whole.
+  const longestWord = Math.max(1, ...(title.match(/[^\s฀-๿]+/g) ?? []).map((w) => [...w].length));
+  const titleSize = Math.min(title.length <= 12 ? 58 : title.length <= 24 ? 46 : 36, Math.floor(568 / (longestWord * 1.1)));
   // Poster digits are wide: the longer the amount, the smaller, so it stays on the receipt.
   const moneySize = whole.length <= 5 ? 56 : whole.length <= 7 ? 44 : 36;
   const cta = (card ? (card.cta ?? "See what you owe →") : "Split a bill →").replace(/\s*→$/, "");
