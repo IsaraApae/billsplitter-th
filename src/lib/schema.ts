@@ -3,7 +3,9 @@ import { CURRENCIES } from "./money";
 import { PERSON_COLORS, type SplitDoc } from "./types";
 
 const id = z.string().min(1).max(40).regex(/^[\w-]+$/);
-const name = z.string().trim().min(1).max(80);
+// "é" can arrive as e + a separate accent: store it as the one letter, for the fonts and name matching.
+const nfc = (s: string) => s.normalize("NFC");
+const name = z.string().trim().min(1).max(80).transform(nfc);
 const money = z.number().int().min(0).max(1_000_000_000_00);
 const bp = z.number().int().min(0).max(10000);
 
@@ -14,7 +16,7 @@ export const RECEIPT_PHOTO_RE =
 export const splitDocSchema = z
   .object({
     v: z.literal(1),
-    title: z.string().trim().max(80).default(""),
+    title: z.string().trim().max(80).default("").transform(nfc),
     createdAt: z.iso.datetime(),
     date: z.iso.date().optional(),
     currency: z.enum(CURRENCIES),

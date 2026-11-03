@@ -5,7 +5,7 @@ const splitRef = z.object({ id: z.string().regex(/^[\w-]{16}$/), token: z.string
 
 /** Body of creating or editing a big bill. */
 export const eventBody = z.object({
-  title: z.string().trim().max(80).default(""),
+  title: z.string().trim().max(80).default("").transform((s) => s.normalize("NFC")),
   date: z.iso.date(),
   splits: z
     .array(splitRef)

@@ -13,9 +13,12 @@ export function shortHash(text: string): string {
   return (h >>> 0).toString(36);
 }
 
+/** Bumped when the preview card itself is drawn differently (2: accented letters in poster type), so cached previews refresh. */
+const PREVIEW_DESIGN = 2;
+
 export function splitVersion(doc: SplitDoc): string {
   return shortHash(
-    JSON.stringify([doc.title, doc.date ?? doc.createdAt.slice(0, 10), calculate(doc).total, doc.people.map((p) => p.name)]),
+    JSON.stringify([PREVIEW_DESIGN, doc.title, doc.date ?? doc.createdAt.slice(0, 10), calculate(doc).total, doc.people.map((p) => p.name)]),
   );
 }
 

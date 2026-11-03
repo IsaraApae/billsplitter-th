@@ -293,7 +293,7 @@ export function Section({ title, action, children }: { title: ReactNode; action?
   return (
     <section className="space-y-2">
       <div className="flex min-h-8 items-end justify-between gap-2 px-5">
-        <h2 className="section-label">{title}</h2>
+        <h2 className="section-label">{typeof title === "string" ? title.normalize("NFC") : title}</h2>
         {action}
       </div>
       <div className="space-y-3.5">{children}</div>

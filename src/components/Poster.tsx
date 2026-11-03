@@ -18,7 +18,7 @@ export function BillHeader({ details, title, children }: { details: ReactNode; t
     <header className="scene scene-bleed">
       <div className="mx-auto min-h-[250px] max-w-2xl px-5 pb-6 md:min-h-[360px]">
         <h1 className="display scene-title" style={{ "--t": titleSize(title), "--w": longestWord(title) } as CSSProperties}>
-          {title}
+          {title.normalize("NFC")}
         </h1>
         {children}
         <p className="scene-sub mt-2">{details}</p>

@@ -401,11 +401,11 @@ function PersonRow({
     <li>
       <div className="flex min-h-[60px] items-center gap-2 py-2 pr-3 pl-4">
         {p.organiser ? (
-          <span className="size-11 shrink-0" aria-hidden />
+          <span className="-mx-2 size-11 shrink-0" aria-hidden />
         ) : canEdit ? (
           <button
             type="button"
-            className="press grid size-11 shrink-0 place-items-center rounded-full"
+            className="press -mx-2 grid size-11 shrink-0 place-items-center rounded-full"
             disabled={busy}
             aria-label={`${p.name}: ${p.status === "full" ? "paid" : p.status === "part" ? "paid part" : "not paid"}. Change`}
             onClick={onAsk}
@@ -413,17 +413,17 @@ function PersonRow({
             <PaidMark status={p.status} busy={busy} />
           </button>
         ) : (
-          <span className="grid size-11 shrink-0 place-items-center" aria-hidden>
+          <span className="-mx-2 grid size-11 shrink-0 place-items-center" aria-hidden>
             <PaidMark status={p.status} />
           </span>
         )}
         <button
           type="button"
-          className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
+          className="flex min-h-12 min-w-0 flex-1 items-center gap-2 text-left"
           aria-expanded={open}
           onClick={toggle}
         >
-          <Avatar person={p} size={36} />
+          <Avatar person={p} size={32} />
           <span className="min-w-0 flex-1 overflow-hidden">
             <span className="line-clamp-2 font-semibold">
               {p.name}
@@ -449,25 +449,25 @@ function PersonRow({
             </span>
           </span>
         </button>
-        {/* The amount, then Pay (under it on a phone, beside it when there's room), then the arrow. */}
-        <span className="flex shrink-0 flex-col items-end gap-1.5 min-[480px]:flex-row min-[480px]:items-center min-[480px]:gap-2">
+        {/* The amount, then Pay, then the arrow, on one line (Pay under the amount on the narrowest phones). */}
+        <span className="flex shrink-0 items-center gap-1.5 max-[359px]:flex-col max-[359px]:items-end">
           <button type="button" tabIndex={-1} className="text-right" onClick={toggle}>
           {p.total < 0 ? (
             <span className="shrink-0 text-right leading-tight whitespace-nowrap">
               <span className="block text-[11px] text-ink-2">gets back</span>
-              <Money value={-p.total} currency={currency} className="text-[19px] font-bold tracking-tight text-positive" />
+              <Money value={-p.total} currency={currency} className="text-[17px] font-bold tracking-tight text-positive" />
             </span>
           ) : p.status === "part" ? (
             <span className="shrink-0 text-right leading-tight whitespace-nowrap">
               <span className="block text-[11px] text-ink-2">left to pay</span>
-              <Money value={left} currency={currency} className="text-[19px] font-bold tracking-tight" />
+              <Money value={left} currency={currency} className="text-[17px] font-bold tracking-tight" />
             </span>
           ) : (
-            <Money value={p.total} currency={currency} className="text-[19px] font-bold tracking-tight" />
+            <Money value={p.total} currency={currency} className="text-[17px] font-bold tracking-tight" />
           )}
           </button>
           {onPay && !p.organiser && p.status !== "full" && left > 0 && (
-            <button type="button" className="chip-accent min-h-10 px-4" onClick={onPay}>
+            <button type="button" className="chip-accent min-h-9 px-3" onClick={onPay}>
               Pay
             </button>
           )}

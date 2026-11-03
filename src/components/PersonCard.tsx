@@ -37,14 +37,14 @@ export function PersonCard({
     // Paid people stay fully visible: the tick and "Paid" say they've paid.
     <li>
       <div className="flex min-h-[60px] items-center gap-2 py-2 pr-3 pl-4">
-        {leading}
+        {leading && <span className="-mx-2 flex shrink-0">{leading}</span>}
         <button
           type="button"
-          className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
+          className="flex min-h-12 min-w-0 flex-1 items-center gap-2 text-left"
           aria-expanded={open}
           onClick={toggle}
         >
-          <Avatar person={profile ?? { name: person.name }} size={36} />
+          <Avatar person={profile ?? { name: person.name }} size={32} />
           <span className="min-w-0 flex-1 overflow-hidden">
             <span className="line-clamp-2 font-semibold">
               {person.name}
@@ -52,22 +52,22 @@ export function PersonCard({
             {badge}
           </span>
         </button>
-        {/* The amount, then Pay (under it on a phone, beside it when there's room), then the arrow. */}
-        <span className="flex shrink-0 flex-col items-end gap-1.5 min-[480px]:flex-row min-[480px]:items-center min-[480px]:gap-2">
+        {/* The amount, then Pay, then the arrow, on one line (Pay under the amount on the narrowest phones). */}
+        <span className="flex shrink-0 items-center gap-1.5 max-[359px]:flex-col max-[359px]:items-end">
           <button type="button" tabIndex={-1} className="text-right" onClick={toggle}>
           {person.payable < 0 ? (
             // Paid more than their share upfront: the organiser pays them back.
             <span className="shrink-0 text-right leading-tight whitespace-nowrap">
               <span className="block text-[11px] text-ink-2">gets back</span>
-              <Money value={-person.payable} currency={currency} className="text-[19px] font-bold tracking-tight text-positive" />
+              <Money value={-person.payable} currency={currency} className="text-[17px] font-bold tracking-tight text-positive" />
             </span>
           ) : leftToPay !== undefined ? (
             <span className="shrink-0 text-right leading-tight whitespace-nowrap">
               <span className="block text-[11px] text-ink-2">left to pay</span>
-              <Money value={leftToPay} currency={currency} className="text-[19px] font-bold tracking-tight" />
+              <Money value={leftToPay} currency={currency} className="text-[17px] font-bold tracking-tight" />
             </span>
           ) : (
-            <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" />
+            <Money value={person.payable} currency={currency} className="text-[17px] font-bold tracking-tight" />
           )}
           </button>
           {action}

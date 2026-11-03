@@ -428,7 +428,7 @@ export function SharedView({
                     }
                     action={
                       status !== "full" ? (
-                        <button type="button" className="chip-accent min-h-10 px-4" onClick={() => {
+                        <button type="button" className="chip-accent min-h-9 px-3" onClick={() => {
                             pickMe(t.key);
                             setPayFor(t.key);
                           }}
@@ -557,7 +557,7 @@ export function SharedView({
                   }
                   action={
                     !isPaid && p.payable > 0 && p.personId !== ME_ID ? (
-                      <button type="button" className="chip-accent min-h-10 px-4" onClick={() => {
+                      <button type="button" className="chip-accent min-h-9 px-3" onClick={() => {
                           pickMe(p.personId);
                           setPayFor(p.personId);
                         }}
