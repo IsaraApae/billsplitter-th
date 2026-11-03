@@ -137,8 +137,8 @@ describe("JPEG orientation", () => {
 });
 
 describe("PromptPay (promptpay-qr library)", () => {
-  it("builds a valid dynamic payload with amount and a correct CRC", () => {
-    const p = promptPayPayload("081-234-5678", 15050);
+  it("builds a valid dynamic payload with amount and a correct CRC", async () => {
+    const p = await promptPayPayload("081-234-5678", 15050);
     expect(p).toContain("0016A000000677010111");
     expect(p).toContain("01130066812345678");
     expect(p).toContain("5406150.50");
@@ -147,8 +147,8 @@ describe("PromptPay (promptpay-qr library)", () => {
     expect(p.slice(-4)).toBe(crc16(p.slice(0, -4)));
   });
 
-  it("builds a static payload for a national ID", () => {
-    const p = promptPayPayload("1234567890123");
+  it("builds a static payload for a national ID", async () => {
+    const p = await promptPayPayload("1234567890123");
     expect(p).toContain("02131234567890123");
     expect(p).toContain("010211");
     expect(p).not.toContain("5406");

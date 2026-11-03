@@ -10,7 +10,7 @@ import { getEditToken, getEvents, rememberMe, rememberSeen, upsertEvent } from "
 import { eventVersion } from "@/lib/shareVersion";
 import { byTitle, eventPeople, type EventBill, type EventMeta, type EventPerson, type EventPersonBill } from "@/lib/event";
 import { EventEditor } from "./EventEditor";
-import { PayQr, type PayQrSource } from "./PayQr";
+import { PayQr, usePrefetchQr, type PayQrSource } from "./PayQr";
 import { PaidMark, PaymentSheet, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
 import { BillHeader } from "./Poster";
@@ -100,6 +100,7 @@ export function EventView({
   useEffect(() => {
     if (!getEditToken(id)) rememberSeen(id, "event");
   }, [id]);
+  usePrefetchQr(qr?.mode === "generate");
   /** A friend picked themselves: remember who they are in each of the bills. */
   const pickMe = (key: string) => {
     if (getEditToken(id)) return;

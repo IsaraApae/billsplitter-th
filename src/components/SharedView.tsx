@@ -25,7 +25,7 @@ import {
 } from "@/lib/settle";
 import type { SplitDoc } from "@/lib/types";
 import { Breakdown } from "./Breakdown";
-import { PayQr, type PayQrSource } from "./PayQr";
+import { PayQr, usePrefetchQr, type PayQrSource } from "./PayQr";
 import { PersonCard } from "./PersonCard";
 import { PaidMark, PaymentSheet, type PaidStatus, type PaymentInput, type SlipInfo } from "./Payments";
 import { ShareButtons } from "./ShareButtons";
@@ -160,6 +160,7 @@ export function SharedView({
   useEffect(() => {
     if (!getEditToken(id)) rememberSeen(id, "split");
   }, [id]);
+  usePrefetchQr(qr?.mode === "generate" || direct);
   /** A friend picked themselves (to pay or upload a slip): a person id or a transfer key. */
   const pickMe = (ref: string) => {
     if (getEditToken(id)) return;

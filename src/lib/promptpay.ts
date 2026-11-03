@@ -1,7 +1,6 @@
 // Thai PromptPay QR payloads, built with the widely used `promptpay-qr`
 // library (EMVCo merchant-presented QR). Pure.
 
-import generatePayload from "promptpay-qr";
 import type { PaymentInfo, QrMode } from "./types";
 
 /**
@@ -31,9 +30,12 @@ export function isValidPromptPayId(id: string): boolean {
 
 /**
  * Payload for a PromptPay QR. `amountMinor` is in satang; omit it for a
- * reusable QR where the payer types the amount.
+ * reusable QR where the payer types the amount. The library is fetched only
+ * when a QR is made: it brings every CRC table and a Buffer polyfill (~15 KB
+ * gzipped) that pages merely showing a PromptPay number don't need.
  */
-export function promptPayPayload(id: string, amountMinor?: number): string {
+export async function promptPayPayload(id: string, amountMinor?: number): Promise<string> {
+  const { default: generatePayload } = await import("promptpay-qr");
   const amount = amountMinor && amountMinor > 0 ? amountMinor / 100 : undefined;
   return generatePayload(id.replace(/\D/g, ""), { amount });
 }

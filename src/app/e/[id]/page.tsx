@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { EventView } from "@/components/EventView";
 import { calculate } from "@/lib/calc";
 import { formatMoney } from "@/lib/money";
@@ -7,10 +8,11 @@ import { eventVersion } from "@/lib/shareVersion";
 import { resolveQr } from "@/lib/server/payQr";
 import { getEvent, isValidId, storageReady } from "@/lib/server/redis";
 
-async function load(id: string) {
+/** Per-request cached: generateMetadata and the page share one read. */
+const load = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
   return getEvent(id).catch(() => null);
-}
+});
 
 export async function generateMetadata({ params }: PageProps<"/e/[id]">): Promise<Metadata> {
   const { id } = await params;

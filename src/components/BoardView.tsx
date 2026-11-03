@@ -7,7 +7,7 @@ import { useState } from "react";
 import type { Person, PaymentInfo } from "@/lib/types";
 import { PaidMark } from "./Payments";
 import { PayChooser } from "./PayChooser";
-import { organiserQr } from "./PayQr";
+import { organiserQr, usePrefetchQr } from "./PayQr";
 import { SlipCard } from "./SlipCard";
 import { type SlipResult } from "./SlipUpload";
 import { Avatar, ICON, Money, Sheet } from "./ui";
@@ -49,6 +49,7 @@ export function BoardView({
   };
   const payPerson = people.find((p) => p.key === paying);
   const source = organiserQr(payment, currency);
+  usePrefetchQr(source?.mode === "generate");
 
   return (
     <>

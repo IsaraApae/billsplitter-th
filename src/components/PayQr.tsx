@@ -22,21 +22,35 @@ export function organiserQr(payment: PaymentInfo | undefined, currency: string):
   return null;
 }
 
+/**
+ * The PromptPay library is left out of the page's first load. Once the page
+ * has settled, fetch it, so a Pay sheet's QR still shows as quickly as when
+ * it came with the page. Not on Data Saver.
+ */
+export function usePrefetchQr(needed: boolean) {
+  useEffect(() => {
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+    if (!needed || saveData) return;
+    const t = setTimeout(() => void import("promptpay-qr").catch(() => {}), 3000);
+    return () => clearTimeout(t);
+  }, [needed]);
+}
+
 /** The QR as an image URL (data: for generated, same-origin for uploaded). */
 function useQrSrc(source: PayQrSource, amount: number): string | null {
   const [generated, setGenerated] = useState<string | null>(null);
-  const payload = source.mode === "generate" ? promptPayPayload(source.promptpay, amount) : null;
+  const promptpay = source.mode === "generate" ? source.promptpay : null;
   useEffect(() => {
-    if (!payload) return;
+    if (!promptpay) return;
     let cancelled = false;
-    import("qrcode")
-      .then((QR) => QR.toDataURL(payload, { margin: 1, width: 720, errorCorrectionLevel: "M" }))
+    Promise.all([promptPayPayload(promptpay, amount), import("qrcode")])
+      .then(([payload, QR]) => QR.toDataURL(payload, { margin: 1, width: 720, errorCorrectionLevel: "M" }))
       .then((url) => !cancelled && setGenerated(url))
       .catch(() => !cancelled && setGenerated(null));
     return () => {
       cancelled = true;
     };
-  }, [payload]);
+  }, [promptpay, amount]);
   return source.mode === "upload" ? qrImageUrl(source.ownerId, source.version) : generated;
 }
 

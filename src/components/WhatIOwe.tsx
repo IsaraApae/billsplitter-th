@@ -11,7 +11,7 @@ import { payerPromptPay } from "@/lib/settle";
 import type { Person, SplitDoc } from "@/lib/types";
 import { PaidMark } from "./Payments";
 import { PayChooser } from "./PayChooser";
-import { organiserQr, type PayQrSource } from "./PayQr";
+import { organiserQr, usePrefetchQr, type PayQrSource } from "./PayQr";
 import { SlipCard } from "./SlipCard";
 import { type SlipResult } from "./SlipUpload";
 import { Avatar, ICON, Money, Section, Sheet } from "./ui";
@@ -178,6 +178,7 @@ export function WhatIOwe() {
       cancelled = true;
     };
   }, [bills]);
+  usePrefetchQr(!!bills?.length);
 
   if (bills === null) return <p className="px-1 text-ink-2">Loading your bills…</p>;
   if (bills.length === 0) {

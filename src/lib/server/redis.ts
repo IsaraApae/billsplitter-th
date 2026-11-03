@@ -288,8 +288,18 @@ export interface PaidState {
 
 /** Current payments of a split's people, or transfers when settling directly (ignoring ones no longer in it). */
 export async function getPaidState(id: string, doc: SplitDoc): Promise<PaidState> {
-  const ids = paymentKeys(doc);
+  return paidStateOf(doc, await getPayments(id));
+}
+
+/** A split's payments as stored. Needs no split, so it can be read alongside it rather than after it. */
+export async function getPayments(id: string): Promise<PaidState> {
   const [paid, partial] = await Promise.all([getPaid(id), getPartial(id)]);
+  return { paid, partial };
+}
+
+/** The payments of people (or transfers) still in the split. */
+export function paidStateOf(doc: SplitDoc, { paid, partial }: PaidState): PaidState {
+  const ids = paymentKeys(doc);
   return {
     paid: paid.filter((p) => ids.has(p)),
     partial: Object.fromEntries(Object.entries(partial).filter(([p]) => ids.has(p) && !paid.includes(p))),
@@ -468,15 +478,16 @@ export async function updateEvent(
 export async function getEvent(id: string): Promise<LoadedEvent | null> {
   const e = await db().get<StoredEvent>(eventKey(id));
   if (!e) return null;
-  await db().expire(eventKey(id), TTL_SECONDS);
-  const bills = await Promise.all(
-    e.splitIds.map(async (sid): Promise<EventBill | null> => {
-      const s = await getSplit(sid);
-      if (!s) return null;
-      const state = await getPaidState(sid, s.doc);
-      return { id: sid, doc: s.doc, ...state };
-    }),
-  );
+  // All in one go: keeping it alive, and each bill together with its payments.
+  const [, bills] = await Promise.all([
+    db().expire(eventKey(id), TTL_SECONDS),
+    Promise.all(
+      e.splitIds.map(async (sid): Promise<EventBill | null> => {
+        const [s, payments] = await Promise.all([getSplit(sid), getPayments(sid)]);
+        return s ? { id: sid, doc: s.doc, ...paidStateOf(s.doc, payments) } : null;
+      }),
+    ),
+  ]);
   return {
     meta: { title: e.title, date: e.date, splitIds: e.splitIds, updatedAt: e.updatedAt },
     bills: bills.filter((b): b is EventBill => b !== null),
@@ -657,12 +668,12 @@ async function ownerBills(owner: string): Promise<{ id: string; doc: SplitDoc; p
   const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] = [];
   await Promise.all(
     ids.map(async (sid) => {
-      const s = await db().get<StoredSplit>(docKey(sid));
+      const [s, payments] = await Promise.all([db().get<StoredSplit>(docKey(sid)), getPayments(sid)]);
       if (!s) {
         await db().hdel(organiserKey(owner), sid);
         return;
       }
-      out.push({ id: sid, doc: s.doc, ...(await getPaidState(sid, s.doc)) });
+      out.push({ id: sid, doc: s.doc, ...paidStateOf(s.doc, payments) });
     }),
   );
   return out;
