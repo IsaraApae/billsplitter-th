@@ -1,6 +1,7 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
-import { createClient, type RedisClientType } from "redis";
+import type { RedisClientType } from "redis";
+import { after } from "next/server";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eventPeople, spreadPayment, type EventBill, type EventMeta } from "../event";
 import { paymentKeys } from "../settle";
@@ -48,15 +49,23 @@ function upstashKv(r: Redis): Kv {
 type TcpClient = RedisClientType;
 let tcpClient: Promise<TcpClient> | null = null;
 
-/** One connection per warm serverless instance, reconnecting after failures. */
+/**
+ * One connection per warm serverless instance, reconnecting after failures. The TCP client is a
+ * large library, so it's only loaded when this backend is in use: with Upstash, a cold start would
+ * otherwise read it all in before answering the first visitor.
+ */
 function tcp(): Promise<TcpClient> {
   if (!tcpClient) {
-    const client: TcpClient = createClient({ url: tcpUrl, socket: { connectTimeout: 5000, reconnectStrategy: (n) => Math.min(n * 200, 2000) } });
-    client.on("error", (e) => console.error("Redis error", e?.message ?? e));
-    tcpClient = client.connect().then(() => client).catch((e) => {
-      tcpClient = null;
-      throw e;
-    });
+    tcpClient = import("redis")
+      .then(({ createClient }) => {
+        const client: TcpClient = createClient({ url: tcpUrl, socket: { connectTimeout: 5000, reconnectStrategy: (n) => Math.min(n * 200, 2000) } });
+        client.on("error", (e) => console.error("Redis error", e?.message ?? e));
+        return client.connect().then(() => client);
+      })
+      .catch((e) => {
+        tcpClient = null;
+        throw e;
+      });
   }
   return tcpClient;
 }
@@ -174,8 +183,9 @@ export async function createSplit(doc: SplitDoc): Promise<{ id: string; token: s
 export async function getSplit(id: string): Promise<{ doc: SplitDoc; updatedAt: string } | null> {
   const s = await db().get<StoredSplit>(docKey(id));
   if (!s) return null;
-  // Also covers photos on splits saved before photos were linked.
-  if (s.doc.photo) await linkPhoto(id, s.doc).catch(() => {});
+  // Also covers photos on splits saved before photos were linked. Once the response has gone, so
+  // opening a bill (or its link preview) doesn't wait for this write.
+  if (s.doc.photo) after(() => linkPhoto(id, s.doc).catch(() => {}));
   return { doc: s.doc, updatedAt: s.updatedAt };
 }
 
