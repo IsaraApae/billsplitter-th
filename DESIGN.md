@@ -274,6 +274,7 @@ One saturated brand green on green-tinted neutrals, with all other hue left to t
 
 **Display Font:** Anybody Expanded Black (A–Z subset; accented Latin letters such as é, ü, ğ from two extra cuts of the same font, loaded only when used; Kanit ExtraBold for Thai, then Arial Black)
 **Body Font:** The platform's own sans (-apple-system, SF Pro Text, with Thonburi and Noto Sans Thai for Thai)
+**Link previews:** the same faces as files (Anybody Expanded Black and its two accent cuts, Kanit ExtraBold for Thai titles; Noto Sans Thai Bold for text, Noto Sans for letters like ş and ğ). Satori uses one font per name, so each cut has its own.
 **Label/Mono Font:** No separate face. Numbers use tabular figures in whichever face they are set.
 
 **Character:** A loud, ultra-wide poster face against the quiet font the phone already renders best. Kanit is fetched only when Thai appears in poster type, so bill names in Thai stay in the same voice.

@@ -29,7 +29,7 @@ The link preview friends see in chat:
 <img src="docs/screenshots/items.jpg" alt="Items on a new split, light and dark" width="380">
 
 **Sharing and getting paid**
-- **One link per bill**, with a link preview (date, title, the total on a paper receipt, the people) that refreshes when the bill is edited. Tap a person to see what they had.
+- **One link per bill**, with a link preview (date, title, the total on a paper receipt, the people) that refreshes when the bill is edited. Titles and names in Thai, English or with accents (é, ü, ğ) keep their letters in the poster type, on the pages and the previews. Tap a person to see what they had.
 - **PromptPay:** upload your bank's QR, or generate one from your PromptPay number with each person's exact amount. Bank details copy as just the account number.
 - **Big tick / small tick:** the organiser marks people paid in full, paid part (with the amount; "left to pay" shows what's still owed), or not paid; friends see the same ticks. The organiser is never counted as unpaid.
 - **Transfer slips:** "I've paid — upload slip" on the bill page (pick your name), in the Pay sheet or in "What I owe" (several slips at once, with a preview of each); the slip is read with Gemini and checked (a transfer slip, dated on or after the bill, never used before; the receiver is matched by PromptPay number when the slip shows it) and they're ticked automatically, with a progress bar. The organiser sees a "Slip" tag on everyone who sent one, and a "Slips uploaded" list with who sent each slip, the amount, date and the name printed on it.
