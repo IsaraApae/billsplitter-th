@@ -30,18 +30,19 @@ export function PersonCard({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const toggle = () => setOpen((v) => !v);
   // What they owe before rounding: their share less anything they paid upfront.
   const exact = person.total - person.prepaid;
   return (
     // Paid people stay fully visible: the tick and "Paid" say they've paid.
     <li>
-      <div className="flex min-h-[60px] flex-wrap items-center gap-x-2 py-2 pr-3 pl-4">
+      <div className="flex min-h-[60px] items-center gap-2 py-2 pr-3 pl-4">
         {leading}
         <button
           type="button"
           className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left"
           aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggle}
         >
           <Avatar person={profile ?? { name: person.name }} size={36} />
           <span className="min-w-0 flex-1 overflow-hidden">
@@ -50,6 +51,10 @@ export function PersonCard({
             </span>
             {badge}
           </span>
+        </button>
+        {/* The amount, then Pay (under it on a phone, beside it when there's room), then the arrow. */}
+        <span className="flex shrink-0 flex-col items-end gap-1.5 min-[480px]:flex-row min-[480px]:items-center min-[480px]:gap-2">
+          <button type="button" tabIndex={-1} className="text-right" onClick={toggle}>
           {person.payable < 0 ? (
             // Paid more than their share upfront: the organiser pays them back.
             <span className="shrink-0 text-right leading-tight whitespace-nowrap">
@@ -64,11 +69,19 @@ export function PersonCard({
           ) : (
             <Money value={person.payable} currency={currency} className="text-[19px] font-bold tracking-tight" />
           )}
-          {/* Every row opens, so every row shows the arrow (also next to a Pay button). */}
-          <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />
+          </button>
+          {action}
+        </span>
+        {/* Every row opens, so every row shows the arrow (also after a Pay button). */}
+        <button
+          type="button"
+          className="grid min-h-12 shrink-0 place-items-center text-ink-3"
+          aria-expanded={open}
+          aria-label={`${open ? "Hide" : "Show"} what ${person.name} had`}
+          onClick={toggle}
+        >
+          <ChevronDown size={20} {...ICON} aria-hidden className={cx(open && "rotate-180")} />
         </button>
-        {/* No room next to the amount on a phone: goes under it, and the name keeps its space. */}
-        {action && <span className="-mt-1 flex w-full justify-end min-[480px]:mt-0 min-[480px]:w-auto">{action}</span>}
       </div>
       {open && (
         <div className="px-5 pb-4 text-[15px]">

@@ -36,7 +36,7 @@ export function TransferRow({
 }) {
   const name = (p: Pick<Person, "id" | "name">) => (you && p.id === ORGANISER_ID ? "You" : p.name);
   return (
-    <li className={cx("flex min-h-[60px] flex-wrap items-center gap-x-2 py-2 pr-3", leading ? "pl-4" : "pl-5")}>
+    <li className={cx("flex min-h-[60px] items-center gap-2 py-2 pr-3", leading ? "pl-4" : "pl-5")}>
       {leading}
       <span className="min-w-0 flex-1 overflow-hidden">
         <span className="flex min-w-0 items-center gap-1.5">
@@ -48,8 +48,11 @@ export function TransferRow({
         </span>
         {status}
       </span>
-      <Money value={amount} currency={currency} className="text-[17px] font-bold tracking-tight" />
-      {action && <span className="-mt-1 flex w-full justify-end min-[480px]:mt-0 min-[480px]:w-auto">{action}</span>}
+      {/* Pay under the amount on a phone, beside it when there's room. */}
+      <span className="flex shrink-0 flex-col items-end gap-1.5 min-[480px]:flex-row min-[480px]:items-center min-[480px]:gap-2">
+        <Money value={amount} currency={currency} className="text-[17px] font-bold tracking-tight" />
+        {action}
+      </span>
     </li>
   );
 }

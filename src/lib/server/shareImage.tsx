@@ -42,11 +42,14 @@ interface Card {
  * paper receipt with the people and a "See what you owe" button.
  */
 export async function shareImage(card: Card | null) {
-  const [latin700, thai700, latin400, display, meadow, clouds] = await Promise.all([
+  const [latin700, thai700, latin400, display, displayLatin1, displayLatinExt, meadow, clouds] = await Promise.all([
     font("NotoSansThai-latin-700.woff"),
     font("NotoSansThai-thai-700.woff"),
     font("NotoSansThai-latin-400.woff"),
     font("Anybody-Expanded-Black.ttf"),
+    // Accented letters (é, ü, ğ…): Satori looks for a missing letter in the other fonts.
+    font("Anybody-Expanded-Black-latin1.ttf"),
+    font("Anybody-Expanded-Black-latinext.ttf"),
     readFile(join(process.cwd(), "assets/og/meadow.png")),
     readFile(join(process.cwd(), "assets/og/clouds.jpg")),
   ]);
@@ -57,7 +60,9 @@ export async function shareImage(card: Card | null) {
   const m = /^(.*?)([.,]\d+)?$/.exec(baht ? money.slice(1) : money);
   const whole = m?.[1] ?? money;
   const cents = m?.[2] ?? "";
-  const title = (card ? (card.title.length > 40 ? `${card.title.slice(0, 38)}…` : card.title) : "Bill Splitter").toUpperCase();
+  // An iPhone can type "é" as e + a separate accent: join them, so the font's own É is used.
+  const raw = card?.title.normalize("NFC");
+  const title = (raw ? (raw.length > 40 ? `${raw.slice(0, 38)}…` : raw) : "Bill Splitter").toUpperCase();
   // Poster letters are about 1em wide: the longest word has to fit the 568 px column whole.
   const longestWord = Math.max(1, ...(title.match(/[^\s฀-๿]+/g) ?? []).map((w) => [...w].length));
   const titleSize = Math.min(title.length <= 12 ? 58 : title.length <= 24 ? 46 : 36, Math.floor(568 / (longestWord * 1.1)));
@@ -184,6 +189,8 @@ export async function shareImage(card: Card | null) {
         { name: "Noto", data: thai700, weight: 700, style: "normal" },
         { name: "Noto", data: latin400, weight: 400, style: "normal" },
         { name: "Display", data: display, weight: 900, style: "normal" },
+        { name: "Display", data: displayLatin1, weight: 900, style: "normal" },
+        { name: "Display", data: displayLatinExt, weight: 900, style: "normal" },
       ],
     },
   );

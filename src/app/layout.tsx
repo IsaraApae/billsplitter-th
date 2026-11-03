@@ -13,6 +13,26 @@ const anybody = localFont({
   display: "swap",
   adjustFontFallback: false,
 });
+// Accented letters (é, ü, ñ, ğ, ş…), the same font cut from its variable source.
+// Only fetched when a title has one, so plain titles cost nothing extra.
+const anybodyLatin1 = localFont({
+  src: "../../assets/fonts/Anybody-Expanded-Black-latin1.woff2",
+  weight: "900",
+  variable: "--font-anybody-latin1",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+  declarations: [{ prop: "unicode-range", value: "U+00A0-00FF, U+0300-036F, U+2018-201E, U+2022, U+20AC" }],
+});
+const anybodyLatinExt = localFont({
+  src: "../../assets/fonts/Anybody-Expanded-Black-latinext.woff2",
+  weight: "900",
+  variable: "--font-anybody-latinext",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+  declarations: [{ prop: "unicode-range", value: "U+0100-017F, U+0218-021B" }],
+});
 // Only fetched when something Thai (or a ฿) is set in the poster type.
 const kanit = localFont({
   src: "../../assets/fonts/Kanit-ExtraBold-thai.woff2",
@@ -65,7 +85,7 @@ const swScript = `if('serviceWorker' in navigator&&location.hostname!=='localhos
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${anybody.variable} ${kanit.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${anybody.variable} ${anybodyLatin1.variable} ${anybodyLatinExt.variable} ${kanit.variable}`} suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#eef4ee" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

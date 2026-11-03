@@ -272,7 +272,7 @@ One saturated brand green on green-tinted neutrals, with all other hue left to t
 
 ## Typography
 
-**Display Font:** Anybody Expanded Black (with Kanit ExtraBold for Thai, then Arial Black)
+**Display Font:** Anybody Expanded Black (A–Z subset; accented Latin letters such as é, ü, ğ from two extra cuts of the same font, loaded only when used; Kanit ExtraBold for Thai, then Arial Black)
 **Body Font:** The platform's own sans (-apple-system, SF Pro Text, with Thonburi and Noto Sans Thai for Thai)
 **Label/Mono Font:** No separate face. Numbers use tabular figures in whichever face they are set.
 

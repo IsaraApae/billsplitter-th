@@ -4,8 +4,8 @@
 
 @theme inline {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Thonburi", "Noto Sans Thai", system-ui, sans-serif;
-  /* Poster type: ultra-wide black caps, Thai falling through to Kanit. */
-  --font-display: var(--font-anybody), var(--font-kanit), "Arial Black", system-ui, sans-serif;
+  /* Poster type: ultra-wide black caps; accented letters from the same font's extra cuts, Thai from Kanit. */
+  --font-display: var(--font-anybody), var(--font-anybody-latin1), var(--font-anybody-latinext), var(--font-kanit), "Arial Black", system-ui, sans-serif;
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
