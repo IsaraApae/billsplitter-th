@@ -33,7 +33,7 @@ interface Kv {
 function upstashKv(r: Redis): Kv {
   return {
     get: (k) => r.get(k),
-    set: async (k, v, o) => (o.nx ? r.set(k, v, { ex: o.ex, nx: true }) : r.set(k, v, { ex: o.ex })) !== null,
+    set: async (k, v, o) => (await (o.nx ? r.set(k, v, { ex: o.ex, nx: true }) : r.set(k, v, { ex: o.ex }))) !== null,
     hkeys: (k) => r.hkeys(k),
     // Upstash decodes numeric strings, so normalise the values back to strings.
     hgetall: async (k) =>
