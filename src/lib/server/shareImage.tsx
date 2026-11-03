@@ -11,6 +11,12 @@ export const shareImageSize = { width: 1200, height: 630 };
 
 const font = (f: string) => readFile(join(process.cwd(), "assets/fonts", f));
 
+// Poster type, then its accented letters (é, ü, ğ…). Satori only uses one font per name, so each cut has its
+// own name here; otherwise a missing É would come from the plain body font. Thai: Kanit ExtraBold, as in the app.
+const DISPLAY = "Display, DisplayLatin1, DisplayLatinExt, DisplayThai";
+// Body text: Noto Sans Thai's Latin, Noto Sans for letters it lacks (ş, ğ, ő, ł…), then its Thai.
+const BODY = "Noto, NotoExt, NotoThai";
+
 // The app's palette (light mode).
 const INK = "#1C1C1E";
 const INK_2 = "#636366";
@@ -42,14 +48,17 @@ interface Card {
  * paper receipt with the people and a "See what you owe" button.
  */
 export async function shareImage(card: Card | null) {
-  const [latin700, thai700, latin400, display, displayLatin1, displayLatinExt, meadow, clouds] = await Promise.all([
+  const [latin700, thai700, latin400, ext700, ext400, display, displayLatin1, displayLatinExt, displayThai, meadow, clouds] = await Promise.all([
     font("NotoSansThai-latin-700.woff"),
     font("NotoSansThai-thai-700.woff"),
     font("NotoSansThai-latin-400.woff"),
+    font("NotoSans-latinext-700.woff"),
+    font("NotoSans-latinext-400.woff"),
     font("Anybody-Expanded-Black.ttf"),
-    // Accented letters (é, ü, ğ…): Satori looks for a missing letter in the other fonts.
+    // Accented letters (é, ü, ğ…), see DISPLAY.
     font("Anybody-Expanded-Black-latin1.ttf"),
     font("Anybody-Expanded-Black-latinext.ttf"),
+    font("Kanit-ExtraBold-thai.woff"),
     readFile(join(process.cwd(), "assets/og/meadow.png")),
     readFile(join(process.cwd(), "assets/og/clouds.jpg")),
   ]);
@@ -66,6 +75,8 @@ export async function shareImage(card: Card | null) {
   // Poster letters are about 1em wide: the longest word has to fit the 568 px column whole.
   const longestWord = Math.max(1, ...(title.match(/[^\s฀-๿]+/g) ?? []).map((w) => [...w].length));
   const titleSize = Math.min(title.length <= 12 ? 58 : title.length <= 24 ? 46 : 36, Math.floor(568 / (longestWord * 1.1)));
+  // How many lines the title wraps to, word by word (poster letters are about 1em wide).
+  const titleLines = wrappedLines(title, (n) => n * titleSize * 1.03, 568);
   // Poster digits are wide: the longer the amount, the smaller, so it stays on the receipt.
   const moneySize = whole.length <= 5 ? 56 : whole.length <= 7 ? 44 : 36;
   const cta = (card ? (card.cta ?? "See what you owe →") : "Split a bill →").replace(/\s*→$/, "");
@@ -91,7 +102,7 @@ export async function shareImage(card: Card | null) {
           padding: "0 64px",
           position: "relative",
           background: "#A9D8F4",
-          fontFamily: "Noto",
+          fontFamily: BODY,
           color: INK,
         }}
       >
@@ -107,11 +118,14 @@ export async function shareImage(card: Card | null) {
             Bill Splitter
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontFamily: "Display", fontSize: titleSize, fontWeight: 900, lineHeight: 1.04 }}>{title}</div>
+            <div style={{ fontFamily: DISPLAY, fontSize: titleSize, fontWeight: 900, lineHeight: 1.04 }}>{title}</div>
             <div style={{ fontSize: 28, fontWeight: 700, marginTop: 12 }}>{card?.kicker ?? "Split the bill with friends"}</div>
-            <div style={{ fontSize: 24, fontWeight: 700, marginTop: 14 }}>
-              {card ? (card.tagline ?? "Tap to see what you owe and mark it paid") : "Scan the receipt, share one link"}
-            </div>
+            {/* A title on three lines would push this line into the chess queen. */}
+            {titleLines < 3 && (
+              <div style={{ fontSize: 24, fontWeight: 700, marginTop: 14 }}>
+                {card ? (card.tagline ?? "Tap to see what you owe and mark it paid") : "Scan the receipt, share one link"}
+              </div>
+            )}
           </div>
         </div>
 
@@ -130,10 +144,10 @@ export async function shareImage(card: Card | null) {
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div style={{ fontFamily: "Display", fontSize: 20, fontWeight: 900, color: INK_2 }}>{card?.label ?? "TOTAL"}</div>
+              <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: INK_2 }}>{card?.label ?? "TOTAL"}</div>
               {dashes}
               {card ? (
-                <div style={{ display: "flex", alignItems: "baseline", fontFamily: "Display", fontWeight: 900, color: ACCENT }}>
+                <div style={{ display: "flex", alignItems: "baseline", fontFamily: DISPLAY, fontWeight: 900, color: ACCENT }}>
                   {baht && <BahtSign size={moneySize * 0.62} color={ACCENT} />}
                   <div style={{ fontSize: moneySize, lineHeight: 1 }}>{whole}</div>
                   <div style={{ fontSize: moneySize * 0.5 }}>{cents}</div>
@@ -186,11 +200,14 @@ export async function shareImage(card: Card | null) {
       ...shareImageSize,
       fonts: [
         { name: "Noto", data: latin700, weight: 700, style: "normal" },
-        { name: "Noto", data: thai700, weight: 700, style: "normal" },
+        { name: "NotoThai", data: thai700, weight: 700, style: "normal" },
         { name: "Noto", data: latin400, weight: 400, style: "normal" },
+        { name: "NotoExt", data: ext700, weight: 700, style: "normal" },
+        { name: "NotoExt", data: ext400, weight: 400, style: "normal" },
         { name: "Display", data: display, weight: 900, style: "normal" },
-        { name: "Display", data: displayLatin1, weight: 900, style: "normal" },
-        { name: "Display", data: displayLatinExt, weight: 900, style: "normal" },
+        { name: "DisplayLatin1", data: displayLatin1, weight: 900, style: "normal" },
+        { name: "DisplayLatinExt", data: displayLatinExt, weight: 900, style: "normal" },
+        { name: "DisplayThai", data: displayThai, weight: 900, style: "normal" },
       ],
     },
   );
@@ -213,7 +230,22 @@ export function nameLine(names: string[], max = 24): string {
   return line;
 }
 
+/** Lines a text wraps to at word breaks, given the width of n letters. */
+export function wrappedLines(text: string, width: (letters: number) => number, max: number): number {
+  let lines = 1;
+  let line = 0;
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const w = [...word].length;
+    if (line > 0 && width(line + 1 + w) > max) {
+      lines++;
+      line = w;
+    } else line += (line > 0 ? 1 : 0) + w;
+  }
+  return lines;
+}
+
 /** Friends first, the organiser last: "Boss, Mint, Isara", or "Boss, Mint, Ploy, Pim +1" when full. */
+
 export function cardNames(people: Card["people"]): string {
   return nameLine([...people.filter((p) => !p.organiser), ...people.filter((p) => p.organiser)].map((p) => p.name));
 }

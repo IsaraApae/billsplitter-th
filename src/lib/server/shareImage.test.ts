@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-const { cardNames, nameLine } = await import("./shareImage");
+const { cardNames, nameLine, wrappedLines } = await import("./shareImage");
 
 describe("nameLine (names on the share preview)", () => {
   it("lists everyone when they fit", () => expect(nameLine(["Boss", "Mint", "Ploy"])).toBe("Boss, Mint, Ploy"));
@@ -18,5 +18,14 @@ describe("nameLine (names on the share preview)", () => {
     expect(nameLine(["Wongsakorn Srisawat", "Mint"])).toBe("Wongsakorn Srisawat +1");
     expect(nameLine(["Boss", " ", "Mint"])).toBe("Boss, Mint");
     expect(nameLine([])).toBe("");
+  });
+});
+
+describe("wrappedLines (title lines on the share preview)", () => {
+  const at46 = (n: number) => n * 46 * 1.03;
+  it("wraps at word breaks, not by letter count", () => {
+    expect(wrappedLines("NAKLAA MOOKATA NIGHT", at46, 568)).toBe(3);
+    expect(wrappedLines("CAFÉ APAÉ NIGHT", at46, 568)).toBe(2);
+    expect(wrappedLines("YOSHINOYA", at46, 568)).toBe(1);
   });
 });

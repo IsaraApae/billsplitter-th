@@ -13,8 +13,8 @@ export function shortHash(text: string): string {
   return (h >>> 0).toString(36);
 }
 
-/** Bumped when the preview card itself is drawn differently (2: accented letters in poster type), so cached previews refresh. */
-const PREVIEW_DESIGN = 2;
+/** Bumped when the preview card itself is drawn differently (3: accented and Thai letters in their own fonts), so cached previews refresh. */
+const PREVIEW_DESIGN = 3;
 
 export function splitVersion(doc: SplitDoc): string {
   return shortHash(
