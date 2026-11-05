@@ -5,6 +5,7 @@ import { currencyExponent, parseMoney } from "./money";
 import type { ScanResult } from "./scanResult";
 import { cleanScannedItems, type DroppedLine } from "./scanFilter";
 import type { Item, PaymentInfo, SplitDoc } from "./types";
+import { scanDiscountItems } from "./discountMatch";
 
 export function uid(): string {
   const a = new Uint8Array(6);
@@ -162,8 +163,20 @@ export function applyScan(
   if (doc.items.length === 0 && items.length > 0) {
     const base = (subtotal ?? itemsSubtotal(items)) - (discount ?? 0);
     if (discount && discount > 0) {
-      next.discount = { enabled: true, type: "fixed", value: discount, scope: "all", itemIds: [] };
-      notes.push("Receipt shows a discount — added it as a fixed discount on all items.");
+      // Which items it covers: the receipt's own marks, or the only set the printed rate fits.
+      const lines = items.map((it, i) => ({ id: it.id, total: it.qty * it.price, name: it.name, marked: scannedItems[i].discounted }));
+      const rate = scan.discountRate ? Math.round(scan.discountRate * 100) : null;
+      const some = scanDiscountItems(lines, discount, rate);
+      if (some) {
+        next.discount = { enabled: true, type: "fixed", value: discount, scope: "selected", itemIds: some.ids };
+        const names = items.filter((it) => some.ids.includes(it.id)).map((it) => it.name);
+        notes.push(
+          `Receipt's ${some.rateBp / 100}% discount is on ${names.join(", ")}${some.from === "receipt" ? " (as marked on the receipt)" : ""} — check it in Extras.`,
+        );
+      } else {
+        next.discount = { enabled: true, type: "fixed", value: discount, scope: "all", itemIds: [] };
+        notes.push("Receipt shows a discount — added it as a fixed discount on all items.");
+      }
     }
     if (service !== null && service > 0) {
       const bp = inferRateBp(service, base);

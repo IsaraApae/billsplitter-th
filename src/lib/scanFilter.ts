@@ -5,6 +5,8 @@ export interface RawItem {
   qty: number;
   /** line total, major units; negative for a discount on one item */
   price: number;
+  /** covered by the bill-wide discount, as the receipt shows */
+  discounted?: boolean;
 }
 
 export interface DroppedLine {

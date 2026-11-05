@@ -10,13 +10,15 @@ export interface ScanAttempt {
 
 export interface ScanResult {
   /** price = LINE total in major units; negative for a discount on a single item */
-  items: { name: string; qty: number; price: number }[];
+  items: { name: string; qty: number; price: number; discounted?: boolean }[];
   subtotal: number | null;
   serviceCharge: number | null;
   vat: number | null;
   vatIncluded: boolean;
   /** receipt-wide discount, positive */
   discount: number | null;
+  /** the percentage printed on the discount line, e.g. 10 for "Member 10%" */
+  discountRate?: number | null;
   total: number | null;
   currency: string | null;
   /** date printed on the receipt, YYYY-MM-DD (Gregorian); null if none or implausible */
@@ -115,7 +117,7 @@ export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
       const name = typeof it.name === "string" ? it.name.replace(/\s+/g, " ").trim().slice(0, 80) : "";
       const qtyN = num(it.qty);
       const qty = qtyN && qtyN >= 1 && qtyN <= 999 ? Math.round(qtyN) : 1;
-      return { name, qty, price: num(it.price, true) ?? 0 };
+      return { name, qty, price: num(it.price, true) ?? 0, ...(it.discounted === true ? { discounted: true } : {}) };
     })
     .filter((it) => it.name !== "" || it.price !== 0);
   const currency = typeof o.currency === "string" && /^[A-Z]{3}$/.test(o.currency) ? o.currency : null;
@@ -128,6 +130,10 @@ export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
     vat: num(o.vat),
     vatIncluded: (o.vatIncluded ?? o.vat_included) === true,
     discount: discount === null ? null : Math.abs(discount),
+    discountRate: (() => {
+      const r = num(o.discountRate);
+      return r !== null && r > 0 && r < 100 ? r : null;
+    })(),
     total: num(o.total),
     currency,
     date: receiptDate(o.date, now),

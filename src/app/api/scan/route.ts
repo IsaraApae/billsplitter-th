@@ -31,6 +31,8 @@ subtotal, total, VAT/tax, service charge, cash, change, payment/card, rounding, 
 FIELDS (plain numbers: no currency symbols, no thousands separators; null when not printed):
 - subtotal: printed subtotal before receipt-wide discount, service and VAT (Sub Total / ยอดรวมย่อย / รวมเงิน).
 - discount: a discount on the whole bill, as a positive number (e.g. "UOB 15%  225.00-", "Discount", "ส่วนลด" under the subtotal).
+- discountRate: the percentage printed on that discount line (e.g. "Member 10%" → 10, "UOB 15%/450" → 15); null if no percentage is printed.
+- items[].discounted: true only for the items that bill-wide discount covers, when the receipt shows it (items marked with *, #, D or a promo code, items listed under the promotion, or a discount line naming them, e.g. "Drinks 20%"). false for every item when the discount covers the whole bill, when there is no discount, or when the receipt doesn't say which items it covers. Never guess.
 - serviceCharge: service charge amount (Service Charge / ค่าบริการ).
 - vat: VAT amount when it is added on top (VAT / ภาษีมูลค่าเพิ่ม).
 - vatIncluded: true when the receipt says prices already include VAT (e.g. "VAT incl.", "VAT INCLUDED", "รวมภาษีมูลค่าเพิ่มแล้ว", "ราคารวม VAT"); otherwise false.
@@ -57,12 +59,14 @@ const JSON_SCHEMA = {
           name: { type: "string", description: "Exactly as printed, original language" },
           qty: { type: "integer", minimum: 1 },
           price: { type: "number", description: "Line price; negative for a discount on one item" },
+          discounted: { type: "boolean", description: "Covered by the bill-wide discount, as the receipt shows" },
         },
-        required: ["name", "qty", "price"],
+        required: ["name", "qty", "price", "discounted"],
       },
     },
     subtotal: nullableNumber,
     discount: nullableNumber,
+    discountRate: { type: ["number", "null"], description: "Percentage printed on the discount line" },
     serviceCharge: nullableNumber,
     vat: nullableNumber,
     vatIncluded: { type: "boolean" },
@@ -72,7 +76,7 @@ const JSON_SCHEMA = {
     merchant: { type: ["string", "null"], description: "Shop or restaurant name" },
     rounding: { type: ["number", "null"], description: "Printed rounding adjustment, signed" },
   },
-  required: ["items", "subtotal", "discount", "serviceCharge", "vat", "vatIncluded", "total", "currency", "date", "merchant", "rounding"],
+  required: ["items", "subtotal", "discount", "discountRate", "serviceCharge", "vat", "vatIncluded", "total", "currency", "date", "merchant", "rounding"],
 };
 
 // Older OpenAPI-style schema, used only if a model rejects the request above.
@@ -83,12 +87,13 @@ const LEGACY_SCHEMA = {
       type: "ARRAY",
       items: {
         type: "OBJECT",
-        properties: { name: { type: "STRING" }, qty: { type: "INTEGER" }, price: { type: "NUMBER" } },
+        properties: { name: { type: "STRING" }, qty: { type: "INTEGER" }, price: { type: "NUMBER" }, discounted: { type: "BOOLEAN" } },
         required: ["name", "qty", "price"],
       },
     },
     subtotal: { type: "NUMBER", nullable: true },
     discount: { type: "NUMBER", nullable: true },
+    discountRate: { type: "NUMBER", nullable: true },
     serviceCharge: { type: "NUMBER", nullable: true },
     vat: { type: "NUMBER", nullable: true },
     vatIncluded: { type: "BOOLEAN" },
