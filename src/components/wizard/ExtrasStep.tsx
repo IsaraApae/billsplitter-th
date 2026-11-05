@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, Sparkles } from "lucide-react";
 import { useState } from "react";
-import type { CalcResult } from "@/lib/calc";
+import { applyBp, type CalcResult } from "@/lib/calc";
+import { COMMON_RATES_BP, findDiscountedItems, type DiscountMatch } from "@/lib/discountMatch";
 import { wholeUnitName } from "@/lib/money";
 import type { Discount, SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
-import { ICON, Money, MoneyInput, PercentInput, Section, Segmented, Sheet, Toggle, cx } from "../ui";
+import { Callout, ICON, Money, MoneyInput, PercentInput, Section, Segmented, Sheet, Toggle, cx } from "../ui";
 import { PrepaidSection } from "./PrepaidSection";
 import type { SetDoc } from "./Wizard";
 
@@ -176,6 +177,7 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
       </Section>
 
       <Sheet open={pickOpen} onClose={() => setPickOpen(false)} title="Discounted items" onConfirm={() => setPickOpen(false)}>
+        <DiscountFinder doc={doc} calc={calc} onPick={(ids) => setDiscount({ itemIds: ids })} />
         <ul className="card rows overflow-hidden">
           {doc.items.map((it, i) => {
             const on = d.itemIds.includes(it.id);
@@ -209,6 +211,97 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
           })}
         </ul>
       </Sheet>
+    </div>
+  );
+}
+
+const pct = (bp: number) => `${bp / 100}%`;
+
+/**
+ * "Not sure which items?": works out which items the receipt's discount covers.
+ * A percentage needs the printed discount amount; a fixed amount tries the common rates.
+ */
+function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult; onPick: (ids: string[]) => void }) {
+  const d = doc.discount;
+  const currency = doc.currency;
+  const [printed, setPrinted] = useState(0);
+  const [result, setResult] = useState<{ matches: DiscountMatch[]; truncated: boolean } | null>(null);
+  const amount = d.type === "fixed" ? d.value : printed;
+  const name = (id: string) => {
+    const i = doc.items.findIndex((it) => it.id === id);
+    return doc.items[i]?.name || `Item ${i + 1}`;
+  };
+
+  function find() {
+    const lines = doc.items.map((it, i) => ({ id: it.id, total: calc.lines[i].lineTotal }));
+    const r = findDiscountedItems(lines, amount, d.type === "percent" ? [d.value] : COMMON_RATES_BP);
+    setResult(r);
+    if (r.matches.length === 1 && !r.truncated) onPick(r.matches[0].ids);
+  }
+
+  return (
+    <div className="mb-4 space-y-3">
+      <div className="card space-y-3 p-4">
+        <p className="flex items-center gap-2 font-semibold">
+          <Sparkles size={20} {...ICON} className="text-accent" aria-hidden /> Not sure which items?
+        </p>
+        {d.type === "percent" ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[15px] text-ink-2">{pct(d.value)} discount on the receipt</span>
+            <MoneyInput
+              className="w-36 shrink-0"
+              ariaLabel="Discount printed on the receipt"
+              currency={currency}
+              value={printed}
+              onChange={(v) => {
+                setPrinted(v);
+                setResult(null);
+              }}
+            />
+          </div>
+        ) : (
+          <p className="text-[15px] text-ink-2">
+            Finds the items that <Money value={d.value} currency={currency} /> is exactly 5%, 10%, 15%… up to 50% of.
+          </p>
+        )}
+        <button type="button" className="btn-secondary h-11 w-full" disabled={amount <= 0} onClick={find}>
+          Find the items for me
+        </button>
+      </div>
+
+      {result && result.matches.length === 0 && (
+        <Callout tone="warn">
+          No set of items comes to exactly <Money value={amount} currency={currency} />
+          {d.type === "percent" ? ` at ${pct(d.value)}` : " at a common percentage"}. Check the amount, or tick the items yourself.
+        </Callout>
+      )}
+      {result && result.matches.length === 1 && !result.truncated && (
+        <Callout tone="success">
+          Selected {result.matches[0].ids.map(name).join(", ")}: {pct(result.matches[0].rateBp)} of them is exactly <Money value={amount} currency={currency} />.
+        </Callout>
+      )}
+      {result && (result.matches.length > 1 || (result.matches.length === 1 && result.truncated)) && (
+        <div className="space-y-2">
+          <p className="px-1 text-[15px] text-ink-2">
+            {result.truncated ? "Several sets of items fit, including these." : "These sets of items all fit."} Tap the one on your receipt:
+          </p>
+          <ul className="card rows overflow-hidden">
+            {result.matches.map((m) => {
+              const sum = m.ids.reduce((s, id) => s + calc.lines[doc.items.findIndex((it) => it.id === id)].lineTotal, 0);
+              return (
+                <li key={`${m.rateBp}:${m.ids.join(",")}`}>
+                  <button type="button" className="flex min-h-[52px] w-full items-center gap-3 px-5 py-2 text-left" onClick={() => onPick(m.ids)}>
+                    <span className="min-w-0 flex-1">{m.ids.map(name).join(", ")}</span>
+                    <span className="shrink-0 text-[15px] text-ink-2">
+                      {pct(m.rateBp)} of <Money value={sum} currency={currency} /> = <Money value={applyBp(sum, m.rateBp)} currency={currency} />
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
