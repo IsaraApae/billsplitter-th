@@ -214,6 +214,32 @@ describe("applyScan + totalMismatch", () => {
     ]);
   });
 
+  it("puts a receipt's drinks discount on the drinks it marks, when the sum fits", () => {
+    const raw = sanitizeScan({
+      items: [
+        { name: "Singha", qty: 1, price: 300, discounted: true },
+        { name: "Coke", qty: 1, price: 100, discounted: true },
+        { name: "หมูสามชั้น", qty: 1, price: 250, discounted: false },
+        { name: "Omelette", qty: 1, price: 150, discounted: "yes" },
+      ],
+      subtotal: 800, discount: 80, discountRate: "20", total: 720, currency: "THB",
+    });
+    expect(raw.discountRate).toBe(20);
+    expect(raw.items.map((i) => !!i.discounted)).toEqual([true, true, false, false]);
+    const r = applyScan(doc(), raw);
+    expect(r.doc.discount.scope).toBe("selected");
+    expect(r.doc.discount.itemIds.map((id) => r.doc.items.find((i) => i.id === id)!.name)).toEqual(["Singha", "Coke"]);
+    expect(calculate(r.doc).total).toBe(72000);
+  });
+
+  it("keeps the discount on everything when it can't tell which items", () => {
+    const r = applyScan(doc(), {
+      items: [{ name: "A", qty: 1, price: 300 }, { name: "B", qty: 1, price: 100 }],
+      subtotal: 400, serviceCharge: null, vat: null, vatIncluded: true, discount: 40, total: 360, currency: "THB",
+    });
+    expect(r.doc.discount.scope).toBe("all");
+  });
+
   it("flags a printed total that doesn't match beyond ฿1 of rounding", () => {
     expect(totalMismatch(127500, 127500, "THB")).toBeNull();
     expect(totalMismatch(127550, 127500, "THB")).toBeNull(); // 50 satang = rounding

@@ -233,10 +233,11 @@ function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult
   };
 
   function find() {
-    const lines = doc.items.map((it, i) => ({ id: it.id, total: calc.lines[i].lineTotal }));
+    const lines = doc.items.map((it, i) => ({ id: it.id, total: calc.lines[i].lineTotal, name: it.name }));
     const r = findDiscountedItems(lines, amount, d.type === "percent" ? [d.value] : COMMON_RATES_BP);
     setResult(r);
-    if (r.matches.length === 1 && !r.truncated) onPick(r.matches[0].ids);
+    // Tick it straight away only when nothing else could fit.
+    if (r.matches.length === 1 && r.matches[0].alternatives === 0 && !r.truncated) onPick(r.matches[0].ids);
   }
 
   return (
@@ -275,15 +276,16 @@ function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult
           {d.type === "percent" ? ` at ${pct(d.value)}` : " at a common percentage"}. Check the amount, or tick the items yourself.
         </Callout>
       )}
-      {result && result.matches.length === 1 && !result.truncated && (
+      {result && result.matches.length === 1 && result.matches[0].alternatives === 0 && !result.truncated && (
         <Callout tone="success">
-          Selected {result.matches[0].ids.map(name).join(", ")}: {pct(result.matches[0].rateBp)} of them is exactly <Money value={amount} currency={currency} />.
+          Selected {result.matches[0].ids.map(name).join(", ")}: {pct(result.matches[0].rateBp)} of {result.matches[0].ids.length === 1 ? "it" : "them"} is
+          exactly <Money value={amount} currency={currency} />.
         </Callout>
       )}
-      {result && (result.matches.length > 1 || (result.matches.length === 1 && result.truncated)) && (
+      {result && (result.matches.length > 1 || (result.matches.length === 1 && (result.truncated || result.matches[0].alternatives > 0))) && (
         <div className="space-y-2">
           <p className="px-1 text-[15px] text-ink-2">
-            {result.truncated ? "Several sets of items fit, including these." : "These sets of items all fit."} Tap the one on your receipt:
+            {result.truncated ? "Several sets of items fit, including these." : "These sets of items all fit."} Most likely first; tap the one on your receipt:
           </p>
           <ul className="card rows overflow-hidden">
             {result.matches.map((m) => {
@@ -291,7 +293,14 @@ function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult
               return (
                 <li key={`${m.rateBp}:${m.ids.join(",")}`}>
                   <button type="button" className="flex min-h-[52px] w-full items-center gap-3 px-5 py-2 text-left" onClick={() => onPick(m.ids)}>
-                    <span className="min-w-0 flex-1">{m.ids.map(name).join(", ")}</span>
+                    <span className="min-w-0 flex-1">
+                      {m.ids.map(name).join(", ")}
+                      {m.alternatives > 0 && (
+                        <span className="block text-[13px] text-ink-2">
+                          or {m.alternatives} other {m.alternatives === 1 ? "set" : "sets"} with the same prices
+                        </span>
+                      )}
+                    </span>
                     <span className="shrink-0 text-[15px] text-ink-2">
                       {pct(m.rateBp)} of <Money value={sum} currency={currency} /> = <Money value={applyBp(sum, m.rateBp)} currency={currency} />
                     </span>
