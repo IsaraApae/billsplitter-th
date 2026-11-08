@@ -122,7 +122,7 @@ All of them are listed in [`.env.example`](.env.example).
 
 ## Deploying
 
-The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Pushes that only change `README.md`, `docs/`, `.github/`, `LICENSE` or `.env.example` since the last deployment skip the build (`ignoreCommand` in `vercel.json` compares with `VERCEL_GIT_PREVIOUS_SHA`, and builds whenever it can't tell). Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
+The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Pushes that only change `README.md`, `docs/`, `.github/`, `LICENSE` or `.env.example` since the last deployment skip the build (`scripts/vercel-ignore.sh`, run by `ignoreCommand` in `vercel.json`, compares with `VERCEL_GIT_PREVIOUS_SHA` and builds whenever it can't tell). Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
 
 ## License
 
