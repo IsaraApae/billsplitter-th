@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Timer } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -78,7 +78,8 @@ export function BoardView({
               <Avatar person={p.look} size={32} />
               <span className="min-w-0 flex-1">
                 <h2 className="truncate text-[19px] leading-tight font-bold">{p.look.name}</h2>
-                <span className={cx("block text-[13px]", oldest >= 7 ? "font-semibold text-warn" : "text-ink-2")}>
+                <span className={cx("flex items-center gap-1 text-[13px]", oldest >= 7 ? "font-semibold text-warn" : "text-ink-2")}>
+                  <Timer size={14} {...ICON} aria-hidden className="shrink-0" />
                   {oldest === 0 ? "Unpaid since today" : `Unpaid for ${dayCount(oldest)}`}
                 </span>
               </span>
