@@ -236,7 +236,11 @@ export interface PayerSpeed {
  */
 export function paySpeed(entries: HistoryLike[], now = Date.now()): PayerSpeed[] {
   const all: (PayerSpeed & { sum: number })[] = [];
-  for (const h of entries) {
+  // Oldest bill first, so who is merged with whom (and the name and look they're shown
+  // with) doesn't depend on the order the bills came in: "Owed to you" reads them from
+  // History, the shared list from the server, and both must rank alike.
+  const ordered = [...entries].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || byText(a.id, b.id));
+  for (const h of ordered) {
     for (const m of h.members ?? []) {
       if (m.id === ORGANISER_ID || m.amount === undefined || m.amount <= 0) continue;
       const paidAt = h.paidAt?.[m.id];
@@ -259,8 +263,18 @@ export function paySpeed(entries: HistoryLike[], now = Date.now()): PayerSpeed[]
   }
   return all
     .map(({ sum, ...p }) => ({ ...p, days: sum / (p.paid + p.unpaid) }))
-    .sort((a, b) => a.days - b.days || a.unpaid - b.unpaid || b.paid - a.paid);
+    .sort(
+      (a, b) =>
+        a.days - b.days ||
+        a.unpaid - b.unpaid ||
+        b.paid - a.paid ||
+        // A tie (same days, often: they're whole days) goes A–Z, the same on every page.
+        a.look.name.localeCompare(b.look.name, ["th", "en"], { sensitivity: "base" }) ||
+        byText(a.key, b.key),
+    );
 }
+
+const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** Pay speed from the organiser's bills as stored (for the shareable list). */
 export function boardSpeed(

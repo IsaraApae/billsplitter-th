@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { claimMySplits } from "@/lib/client/claim";
 import { askConfirm } from "@/lib/client/confirm";
-import { refreshEntries, refreshEntry } from "@/lib/client/historyRefresh";
+import { needsPayTimes, refreshEntries, refreshEntry } from "@/lib/client/historyRefresh";
 import { getEditToken, getHistory, type HistoryEntry } from "@/lib/client/storage";
 import { dayCount, daysBetween, owedToYou, paySpeed, type OwedBill, type OwedFriend } from "@/lib/owed";
 import { getProfile } from "@/lib/client/profile";
@@ -77,9 +77,9 @@ export function OwedToYou() {
     const unsettled = new Set(owedToYou(getHistory()).flatMap((f) => f.bills.map((b) => b.id)));
     void refreshEntries(
       // Older entries don't say what each person owes yet: they need a look too.
-      // Paid bills without payment times are looked at once, for "Who pays fastest".
+      // Ticks without a payment time are looked up (once), for "Who pays fastest".
       getHistory().filter(
-        (h) => unsettled.has(h.id) || !h.members || h.members.some((m) => m.amount === undefined) || (!!h.paidIds?.length && !h.paidAt),
+        (h) => unsettled.has(h.id) || !h.members || h.members.some((m) => m.amount === undefined) || needsPayTimes(h),
       ),
       (h, patch) => {
         if (patch !== "gone") setEntries((es) => es.map((e) => (e.id === h.id ? { ...e, ...patch } : e)));

@@ -39,18 +39,15 @@ export async function refreshEntry(h: HistoryEntry): Promise<Partial<HistoryEntr
     let patch: Partial<HistoryEntry>;
     if (full) {
       const data: { doc: SplitDoc; paid: string[]; partial?: Record<string, number>; paidAt?: Record<string, number> } = await r.json();
-      patch = {
-        ...historyFromDoc(data.doc),
-        ...paymentSummary(data.doc, { paid: data.paid, partial: data.partial ?? {} }),
-        paidAt: paidToMe(data.paidAt),
-      };
+      const summary = paymentSummary(data.doc, { paid: data.paid, partial: data.partial ?? {} });
+      patch = { ...historyFromDoc(data.doc), ...summary, paidAt: paidToMe(data.paidAt, summary.paidIds) };
     } else {
       const data: { paid: string[]; partial?: Record<string, number>; paidAt?: Record<string, number> } = await r.json();
       patch = {
         ...paidProgress(h.personIds ?? [], data.paid),
         paidIds: data.paid,
         partialPaid: data.partial ?? {},
-        paidAt: paidToMe(data.paidAt),
+        paidAt: paidToMe(data.paidAt, data.paid),
       };
     }
     patchHistory(h.id, patch);
@@ -60,13 +57,27 @@ export async function refreshEntry(h: HistoryEntry): Promise<Partial<HistoryEntr
   }
 }
 
-/** Payment times by friend: a transfer to you ("t:mint:me") counts as Mint's. */
-function paidToMe(paidAt: Record<string, number> = {}): Record<string, number> {
+/**
+ * Payment times by friend: a transfer to you ("t:mint:me") counts as Mint's. Everyone in
+ * `paidIds` gets an entry, 0 when the server has no time for their tick (ticked before
+ * times were kept), so History knows it has asked and needn't ask again.
+ */
+export function paidToMe(paidAt: Record<string, number> = {}, paidIds: string[] = []): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [k, t] of Object.entries(paidAt)) {
     const tr = parseTransferKey(k);
     if (!tr) out[k] = t;
     else if (tr.to === ORGANISER_ID) out[tr.from] = t;
   }
+  for (const id of paidIds) if (!parseTransferKey(id)) out[id] ??= 0;
   return out;
+}
+
+/**
+ * Someone's tick has no payment time in History yet. Ticking on the bill page records
+ * the tick but not its time, and without the time "Who pays fastest" on "Owed to you"
+ * would leave that bill out while the shared list (from the server) counts it.
+ */
+export function needsPayTimes(h: Pick<HistoryEntry, "paidIds" | "paidAt">): boolean {
+  return !!h.paidIds?.some((id) => !parseTransferKey(id) && h.paidAt?.[id] === undefined);
 }
