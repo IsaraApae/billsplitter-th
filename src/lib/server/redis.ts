@@ -531,23 +531,35 @@ export async function setEventPayment(
 
 // ---- Receipt photos: which split shows each one, so unused photos can be deleted
 
-const photoKey = (url: string) => `photo:${url}`;
+// A photo's URL can end up in more than one split (it's in every shared bill), so
+// photos:<url> holds every split id that has shown it. Older photo:<url> keys hold one.
+const legacyPhotoKey = (url: string) => `photo:${url}`;
+const photoKey = (url: string) => `photos:${url}`;
 const PHOTO_TTL = TTL_SECONDS + 60 * 60 * 24 * 30; // outlives the split; refreshed with it
 
 async function linkPhoto(splitId: string, doc: SplitDoc): Promise<void> {
-  if (doc.photo) await db().set(photoKey(doc.photo), splitId, { ex: PHOTO_TTL });
+  if (!doc.photo) return;
+  await db().hset(photoKey(doc.photo), splitId, "1");
+  await db().expire(photoKey(doc.photo), PHOTO_TTL);
 }
 
-/** True while a live split still shows this receipt photo. */
+/** True while any live split still shows this receipt photo. */
 export async function photoInUse(url: string): Promise<boolean> {
-  const splitId = await db().get<string>(photoKey(url));
-  if (!splitId) return false;
-  const s = await db().get<StoredSplit>(docKey(splitId));
-  return s?.doc.photo === url;
+  const [ids, legacy] = await Promise.all([db().hkeys(photoKey(url)), db().get<string>(legacyPhotoKey(url))]);
+  for (const splitId of new Set(legacy ? [...ids, legacy] : ids)) {
+    const s = await db().get<StoredSplit>(docKey(splitId));
+    if (s?.doc.photo === url) return true;
+  }
+  return false;
 }
 
 export async function forgetPhoto(url: string): Promise<void> {
-  await db().del(photoKey(url));
+  await Promise.all([db().del(photoKey(url)), db().del(legacyPhotoKey(url))]);
+}
+
+/** Lets the photo clean-up run at most once per `seconds` (when no CRON_SECRET guards it). */
+export async function claimCleanupRun(seconds: number): Promise<boolean> {
+  return db().set("cron:cleanup-photos", Date.now(), { ex: seconds, nx: true });
 }
 
 // ---- Gemini model cooldowns (circuit breaker shared by all instances) -----
