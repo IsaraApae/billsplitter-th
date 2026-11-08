@@ -1,3 +1,4 @@
+import { sniffImageType } from "@/lib/imageType";
 import { jsonError, safely } from "@/lib/server/http";
 import { qrStorageReady, readQrImage, storeReceiptImage } from "@/lib/server/qrStore";
 import { rateLimit } from "@/lib/server/ratelimit";
@@ -21,7 +22,9 @@ export async function POST(req: Request) {
     if (!file) return jsonError(400, "bad_request", "No image was uploaded.");
     if (file.type !== "image/jpeg") return jsonError(415, "bad_type", "Please upload a JPEG.");
     if (file.size > MAX_BYTES) return jsonError(413, "too_large", "That photo is too large.");
-    const photo = await storeReceiptImage(Buffer.from(await file.arrayBuffer()));
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (sniffImageType(bytes) !== "image/jpeg") return jsonError(415, "bad_type", "Please upload a JPEG.");
+    const photo = await storeReceiptImage(bytes);
     return Response.json({ photo }, { status: 201 });
   });
 }
