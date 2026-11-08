@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 const loadBoard = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
-  const bills = await boardBills(id).catch(() => null);
+  const bills = await boardBills(id); // a storage failure shows the error page, not "not found"
   return bills ? { ...whoStillOwes(bills), speed: boardSpeed(bills) } : null;
 });
 

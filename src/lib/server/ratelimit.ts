@@ -53,10 +53,15 @@ export async function rateLimit(req: Request, bucket: Bucket): Promise<Response 
     }
   } else {
     let hits: number | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      hits = await countHit(key, 60); // TCP Redis (e.g. Redis Cloud)
+      // TCP Redis (e.g. Redis Cloud); a slow Redis mustn't hold every request up.
+      const slow = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new Error("rate limit timeout")), 1500)));
+      hits = await Promise.race([countHit(key, 60), slow]);
     } catch {
       hits = 0; // never block users because the limiter itself failed
+    } finally {
+      clearTimeout(timer);
     }
     allowed = hits === null ? memoryLimit(key, max, 60_000) : hits <= max;
   }

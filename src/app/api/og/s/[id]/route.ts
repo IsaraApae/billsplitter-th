@@ -9,7 +9,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/og/s/[id]">) {
   const limited = await rateLimit(req, "og");
   if (limited) return limited;
   const { id } = await ctx.params;
-  const s = await loadSplit(id);
+  const s = await loadSplit(id).catch(() => null);
   const img = s
     ? await shareImage({
         kicker: billDate(s.doc).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
