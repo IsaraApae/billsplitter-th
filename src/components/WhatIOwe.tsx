@@ -3,6 +3,7 @@
 import { ChevronRight, PartyPopper, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { inBatches } from "@/lib/client/batches";
 import { getEditToken, getIam, getPicks, getSeen, setIam } from "@/lib/client/storage";
 import { ORGANISER_ID } from "@/lib/calc";
 import { namesIn, unpaidPeople, whatIOwe, whoAmI, type LoadedBill, type OweGroup, type OweLine } from "@/lib/owed";
@@ -14,7 +15,7 @@ import { PayChooser } from "./PayChooser";
 import { organiserQr, usePrefetchQr, type PayQrSource } from "./PayQr";
 import { SlipCard } from "./SlipCard";
 import { type SlipResult } from "./SlipUpload";
-import { Avatar, ICON, Money, Section, Sheet } from "./ui";
+import { Avatar, Callout, ICON, Money, Section, Sheet } from "./ui";
 
 /** The QR for paying whoever a line is owed to (the organiser's, or a payer's own PromptPay). */
 function qrFor(l: OweLine): PayQrSource | null {
@@ -57,32 +58,41 @@ function PayGroupSheet({ group, onClose, onPaid }: { group: OweGroup | null; onC
 type BillData = { doc: SplitDoc; paid: string[]; partial?: Record<string, number> };
 type Look = Pick<Person, "name" | "emoji" | "color">;
 
-/** The bills friends shared with this phone (opened here), with their payments. */
-async function loadSeenBills(): Promise<LoadedBill[]> {
+/** Requests at a time: a long list mustn't trip the server's rate limit (shared by everyone on a mobile network's address). */
+const AT_ONCE = 6;
+
+/**
+ * The bills friends shared with this phone (opened here), with their payments, and how many
+ * couldn't be loaded just now (offline, or too many requests). Expired bills aren't failures.
+ */
+async function loadSeenBills(): Promise<{ bills: LoadedBill[]; failed: number }> {
   const out = new Map<string, LoadedBill>();
-  await Promise.all(
-    getSeen().map(async (s) => {
-      try {
-        if (s.kind === "split") {
-          const r = await fetch(`/api/splits/${s.id}`, { cache: "no-store" });
-          if (!r.ok) return;
-          const d = (await r.json()) as BillData;
-          out.set(s.id, { id: s.id, doc: d.doc, paid: d.paid, partial: d.partial ?? {}, href: `/s/${s.id}` });
-        } else {
-          const r = await fetch(`/api/events/${s.id}`, { cache: "no-store" });
-          if (!r.ok) return;
-          const d = (await r.json()) as { bills: (BillData & { id: string })[] };
-          for (const b of d.bills) {
-            if (!out.has(b.id)) out.set(b.id, { id: b.id, doc: b.doc, paid: b.paid, partial: b.partial ?? {}, href: `/e/${s.id}` });
-          }
+  let failed = 0;
+  const ok = (r: Response) => {
+    if (!r.ok && r.status !== 404) failed++;
+    return r.ok;
+  };
+  await inBatches(getSeen(), AT_ONCE, async (s) => {
+    try {
+      if (s.kind === "split") {
+        const r = await fetch(`/api/splits/${s.id}`, { cache: "no-store" });
+        if (!ok(r)) return;
+        const d = (await r.json()) as BillData;
+        out.set(s.id, { id: s.id, doc: d.doc, paid: d.paid, partial: d.partial ?? {}, href: `/s/${s.id}` });
+      } else {
+        const r = await fetch(`/api/events/${s.id}`, { cache: "no-store" });
+        if (!ok(r)) return;
+        const d = (await r.json()) as { bills: (BillData & { id: string })[] };
+        for (const b of d.bills) {
+          if (!out.has(b.id)) out.set(b.id, { id: b.id, doc: b.doc, paid: b.paid, partial: b.partial ?? {}, href: `/e/${s.id}` });
         }
-      } catch {
-        /* offline: skip it */
       }
-    }),
-  );
+    } catch {
+      failed++; // offline
+    }
+  });
   // Bills this phone made are yours, not something you owe.
-  return [...out.values()].filter((b) => !getEditToken(b.id));
+  return { bills: [...out.values()].filter((b) => !getEditToken(b.id)), failed };
 }
 
 const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
@@ -100,26 +110,24 @@ async function loadOtherBills(
   const known = new Set(seen.map((b) => b.id));
   const out = new Map<string, LoadedBill>();
   const found: Record<string, string> = {};
-  await Promise.all(
-    seen.map(async (b) => {
-      const me = whoAmI(b.doc, name, picks[b.id]);
-      if (!me) return;
-      try {
-        const q = new URLSearchParams({ person: me.id, name: me.name });
-        const r = await fetch(`/api/splits/${b.id}/others?${q}`, { cache: "no-store" });
-        if (!r.ok) return;
-        const d = (await r.json()) as { splits: (BillData & { id: string })[] };
-        for (const o of d.splits) {
-          if (known.has(o.id) || out.has(o.id) || getEditToken(o.id)) continue;
-          out.set(o.id, { id: o.id, doc: o.doc, paid: o.paid, partial: o.partial ?? {}, href: `/s/${o.id}` });
-          const there = o.doc.people.find((p) => p.id !== "me" && (p.id === me.id || norm(p.name) === norm(me.name)));
-          if (there) found[o.id] = there.id;
-        }
-      } catch {
-        /* offline: skip it */
+  await inBatches(seen, AT_ONCE, async (b) => {
+    const me = whoAmI(b.doc, name, picks[b.id]);
+    if (!me) return;
+    try {
+      const q = new URLSearchParams({ person: me.id, name: me.name });
+      const r = await fetch(`/api/splits/${b.id}/others?${q}`, { cache: "no-store" });
+      if (!r.ok) return;
+      const d = (await r.json()) as { splits: (BillData & { id: string })[] };
+      for (const o of d.splits) {
+        if (known.has(o.id) || out.has(o.id) || getEditToken(o.id)) continue;
+        out.set(o.id, { id: o.id, doc: o.doc, paid: o.paid, partial: o.partial ?? {}, href: `/s/${o.id}` });
+        const there = o.doc.people.find((p) => p.id !== "me" && (p.id === me.id || norm(p.name) === norm(me.name)));
+        if (there) found[o.id] = there.id;
       }
-    }),
-  );
+    } catch {
+      /* offline: skip it */
+    }
+  });
   return { bills: [...out.values()], picks: found };
 }
 
@@ -129,6 +137,7 @@ async function loadOtherBills(
  */
 export function WhatIOwe() {
   const [bills, setBills] = useState<LoadedBill[] | null>(null);
+  const [failed, setFailed] = useState(0);
   const [name, setName] = useState<string | null>(getIam);
   const [choosing, setChoosing] = useState(false);
   const [picks] = useState(getPicks);
@@ -141,7 +150,11 @@ export function WhatIOwe() {
 
   useEffect(() => {
     let cancelled = false;
-    loadSeenBills().then((b) => !cancelled && setBills(b));
+    loadSeenBills().then((r) => {
+      if (cancelled) return;
+      setBills(r.bills);
+      setFailed(r.failed);
+    });
     return () => {
       cancelled = true;
     };
@@ -158,16 +171,16 @@ export function WhatIOwe() {
 
   // "Who are you?": everyone who still owes something, in these bills and in
   // the same organisers' other bills (people who've paid don't show).
+  // Only asked for when the list is shown: once they've picked their name it isn't needed.
   const [unpaid, setUnpaid] = useState<Look[] | null>(null);
+  const asking = !!bills && (choosing || !(!!name || Object.keys(picks).some((id) => bills.some((b) => b.id === id))));
   useEffect(() => {
-    if (!bills) return;
+    if (!bills || !asking) return;
     let cancelled = false;
-    Promise.all(
-      bills.map((b) =>
-        fetch(`/api/splits/${b.id}/people`, { cache: "no-store" })
-          .then((r) => (r.ok ? (r.json() as Promise<{ people: Look[] }>) : { people: [] }))
-          .catch(() => ({ people: [] as Look[] })),
-      ),
+    inBatches(bills, AT_ONCE, (b) =>
+      fetch(`/api/splits/${b.id}/people`, { cache: "no-store" })
+        .then((r) => (r.ok ? (r.json() as Promise<{ people: Look[] }>) : { people: [] }))
+        .catch(() => ({ people: [] as Look[] })),
     ).then((all) => {
       if (cancelled) return;
       const byName = new Map<string, Look>();
@@ -177,10 +190,22 @@ export function WhatIOwe() {
     return () => {
       cancelled = true;
     };
-  }, [bills]);
+  }, [bills, asking]);
   usePrefetchQr(!!bills?.length);
 
   if (bills === null) return <p className="px-1 text-ink-2">Loading your bills…</p>;
+  const retry = (
+    <button type="button" className="font-semibold text-accent" onClick={() => setVersion((v) => v + 1)}>
+      Try again
+    </button>
+  );
+  if (bills.length === 0 && failed > 0) {
+    return (
+      <Callout tone="error">
+        Couldn&apos;t load your bills. Check your connection. {retry}
+      </Callout>
+    );
+  }
   if (bills.length === 0) {
     return (
       <div className="card p-8 text-center">
@@ -243,6 +268,12 @@ export function WhatIOwe() {
             Change
           </button>
         </p>
+      )}
+
+      {failed > 0 && (
+        <Callout tone="warn">
+          Couldn&apos;t load {failed} {failed === 1 ? "bill" : "bills"} just now, so this may be missing some. {retry}
+        </Callout>
       )}
 
       <div className="card px-6 py-5 text-center">
