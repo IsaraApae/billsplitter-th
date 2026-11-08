@@ -364,8 +364,11 @@ export function Sheet({
       tabIndex={-1}
       className="sheet panel"
       style={dy ? { transform: `translateY(${dy}px)` } : undefined}
-      onClose={() => openRef.current && onClose()}
+      // React passes a nested sheet's close/cancel up to this one (a date picker inside the
+      // big-bill editor), so only react to this dialog's own.
+      onClose={(e) => e.target === e.currentTarget && openRef.current && onClose()}
       onCancel={(e) => {
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         onClose();
       }}
