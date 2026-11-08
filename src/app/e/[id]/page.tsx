@@ -11,7 +11,7 @@ import { getEvent, isValidId, storageReady } from "@/lib/server/redis";
 /** Per-request cached: generateMetadata and the page share one read. */
 const load = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
-  return getEvent(id).catch(() => null);
+  return getEvent(id); // a storage failure shows the error page, not "not found"
 });
 
 export async function generateMetadata({ params }: PageProps<"/e/[id]">): Promise<Metadata> {

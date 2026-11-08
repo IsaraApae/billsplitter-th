@@ -7,6 +7,7 @@ import { toDay } from "@/lib/draft";
 import { combinedTitle } from "@/lib/event";
 import { DateField } from "./DateField";
 import { Callout, ICON, Money, Sheet, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 /**
  * Create or edit a big bill: a title, a date and which of your splits it
@@ -59,10 +60,17 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
 
   // Left empty, the big bill is named after its bills: "Food 1 & Karaoke".
   const pickedTitle = combinedTitle(mine.filter((h) => picked.has(h.id)).map((h) => h.title));
+  // Its totals are added up, so it takes bills in one currency: the first one picked.
+  const currencies = new Set(mine.filter((h) => picked.has(h.id)).map((h) => h.currency));
+  const currency = mine.find((h) => picked.has(h.id))?.currency;
 
   async function save() {
     if (picked.size === 0) {
       setError("Pick at least one bill.");
+      return;
+    }
+    if (currencies.size > 1) {
+      setError("A big bill can only combine bills in one currency.");
       return;
     }
     setBusy(true);
@@ -106,7 +114,7 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
       <div className="card rows">
         <div className="px-5 py-3">
           <input
-            className="w-full bg-transparent text-[20px] font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-3"
+            className="w-full rounded-[var(--r)] bg-transparent text-[20px] font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             placeholder={pickedTitle || "Title, e.g. Saturday night out"}
             aria-label="Big bill title"
             maxLength={80}
@@ -129,18 +137,31 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
         <ul className="card rows overflow-hidden" aria-label="Your bills">
           {mine.map((h) => {
             const on = picked.has(h.id);
+            const otherCurrency = !on && !!currency && h.currency !== currency;
             return (
               <li key={h.id}>
-                <label className="flex min-h-[60px] cursor-pointer items-center gap-3 py-2 pr-4 pl-5">
+                <label
+                  className={cx(
+                    "flex min-h-[60px] items-center gap-3 py-2 pr-4 pl-5",
+                    otherCurrency ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+                  )}
+                >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{h.title}</span>
+                    <span className="block truncate font-semibold" {...langOf(h.title)}>{h.title}</span>
                     <span className="block text-[13px] text-ink-2">
                       {new Date(h.createdAt).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
                       {" · "}
                       <Money value={h.total} currency={h.currency} />
+                      {otherCurrency && " · another currency"}
                     </span>
                   </span>
-                  <input type="checkbox" className="peer sr-only" checked={on} onChange={() => toggle(h.id)} />
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={on}
+                    disabled={otherCurrency}
+                    onChange={() => toggle(h.id)}
+                  />
                   <span
                     aria-hidden
                     className={cx(

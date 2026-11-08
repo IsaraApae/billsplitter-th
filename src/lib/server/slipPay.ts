@@ -4,6 +4,7 @@ import { findTransfer, payerPromptPay, settlesDirectly } from "../settle";
 import { slipMatches, type SlipCheck, type SlipRead } from "../slip";
 import type { SplitDoc } from "../types";
 import { deleteImages, storeReceiptImage } from "./qrStore";
+import type { SlipRecord } from "./redis";
 import { readSlip, type SlipForm } from "./slipRead";
 
 type Fail = { ok: false; status: number; code: string; message: string };
@@ -26,6 +27,23 @@ export function slipTarget(
   const r = calc.people.find((p) => p.personId === ref);
   if (!r || ref === ORGANISER_ID) return { ok: false, status: 404, code: "not_found", message: "That person isn't in this split." };
   return { ok: true, owed: r.payable, payee: { promptpay: doc.payment.promptpay } };
+}
+
+/** What the organiser sees later for a slip that paid `amount` of a bill. */
+export async function slipRecord(
+  read: { slip: SlipRead; photo: Promise<string> },
+  verdict: { reference: string; receiver: "match" | "unknown" },
+  amount: number,
+): Promise<SlipRecord> {
+  return {
+    photo: await read.photo,
+    amount,
+    date: read.slip.date!,
+    reference: verdict.reference,
+    receiver: verdict.receiver,
+    senderName: read.slip.senderName,
+    at: new Date().toISOString(),
+  };
 }
 
 /**

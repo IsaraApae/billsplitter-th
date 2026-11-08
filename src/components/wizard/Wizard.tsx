@@ -56,10 +56,38 @@ function freshState(): DraftState {
   return { doc, step: 0, editingId: null };
 }
 
+/**
+ * Whether a saved draft has the shape the steps rely on. A draft from an older
+ * version, or one damaged in storage, would otherwise break the home page for good.
+ * (A light check rather than the full schema, to keep zod off the page.)
+ */
+function usableDraft(s: DraftState | null): s is DraftState {
+  const d = s?.doc as Partial<SplitDoc> | undefined;
+  return (
+    !!d &&
+    d.v === 1 &&
+    typeof d.createdAt === "string" &&
+    typeof d.title === "string" &&
+    typeof d.currency === "string" &&
+    Array.isArray(d.items) &&
+    Array.isArray(d.people) &&
+    typeof d.discount === "object" &&
+    d.discount !== null &&
+    Array.isArray(d.discount.itemIds) &&
+    typeof d.service === "object" &&
+    typeof d.vat === "object" &&
+    typeof d.payment === "object" &&
+    typeof d.receipt === "object" &&
+    Number.isInteger(s!.step) &&
+    s!.step >= 0 &&
+    s!.step <= 4
+  );
+}
+
 /** Initial state from localStorage, or a request to load a shared split (?edit=id). */
 function boot(editId: string | null): { draft: DraftState; editId: string | null; error: string | null; isNew: boolean } {
   const saved = load<DraftState | null>(DRAFT_KEY, null);
-  const isNew = !(saved?.doc?.v === 1);
+  const isNew = !usableDraft(saved);
   let draft = isNew ? freshState() : saved!;
   // A draft nobody has started (no items, no date picked) belongs to today.
   if (!draft.editingId && draft.doc.items.length === 0 && !draft.doc.date && toDay(new Date(draft.doc.createdAt)) !== toDay(new Date())) {
@@ -258,7 +286,8 @@ export function Wizard() {
         </div>
       )}
 
-      <div key={step}>
+      {/* A new draft (Discard & start over) starts its steps afresh, even on the same step. */}
+      <div key={`${step}:${doc.createdAt}`}>
         {step === 0 && <ItemsStep doc={doc} setDoc={setDoc} calc={calc} editing={!!state.editingId} />}
         {step === 1 && <PeopleStep doc={doc} setDoc={setDoc} calc={calc} onPickFriends={() => setCrewOpen(true)} />}
         {step === 2 && <ExtrasStep doc={doc} setDoc={setDoc} calc={calc} />}

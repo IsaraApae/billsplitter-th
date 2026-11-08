@@ -10,6 +10,7 @@ import type { SettleMode, SplitDoc } from "@/lib/types";
 import { TransferRow } from "../Transfers";
 import { Avatar, ICON, Money, MoneyInput, Section, Segmented, Sheet } from "../ui";
 import type { SetDoc } from "./Wizard";
+import { langOf } from "@/lib/lang";
 
 /**
  * "Paid upfront": friends who paid part of the bill themselves (e.g. the
@@ -43,7 +44,7 @@ export function PrepaidSection({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: S
             <li key={r.personId} className="py-2 pr-2 pl-5">
               <div className="flex min-h-12 items-center gap-3">
                 <Avatar person={person} size={32} />
-                <span className="min-w-0 flex-1 truncate font-semibold">{person.name}</span>
+                <span className="min-w-0 flex-1 truncate font-semibold" {...langOf(person.name)}>{person.name}</span>
                 <MoneyInput
                   className="w-36"
                   ariaLabel={`Amount ${person.name} paid`}
@@ -161,7 +162,7 @@ export function PrepaidSection({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: S
                 }}
               >
                 <Avatar person={p} size={36} />
-                <span className="truncate">{p.name}</span>
+                <span className="truncate" {...langOf(p.name)}>{p.name}</span>
               </button>
             </li>
           ))}

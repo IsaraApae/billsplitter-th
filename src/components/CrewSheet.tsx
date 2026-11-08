@@ -8,6 +8,7 @@ import { getProfile } from "@/lib/client/profile";
 import { ME_ID, sameAsLastTime, sortFriends, toPeople, withLastSplit, type Friend } from "@/lib/friends";
 import type { Person } from "@/lib/types";
 import { Avatar, ICON, Sheet, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 /**
  * "Who's eating with you?" — pick saved friends for a split. "Me" is always
@@ -132,8 +133,8 @@ function CrewPicker({ people, onConfirm }: { people: Person[]; onConfirm: (peopl
           <span className="flex-1 font-semibold">
             {me.name || "Me"} <span className="text-[13px] font-normal text-ink-2">(you)</span>
           </span>
-          <span className="grid size-7 place-items-center rounded-full bg-accent-fill text-accent-ink" aria-label="Always included">
-            <Check size={16} {...ICON} />
+          <span role="img" className="grid size-7 place-items-center rounded-full bg-accent-fill text-accent-ink" aria-label="Always included">
+            <Check size={16} {...ICON} aria-hidden />
           </span>
         </li>
         {query.trim() && !exact && (
@@ -156,7 +157,7 @@ function CrewPicker({ people, onConfirm }: { people: Person[]; onConfirm: (peopl
             <li key={f.id}>
               <label className="flex min-h-[56px] cursor-pointer items-center gap-3 pr-4 pl-5 hover:bg-[var(--hover)]">
                 <Avatar person={f} size={36} />
-                <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                <span className="min-w-0 flex-1 truncate" {...langOf(f.name)}>{f.name}</span>
                 <input type="checkbox" className="peer sr-only" checked={on} onChange={() => toggle(f.id)} />
                 <span
                   aria-hidden

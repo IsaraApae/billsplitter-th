@@ -10,18 +10,33 @@ type Pending = ConfirmRequest & { resolve: (ok: boolean) => void };
 export function ConfirmHost() {
   const [req, setReq] = useState<Pending | null>(null);
   const ref = useRef<HTMLDialogElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const okRef = useRef<HTMLButtonElement>(null);
+  const current = useRef<Pending | null>(null);
 
-  useEffect(() => onConfirmRequest(setReq), []);
+  // A new question while one is open answers the old one "no", so its caller isn't left waiting.
+  useEffect(
+    () =>
+      onConfirmRequest((next) => {
+        current.current?.resolve(false);
+        current.current = next;
+        setReq(next);
+      }),
+    [],
+  );
 
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
     if (req && !d.open) d.showModal();
     if (!req && d.open) d.close();
+    // Enter answers the focused button: for Delete or Discard that's Cancel, so it can't happen by accident.
+    if (req) (req.destructive ? cancelRef : okRef).current?.focus();
   }, [req]);
 
   const answer = (ok: boolean) => {
     req?.resolve(ok);
+    current.current = null;
     setReq(null);
   };
 
@@ -42,12 +57,12 @@ export function ConfirmHost() {
           </h2>
           {req.message && <p className="mt-1.5 text-[15px] leading-snug text-ink-2">{req.message}</p>}
           <div className="mt-6 grid grid-cols-2 gap-2.5">
-            <button type="button" className="btn-secondary h-12" onClick={() => answer(false)}>
+            <button ref={cancelRef} type="button" className="btn-secondary h-12" onClick={() => answer(false)}>
               Cancel
             </button>
             <button
+              ref={okRef}
               type="button"
-              autoFocus
               className={cx("btn h-12 raised-flat font-semibold", req.destructive ? "text-ink" : "text-accent")}
               onClick={() => answer(true)}
             >

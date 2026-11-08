@@ -1,3 +1,4 @@
+import { sniffImageType } from "@/lib/imageType";
 import { jsonError, safely } from "@/lib/server/http";
 import { deleteQrImage, qrStorageReady, storeQrImage } from "@/lib/server/qrStore";
 import { rateLimit } from "@/lib/server/ratelimit";
@@ -45,7 +46,11 @@ export async function POST(req: Request) {
       if (!rec) throw new Error("Owner record vanished");
     }
 
-    const url = await storeQrImage(ownerId, Buffer.from(await file.arrayBuffer()), file.type);
+    // Stored as the type the bytes show, not the type the phone claimed.
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const type = sniffImageType(bytes);
+    if (!type) return jsonError(415, "bad_type", "Please upload a JPEG, PNG or WebP image.");
+    const url = await storeQrImage(ownerId, bytes, type);
     const old = rec.qrUrl;
     const next: OwnerRecord = { ...rec, qrUrl: url, version: rec.version + 1 };
     await saveOwner(ownerId, next);

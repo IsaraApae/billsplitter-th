@@ -10,17 +10,24 @@ import { ICON, Section } from "./ui";
 
 const BOARD = "bs:board";
 
+function shortHash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
 /**
  * "Share the list": one link anyone can open to see everyone who still owes
  * you, A–Z, with their unpaid bills. Shown on "Owed to you".
  */
-export function BoardLinkCard({ name }: { name: string }) {
+export function BoardLinkCard({ name, version }: { name: string; version: string }) {
   const [id, setId] = useState<string | null>(() => load<string | null>(BOARD, null));
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
   const canShare = useBrowserValue(() => typeof navigator.share === "function", false);
-  // Changes each visit, so the preview shows today's amounts.
-  const [v] = useState(() => Date.now().toString(36));
+  // Changes with the amounts (and the day), so the preview is fresh without
+  // drawing a new picture on every visit.
+  const v = shortHash(version);
 
   useEffect(() => {
     let cancelled = false;

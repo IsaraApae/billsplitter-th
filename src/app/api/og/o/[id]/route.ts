@@ -1,9 +1,12 @@
 import { whoStillOwes } from "@/lib/owed";
 import { boardBills, isValidId, storageReady } from "@/lib/server/redis";
+import { rateLimit } from "@/lib/server/ratelimit";
 import { shareImage } from "@/lib/server/shareImage";
 
 /** Link preview for a "who still owes" list (?v= only changes the URL, so previews refresh). */
-export async function GET(_req: Request, ctx: RouteContext<"/api/og/o/[id]">) {
+export async function GET(req: Request, ctx: RouteContext<"/api/og/o/[id]">) {
+  const limited = await rateLimit(req, "og");
+  if (limited) return limited;
   const { id } = await ctx.params;
   const bills = isValidId(id) && storageReady ? await boardBills(id).catch(() => null) : null;
   let img: Response;

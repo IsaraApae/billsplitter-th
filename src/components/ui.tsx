@@ -3,6 +3,7 @@
 import { AlertTriangle, Check, CheckCircle2, Info, Minus, Plus, X, XCircle } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { COLOR_HEX } from "@/lib/colors";
+import { nameInitial } from "@/lib/friends";
 import { currencyExponent, currencySymbol, parseMoney, toMajorString } from "@/lib/money";
 import type { Person } from "@/lib/types";
 
@@ -61,7 +62,7 @@ export function Avatar({
   className?: string;
 }) {
   const hex = COLOR_HEX[person.color ?? "slate"];
-  const initial = [...(person.name.trim() || "?")][0].toUpperCase();
+  const initial = nameInitial(person.name);
   return (
     <span
       aria-hidden
@@ -255,7 +256,8 @@ export function QtyStepper({
       >
         <Minus size={20} {...ICON} />
       </button>
-      <span className="tnum w-7 text-center font-semibold" aria-label={label}>
+      <span className="tnum w-7 text-center font-semibold">
+        <span className="sr-only">{label}: </span>
         {value}
       </span>
       <button type="button" aria-label={`Increase ${label}`} className="icon-plain" onClick={() => onChange(Math.min(999, value + 1))}>
@@ -364,8 +366,11 @@ export function Sheet({
       tabIndex={-1}
       className="sheet panel"
       style={dy ? { transform: `translateY(${dy}px)` } : undefined}
-      onClose={() => openRef.current && onClose()}
+      // React passes a nested sheet's close/cancel up to this one (a date picker inside the
+      // big-bill editor), so only react to this dialog's own.
+      onClose={(e) => e.target === e.currentTarget && openRef.current && onClose()}
       onCancel={(e) => {
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         onClose();
       }}

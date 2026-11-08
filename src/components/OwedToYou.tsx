@@ -13,6 +13,7 @@ import { BoardLinkCard } from "./BoardLinkCard";
 import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
 import { PaySpeedList } from "./PaySpeedList";
 import { Avatar, Callout, ICON, Money, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 /** How long this friend's oldest unpaid bill has waited, in days. */
 const waited = (f: OwedFriend, now: number) => Math.max(...f.bills.map((b) => daysBetween(b.date, now)));
@@ -121,7 +122,10 @@ export function OwedToYou() {
         ))}{" "}
         from {people} {people === 1 ? "friend" : "friends"}
       </p>
-      <BoardLinkCard name={myName} />
+      <BoardLinkCard
+        name={myName}
+        version={`${new Date(now).toDateString()}|${people}|${friends.map((f) => `${f.key}:${f.total}${f.currency}`).join()}`}
+      />
       {error && <Callout tone="error">{error}</Callout>}
       <ul className="card rows overflow-hidden">
         {friends.map((f) => (
@@ -211,7 +215,7 @@ function FriendRow({
               )}
               <Link href={`/s/${b.id}`} className="flex min-h-[52px] min-w-0 flex-1 items-center gap-3 py-1.5 pr-3 pl-1 text-[15px]">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate">{b.title}</span>
+                  <span className="block truncate" {...langOf(b.title)}>{b.title}</span>
                   <span className="block truncate text-[13px] text-ink-2">
                     {new Date(b.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                     {" · "}

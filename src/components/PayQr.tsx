@@ -36,22 +36,28 @@ export function usePrefetchQr(needed: boolean) {
   }, [needed]);
 }
 
-/** The QR as an image URL (data: for generated, same-origin for uploaded). */
-function useQrSrc(source: PayQrSource, amount: number): string | null {
-  const [generated, setGenerated] = useState<string | null>(null);
+/**
+ * The QR as an image URL (data: for generated, same-origin for uploaded), and whether
+ * making it failed (e.g. a page left open across an update can't load the QR library).
+ */
+function useQrSrc(source: PayQrSource, amount: number): { src: string | null; failed: boolean } {
+  const [generated, setGenerated] = useState<{ key: string; url: string | null }>({ key: "", url: null });
   const promptpay = source.mode === "generate" ? source.promptpay : null;
+  const key = `${promptpay}|${amount}`;
   useEffect(() => {
     if (!promptpay) return;
     let cancelled = false;
     Promise.all([promptPayPayload(promptpay, amount), import("qrcode")])
       .then(([payload, QR]) => QR.toDataURL(payload, { margin: 1, width: 720, errorCorrectionLevel: "M" }))
-      .then((url) => !cancelled && setGenerated(url))
-      .catch(() => !cancelled && setGenerated(null));
+      .then((url) => !cancelled && setGenerated({ key: `${promptpay}|${amount}`, url }))
+      .catch(() => !cancelled && setGenerated({ key: `${promptpay}|${amount}`, url: null }));
     return () => {
       cancelled = true;
     };
   }, [promptpay, amount]);
-  return source.mode === "upload" ? qrImageUrl(source.ownerId, source.version) : generated;
+  if (source.mode === "upload") return { src: qrImageUrl(source.ownerId, source.version), failed: false };
+  const done = generated.key === key;
+  return { src: done ? generated.url : null, failed: done && !generated.url };
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -98,7 +104,7 @@ async function renderCard(src: string, name: string, amount: number, withAmount:
 }
 
 export function PayQr({ source, amount, name }: { source: PayQrSource; amount: number; name: string }) {
-  const src = useQrSrc(source, amount);
+  const { src, failed } = useQrSrc(source, amount);
   const [broken, setBroken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -135,6 +141,13 @@ export function PayQr({ source, amount, name }: { source: PayQrSource; amount: n
         <div className="p-5">
           {broken ? (
             <p className="py-16 text-center text-[15px]">The QR image is no longer available.</p>
+          ) : failed ? (
+            <div className="py-12 text-center text-[15px]" role="alert">
+              <p>Couldn&apos;t make the QR.</p>
+              <button type="button" className="mt-3 font-semibold text-[#007542] underline" onClick={() => window.location.reload()}>
+                Reload the page
+              </button>
+            </div>
           ) : src ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -155,7 +168,7 @@ export function PayQr({ source, amount, name }: { source: PayQrSource; amount: n
       {!withAmount && (
         <Callout tone="info">This QR doesn&apos;t include the amount — type {formatMoney(amount, "THB")} in your bank app.</Callout>
       )}
-      <button type="button" className="btn-primary h-13 w-full" disabled={!src || broken || saving} onClick={saveQr}>
+      <button type="button" className="btn-primary h-13 w-full" disabled={!src || broken || failed || saving} onClick={saveQr}>
         <Download size={22} {...ICON} aria-hidden /> {saving ? "Preparing…" : "Save QR"}
       </button>
       <p className="text-center text-[13px] text-ink-2">

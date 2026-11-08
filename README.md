@@ -2,6 +2,8 @@
 
 # Bill Splitter
 
+[![CI](https://github.com/IsaraApae/billsplitter-th/actions/workflows/ci.yml/badge.svg)](https://github.com/IsaraApae/billsplitter-th/actions/workflows/ci.yml)
+
 Split a restaurant bill with friends in Thailand: scan the receipt, tick who had what, share one link, and see who has paid. PromptPay QR codes, transfer-slip checking, "big bills" for a whole night out, and a surreal Y2K poster look (checkerboards, chess pieces, flowers) in day and night versions.
 
 **Live:** https://billsplitter-th.vercel.app
@@ -37,7 +39,7 @@ The link preview friends see in chat:
 - **PromptPay:** upload your bank's QR, or generate one from your PromptPay number with each person's exact amount. Bank details copy as just the account number.
 - **Big tick / small tick:** the organiser marks people paid in full, paid part (with the amount; "left to pay" shows what's still owed), or not paid; friends see the same ticks. The organiser is never counted as unpaid.
 - **Transfer slips:** "I've paid — upload slip" on the bill page (pick your name), in the Pay sheet or in "What I owe" (several slips at once, with a preview of each); the slip is read with Gemini and checked (a transfer slip, dated on or after the bill, never used before; the receiver is matched by PromptPay number when the slip shows it) and they're ticked automatically, with a progress bar. The organiser sees a "Slip" tag on everyone who sent one, and a "Slips uploaded" list with who sent each slip, the amount, date and the name printed on it.
-- **Big bills:** combine several bills from one outing (Food 1, Karaoke, Food 2) into one page with one total and one payment per friend, named after its bills ("Food 1 & Karaoke") unless you give it a title. Payments are spread over the bills; single bills can still be ticked on their own.
+- **Big bills:** combine several bills from one outing (Food 1, Karaoke, Food 2), all in one currency, into one page with one total and one payment per friend, named after its bills ("Food 1 & Karaoke") unless you give it a title. Payments are spread over the bills; single bills can still be ticked on their own.
 - **Receipt photo** on the shared page (zoomable).
 
 <p>
@@ -50,10 +52,11 @@ The link preview friends see in chat:
 - **History**, newest bill date first, with big bills holding their bills; tap a person to see their splits and what they owe you (or you owe them). Tap yourself to see what you spent.
 - **Owed to you:** every friend who still owes you, with their total, their unpaid bills and how long they've waited ("for 16 days", amber after a week). Tick a bill paid (in full or part) right there, or **Mark all paid** for a friend.
 - **Who pays fastest:** friends ranked by the average days from the split to their payment; a bill they haven't paid counts the days so far, so not paying moves them down.
-- **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills with them in it, also ones whose link they never got. **Pay** lets them tick which bills to pay (or all), with one QR for that total, and one slip pays the ticked bills, oldest first ("Already paid?" at the top uploads a slip straight away). They pick their name once from everyone who still owes in those friends' bills; picking themselves to pay or upload a slip also tells the app.
+- **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills they still owe on, also ones whose link they never got. **Pay** lets them tick which bills to pay (or all), with one QR for that total, and one slip pays the ticked bills, oldest first ("Already paid?" at the top uploads a slip straight away). They pick their name once from everyone who still owes in those friends' bills; picking themselves to pay or upload a slip also tells the app.
 - **Who still owes (shareable list):** one link (`/o/…`, with its own preview card) showing everyone who still owes you, A–Z, with all their unpaid bills, how long each has gone unpaid ("Unpaid for 16 days", "9 days ago") and **Who pays fastest**; each person can **Pay** (one QR for their total) or upload a slip there. Copy or share it from "Owed to you".
 - **Friends** page: tap a friend to see their splits. Renaming a friend (or yourself) updates every bill you've shared, old ones too (friends typed into older bills are found by name).
 - **Backup and restore** (Me page) to move splits, friends and edit rights to a new phone.
+- **Screen readers:** Thai names, titles and items are read with a Thai voice, progress is announced once per step, and Delete or Discard questions start on Cancel.
 
 <p>
   <img src="docs/screenshots/history.jpg" alt="History, light and dark" width="380">
@@ -71,22 +74,27 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · Redis (R
 
 ```bash
 npm install
+cp .env.example .env.local   # optional: fill in only what you need (see below)
 npm run dev              # http://localhost:3000  (add `-- -H 0.0.0.0` to open it from a phone on the same Wi-Fi)
 npm test                 # Vitest: money maths, rounding, scan clean-up, slips, big bills, PromptPay, backup…
 npm run lint
+npm run typecheck        # generates Next's route types, then tsc
 npm run build
 ```
 
-Without Redis/Blob settings, `npm run dev` uses in-memory stores, so sharing and uploads work locally (lost on restart). Without `GEMINI_API_KEY`, scanning says it isn't set up and items are added by hand.
+Without Redis/Blob settings, `npm run dev` uses in-memory stores, so sharing and uploads work locally (lost on restart). Without `GEMINI_API_KEY`, scanning says it isn't set up and items are added by hand. GitHub Actions runs lint, typecheck, tests and the build on every push to `main` and every pull request; Dependabot opens update PRs weekly.
 
 Scripts:
 
 ```bash
 node scripts/scan-reliability.mts [--url …] [--image receipt.jpg] [--n 10] [--gap 5]   # success rate + timing of /api/scan
 node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]          # live end-to-end check
+python3 scripts/make-art.py                                                           # redraws the scene, meadow, preview art and icons (needs numpy and Pillow; cwebp optional)
 ```
 
 ## Environment variables
+
+All of them are listed in [`.env.example`](.env.example).
 
 | Name | What it's for | Required |
 | --- | --- | --- |
@@ -96,7 +104,7 @@ node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]    
 | `GEMINI_API_KEY` | Receipt scanning and slip reading — https://aistudio.google.com/apikey (server only) | for scanning |
 | `GEMINI_MODELS` | Comma-separated model list to use instead of the built-in chain | no |
 | `NEXT_PUBLIC_SITE_URL` | Absolute site URL for link previews on a custom domain | no |
-| `CRON_SECRET` | Lets only Vercel Cron run the daily photo clean-up | no |
+| `CRON_SECRET` | Lets only Vercel Cron run the daily photo clean-up (without it, anyone can trigger it, at most once every 6 hours) | recommended |
 
 ## How it works
 
@@ -107,11 +115,15 @@ node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]    
 - **Pay speed** — each paid tick stores its time in Redis; History keeps it, and `paySpeed` in `src/lib/owed.ts` averages the days from each split to each friend's payment.
 - **Sharing** — `POST /api/splits` → `{ id, token }`; only a SHA-256 of the edit token is stored. Splits live 90 days after the last activity. `/api/splits/{id}/paid` records payments (full, part or none; organiser only). Shared links carry `?v=` so chat apps refresh their preview after an edit; preview images come from `/api/og/s|e/{id}`.
 - **Slips** — `POST /api/splits/{id}/slip` (and `/api/events/{id}/slip`): read with Gemini, checked by `src/lib/slip.ts`, each slip reference can be used once.
-- **What I owe** — the organiser's phone tells the server which splits it made (`POST /api/organiser/claim`, each proven with its edit token, under a random phone id); `GET /api/splits/{id}/others` returns that organiser's other splits with the same person (by id or name).
+- **What I owe** — the organiser's phone tells the server which splits it made (`POST /api/organiser/claim`, each proven with its edit token, under a random phone id); `GET /api/splits/{id}/others` returns that organiser's other splits where the same person still owes (only for someone in split `{id}`, matched by id or by the name that split gives them).
 - **Big bills** — `/api/events`: a title, a date and a list of bills you own (checked with their edit tokens); `src/lib/event.ts` merges people across the bills and spreads payments.
 - **Storage** — the phone keeps History, friends, groups, edit tokens and the draft in `localStorage` (backup/restore on the Me page). The server keeps splits, payments, big bills, slip records and model cool-downs in Redis, and pictures in Vercel Blob. A daily Vercel Cron job deletes receipt photos no split uses and old slip pictures.
-- All API routes are validated (zod) and rate limited per IP.
+- All API routes are validated (zod) and rate limited per IP. Uploads must really be JPEG, PNG or WebP (checked by their bytes), and pictures are only ever served from this deployment's own Blob store, as images.
 
 ## Deploying
 
-The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Pushes that only change `README.md` or `docs/` skip the build (`ignoreCommand` in `vercel.json`). Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
+The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Pushes that only change `README.md`, `docs/`, `.github/`, `LICENSE` or `.env.example` since the last deployment skip the build (`scripts/vercel-ignore.sh`, run by `ignoreCommand` in `vercel.json`, compares with `VERCEL_GIT_PREVIOUS_SHA` and builds whenever it can't tell). Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
+
+## License
+
+[MIT](LICENSE). The fonts in `assets/fonts` are under the SIL Open Font License ([`OFL-LICENSE.txt`](assets/fonts/OFL-LICENSE.txt)).

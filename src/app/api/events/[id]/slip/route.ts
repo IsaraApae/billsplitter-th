@@ -4,7 +4,7 @@ import { checkSlip } from "@/lib/slip";
 import { jsonError, safely } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { addSlip, claimSlipReference, getEvent, isValidId, recordCheckedEventPayment } from "@/lib/server/redis";
-import { readAndKeep } from "@/lib/server/slipPay";
+import { readAndKeep, slipRecord } from "@/lib/server/slipPay";
 import { readSlipForm } from "@/lib/server/slipRead";
 
 export const maxDuration = 60;
@@ -44,25 +44,22 @@ export async function POST(req: Request, ctx: RouteContext<"/api/events/[id]/sli
       return jsonError(409, "slip_used", "This slip has already been used.");
     }
 
-    const paidSoFar = person.paidSoFar + verdict.amount;
-    const full = paidSoFar >= person.total;
+    // Reading the slip takes a while; start from what's paid now, so a slip that landed in
+    // the meantime isn't overwritten.
+    const now = await getEvent(id);
+    const fresh = now && eventPeople(now.bills).find((p) => p.key === person.key);
+    if (!fresh) return jsonError(404, "not_found", "That person isn't in this big bill.");
+    const paidSoFar = (fresh.status === "full" ? fresh.total : fresh.paidSoFar) + verdict.amount;
+    const full = paidSoFar >= fresh.total;
     const next = await recordCheckedEventPayment(id, person.key, full ? { kind: "full" } : { kind: "part", amount: paidSoFar });
     if (next === "not_found") return jsonError(404, "not_found", "That person isn't in this big bill.");
     // Kept with their first bill, where the organiser can see it.
     const first = person.bills[0];
-    await addSlip(first.splitId, first.personId, {
-      photo: await read.photo,
-      amount: verdict.amount,
-      date: read.slip.date!,
-      reference: verdict.reference,
-      receiver: verdict.receiver,
-      senderName: read.slip.senderName,
-      at: new Date().toISOString(),
-    });
+    await addSlip(first.splitId, first.personId, await slipRecord(read, verdict, verdict.amount));
     return Response.json({
       result: full ? "full" : "part",
       amount: verdict.amount,
-      left: Math.max(0, person.total - paidSoFar),
+      left: Math.max(0, fresh.total - paidSoFar),
       receiver: verdict.receiver,
       ...next,
     });

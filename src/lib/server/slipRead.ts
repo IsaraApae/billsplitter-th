@@ -1,4 +1,5 @@
 import "server-only";
+import { sniffImageType } from "../imageType";
 import { extractJson } from "../scanResult";
 import { sanitizeSlip, type SlipRead } from "../slip";
 import { readImageJson } from "./gemini";
@@ -68,7 +69,10 @@ export async function readSlipForm(req: Request, field: string, maxRef = 100): P
   if (!file || !personRef) return { ok: false, status: 400, code: "bad_request", message: "Send the slip picture and who paid." };
   if (!TYPES.includes(file.type)) return { ok: false, status: 415, code: "bad_type", message: "Please upload a JPEG, PNG or WebP picture." };
   if (file.size > MAX_BYTES) return { ok: false, status: 413, code: "too_large", message: "That picture is too large." };
-  return { ok: true, bytes: Buffer.from(await file.arrayBuffer()), mime: file.type, personRef };
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const mime = sniffImageType(bytes); // what the bytes are, not what the phone said
+  if (!mime) return { ok: false, status: 415, code: "bad_type", message: "Please upload a JPEG, PNG or WebP picture." };
+  return { ok: true, bytes, mime, personRef };
 }
 
 export type SlipReadResult = { ok: true; slip: SlipRead } | { ok: false; status: number; code: string; message: string };

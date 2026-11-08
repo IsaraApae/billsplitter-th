@@ -9,6 +9,7 @@ import { splitVersion } from "@/lib/shareVersion";
 import type { SplitDoc } from "@/lib/types";
 import { ShareButtons } from "../ShareButtons";
 import { ICON, Money } from "../ui";
+import { langOf } from "@/lib/lang";
 
 export function ShareStep({ doc, calc, id }: { doc: SplitDoc; calc: CalcResult; id: string }) {
   // ?v= changes when the bill does, so chat apps show a fresh preview after an edit.
@@ -21,7 +22,7 @@ export function ShareStep({ doc, calc, id }: { doc: SplitDoc; calc: CalcResult; 
         <div className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-accent-soft text-accent">
           <Check size={32} {...ICON} />
         </div>
-        <h1 className="text-[26px] leading-tight font-bold tracking-tight break-words">{doc.title}</h1>
+        <h1 className="text-[26px] leading-tight font-bold tracking-tight break-words" {...langOf(doc.title)}>{doc.title}</h1>
         <Money value={calc.total} currency={doc.currency} className="mt-2 block text-[40px] leading-none font-bold tracking-tight" />
         <p className="mt-2 text-ink-2">
           {doc.people.length} {doc.people.length === 1 ? "person" : "people"}

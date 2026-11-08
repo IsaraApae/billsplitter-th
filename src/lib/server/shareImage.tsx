@@ -3,6 +3,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { COLOR_HEX } from "../colors";
+import { nameInitial } from "../friends";
 import { LogoMark } from "../icon";
 import { formatMoney } from "../money";
 import type { PersonColor } from "../types";
@@ -269,7 +270,7 @@ function Avatars({ people }: { people: { name: string; color?: PersonColor }[] }
     <div style={{ display: "flex" }}>
       {shown.map((p, i) => (
         <div key={i} style={{ ...avatar, marginLeft: i === 0 ? 0 : -14, background: COLOR_HEX[p.color ?? "slate"], color: INK, fontSize: 28 }}>
-          {[...(p.name.trim() || "?")][0].toUpperCase()}
+          {nameInitial(p.name)}
         </div>
       ))}
       {more > 0 && <div style={{ ...avatar, marginLeft: -14, background: "#E5E5EA", color: INK_2, fontSize: 24 }}>{`+${more}`}</div>}

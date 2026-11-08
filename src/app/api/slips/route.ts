@@ -1,10 +1,10 @@
 import { calculate } from "@/lib/calc";
 import { billDay } from "@/lib/draft";
-import { checkSlip } from "@/lib/slip";
+import { checkSlip, receiverCheck } from "@/lib/slip";
 import { jsonError, safely } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
-import { addSlip, claimSlipReference, getPaidState, getSplit, isValidId, recordCheckedPayment } from "@/lib/server/redis";
-import { readAndKeep, slipTarget } from "@/lib/server/slipPay";
+import { addCheckedPayment, addSlip, claimSlipReference, getPaidState, getSplit, isValidId } from "@/lib/server/redis";
+import { readAndKeep, slipRecord, slipTarget } from "@/lib/server/slipPay";
 import { readSlipForm } from "@/lib/server/slipRead";
 
 export const maxDuration = 60;
@@ -12,8 +12,9 @@ export const maxDuration = 60;
 /**
  * One slip for several bills owed to the same person ("What I owe" → Pay):
  * multipart image + items = JSON [{ id, ref }] (ref: who I am in that bill,
- * or the transfer key). Checked against the first bill's payee, then spread
- * over the bills oldest first (only bills dated on or before the slip).
+ * or the transfer key), all in one currency. Checked against the first bill's
+ * payee, then spread over the bills oldest first (only bills dated on or
+ * before the slip, and owed to the same PromptPay number when both show one).
  */
 export async function POST(req: Request) {
   const limited = await rateLimit(req, "scan");
@@ -24,9 +25,11 @@ export async function POST(req: Request) {
     let items: { id: string; ref: string }[];
     try {
       const raw = JSON.parse(form.personRef) as unknown;
-      items = (Array.isArray(raw) ? raw : [])
-        .filter((x): x is { id: string; ref: string } => !!x && typeof x.id === "string" && isValidId(x.id) && typeof x.ref === "string" && x.ref.length <= 100)
-        .slice(0, 30);
+      const valid = (Array.isArray(raw) ? raw : []).filter(
+        (x): x is { id: string; ref: string } => !!x && typeof x.id === "string" && isValidId(x.id) && typeof x.ref === "string" && x.ref.length <= 100,
+      );
+      // Each bill once: the same bill twice would be paid twice from one slip.
+      items = [...new Map(valid.map((x) => [x.id, { id: x.id, ref: x.ref }])).values()].slice(0, 30);
     } catch {
       items = [];
     }
@@ -43,15 +46,21 @@ export async function POST(req: Request) {
           const state = await getPaidState(id, s.doc);
           const partial = state.partial[ref] ?? 0;
           const left = state.paid.includes(ref) ? 0 : target.owed - partial;
-          return left > 0 ? { id, ref, doc: s.doc, payee: target.payee, partial, left, day: billDay(s.doc) } : null;
+          return left > 0 ? { id, ref, doc: s.doc, payee: target.payee, owed: target.owed, left, day: billDay(s.doc) } : null;
         }),
       )
     )
       .filter((b): b is NonNullable<typeof b> => b !== null)
       .sort((a, b) => a.day.localeCompare(b.day));
     if (bills.length === 0) return jsonError(409, "nothing_owed", "These bills are already paid.");
+    // One slip is one transfer in one currency, to one PromptPay number.
+    const [first] = bills;
+    if (bills.some((b) => b.doc.currency !== first.doc.currency)) {
+      return jsonError(400, "mixed_currencies", "These bills are in different currencies. Pay them separately.");
+    }
+    const samePayee = (b: (typeof bills)[number]) => !b.payee.promptpay || !first.payee.promptpay || b.payee.promptpay === first.payee.promptpay;
 
-    const check = { billDay: bills[0].day, currency: bills[0].doc.currency, organiser: bills[0].payee };
+    const check = { billDay: first.day, currency: first.doc.currency, organiser: first.payee };
     const read = await readAndKeep(form, { check, owed: bills.reduce((sum, b) => sum + b.left, 0) });
     if (!read.ok) return jsonError(read.status, read.code, read.message);
     const verdict = checkSlip(read.slip, check);
@@ -59,35 +68,31 @@ export async function POST(req: Request) {
       read.discard();
       return jsonError(422, "slip_rejected", verdict.reason);
     }
-    if (!(await claimSlipReference(verdict.reference, `m:${bills[0].id}:${bills[0].ref}`))) {
+    if (!(await claimSlipReference(verdict.reference, `m:${first.id}:${first.ref}`))) {
       read.discard();
       return jsonError(409, "slip_used", "This slip has already been used.");
     }
 
-    // Spread the amount, oldest bill first (a slip can't pay a bill dated after it).
+    // Spread the amount, oldest bill first (a slip can't pay a bill dated after it, or a bill
+    // owed to a different PromptPay number). Each bill's share is added to what's stored now,
+    // so a slip that landed meanwhile still counts.
     let money = verdict.amount;
     const applied: { id: string; amount: number; full: boolean }[] = [];
     for (const b of bills) {
-      if (money <= 0 || b.day > (read.slip.date ?? "")) continue;
+      if (money <= 0 || b.day > (read.slip.date ?? "") || !samePayee(b)) continue;
       const pay = Math.min(money, b.left);
+      const r = await addCheckedPayment(b.id, b.ref, pay, b.owed);
+      if (r === "not_found") continue;
       money -= pay;
-      const full = pay >= b.left;
-      await recordCheckedPayment(b.id, b.ref, full ? { kind: "full" } : { kind: "part", amount: b.partial + pay });
-      applied.push({ id: b.id, amount: pay, full });
+      applied.push({ id: b.id, amount: pay, full: r.full });
     }
-    const photo = await read.photo;
+    // Each organiser sees whether the receiver matched their own PromptPay, not the first bill's.
     await Promise.all(
-      applied.map((a) =>
-        addSlip(a.id, bills.find((b) => b.id === a.id)!.ref, {
-          photo,
-          amount: a.amount,
-          date: read.slip.date!,
-          reference: verdict.reference,
-          receiver: verdict.receiver,
-          senderName: read.slip.senderName,
-          at: new Date().toISOString(),
-        }),
-      ),
+      applied.map(async (a) => {
+        const b = bills.find((x) => x.id === a.id)!;
+        const receiver = receiverCheck(read.slip, b.payee);
+        await addSlip(a.id, b.ref, await slipRecord(read, { ...verdict, receiver }, a.amount));
+      }),
     );
     const left = bills.reduce((s, b) => s + b.left, 0) - applied.reduce((s, a) => s + a.amount, 0);
     return Response.json({

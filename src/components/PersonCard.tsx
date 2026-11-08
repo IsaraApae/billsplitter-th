@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { ORGANISER_ID, type PersonResult } from "@/lib/calc";
 import type { Person, SplitMode } from "@/lib/types";
 import { Avatar, ICON, Money, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 /** One person as a row inside a list card (wrap rows in `<ul className="card rows">`). */
 export function PersonCard({
@@ -46,7 +47,7 @@ export function PersonCard({
         >
           <Avatar person={profile ?? { name: person.name }} size={32} />
           <span className="min-w-0 flex-1 overflow-hidden">
-            <span className="line-clamp-2 font-semibold">
+            <span className="line-clamp-2 font-semibold" {...langOf(person.name)}>
               {person.name}
             </span>
             {badge}
@@ -89,7 +90,7 @@ export function PersonCard({
             <ul className="space-y-1.5">
               {person.items.map((it) => (
                 <li key={it.itemId} className="flex justify-between gap-3">
-                  <span className="min-w-0 truncate">
+                  <span className="min-w-0 truncate" {...langOf(it.name)}>
                     {it.name}
                     {it.totalShares !== it.sharedBy ? (
                       <span className="text-ink-2">
