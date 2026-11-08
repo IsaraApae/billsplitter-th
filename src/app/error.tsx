@@ -3,7 +3,6 @@
 import { RotateCcw } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { remove } from "@/lib/client/storage";
 
 /**
  * Shown when a page fails: storage was unreachable, or something saved on this
@@ -18,7 +17,12 @@ export default function PageError({ error, retry }: { error: unknown; retry: () 
   }, [error]);
 
   function startOver() {
-    remove("bs:draft");
+    // Not through the storage helpers: this page loads with every page, so it stays small.
+    try {
+      localStorage.removeItem("bs:draft");
+    } catch {
+      /* storage blocked: nothing saved to discard */
+    }
     if (pathname === "/") retry();
     else router.push("/");
   }
