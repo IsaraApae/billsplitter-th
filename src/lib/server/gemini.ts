@@ -25,8 +25,6 @@ const MODELS = (process.env.GEMINI_MODELS ?? "")
   .filter((m) => /^[\w.-]+$/.test(m));
 const CHAIN = MODELS.length ? [...new Set(MODELS)] : DEFAULT_MODELS;
 
-export const geminiConfigured = () => !!process.env.GEMINI_API_KEY;
-
 export interface ImageJsonRequest {
   /** log event name, e.g. "scan" */
   evt: string;

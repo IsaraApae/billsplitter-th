@@ -26,6 +26,8 @@ interface Kv {
   hkeys(key: string): Promise<string[]>;
   hgetall(key: string): Promise<Record<string, string>>;
   hset(key: string, field: string, value: string): Promise<void>;
+  /** Adds `by` to an integer field (0 if missing) and returns the new value, atomically. */
+  hincrby(key: string, field: string, by: number): Promise<number>;
   hdel(key: string, ...fields: string[]): Promise<void>;
   expire(key: string, seconds: number): Promise<void>;
   del(key: string): Promise<void>;
@@ -36,10 +38,14 @@ function upstashKv(r: Redis): Kv {
     get: (k) => r.get(k),
     set: async (k, v, o) => (await (o.nx ? r.set(k, v, { ex: o.ex, nx: true }) : r.set(k, v, { ex: o.ex }))) !== null,
     hkeys: (k) => r.hkeys(k),
-    // Upstash decodes numeric strings, so normalise the values back to strings.
+    // Upstash decodes values that look like JSON (numbers, and the slip lists), so turn
+    // them back into the strings that were stored. (String() would give "[object Object]".)
     hgetall: async (k) =>
-      Object.fromEntries(Object.entries((await r.hgetall<Record<string, unknown>>(k)) ?? {}).map(([f, v]) => [f, String(v)])),
+      Object.fromEntries(
+        Object.entries((await r.hgetall<Record<string, unknown>>(k)) ?? {}).map(([f, v]) => [f, typeof v === "string" ? v : JSON.stringify(v)]),
+      ),
     hset: async (k, f, v) => void (await r.hset(k, { [f]: v })),
+    hincrby: (k, f, by) => r.hincrby(k, f, by),
     hdel: async (k, ...f) => void (f.length && (await r.hdel(k, ...f))),
     expire: async (k, s) => void (await r.expire(k, s)),
     del: async (k) => void (await r.del(k)),
@@ -53,14 +59,28 @@ let tcpClient: Promise<TcpClient> | null = null;
  * One connection per warm serverless instance, reconnecting after failures. The TCP client is a
  * large library, so it's only loaded when this backend is in use: with Upstash, a cold start would
  * otherwise read it all in before answering the first visitor.
+ * While Redis can't be reached, requests fail quickly instead of waiting on it: a first connect
+ * gives up after two retries (the next request tries again), and commands sent while the client
+ * is reconnecting are rejected rather than queued.
  */
 function tcp(): Promise<TcpClient> {
   if (!tcpClient) {
     tcpClient = import("redis")
       .then(({ createClient }) => {
-        const client: TcpClient = createClient({ url: tcpUrl, socket: { connectTimeout: 5000, reconnectStrategy: (n) => Math.min(n * 200, 2000) } });
+        let ready = false;
+        const client: TcpClient = createClient({
+          url: tcpUrl,
+          disableOfflineQueue: true,
+          socket: {
+            connectTimeout: 3000,
+            reconnectStrategy: (n, cause) => (!ready && n >= 2 ? cause : Math.min(n * 200, 2000)),
+          },
+        });
         client.on("error", (e) => console.error("Redis error", e?.message ?? e));
-        return client.connect().then(() => client);
+        return client.connect().then(() => {
+          ready = true;
+          return client;
+        });
       })
       .catch((e) => {
         tcpClient = null;
@@ -84,6 +104,7 @@ function tcpKv(): Kv {
     hkeys: async (k) => (await tcp()).hKeys(k),
     hgetall: async (k) => ({ ...(await (await tcp()).hGetAll(k)) }),
     hset: async (k, f, v) => void (await (await tcp()).hSet(k, f, v)),
+    hincrby: async (k, f, by) => (await tcp()).hIncrBy(k, f, by),
     hdel: async (k, ...f) => void (f.length && (await (await tcp()).hDel(k, f))),
     expire: async (k, s) => void (await (await tcp()).expire(k, s)),
     del: async (k) => void (await (await tcp()).del(k)),
@@ -121,6 +142,11 @@ function memoryKv(): Kv {
     hkeys: async (k) => [...hash(k).keys()],
     hgetall: async (k) => Object.fromEntries(hash(k)),
     hset: async (k, f, v) => void hash(k).set(f, v),
+    hincrby: async (k, f, by) => {
+      const n = (Number(hash(k).get(f)) || 0) + by;
+      hash(k).set(f, String(n));
+      return n;
+    },
     hdel: async (k, ...f) => f.forEach((x) => hash(k).delete(x)),
     expire: async () => {},
     del: async (k) => void m.delete(k),
@@ -359,6 +385,8 @@ const slipRefKey = (ref: string) => `slipref:${ref}`;
 const SLIP_REF_TTL = 60 * 60 * 24 * 400;
 
 export interface SlipRecord {
+  /** who it ticked (a person id, or a transfer key) */
+  personId?: string;
   /** stored picture (see /api/receipt) */
   photo: string;
   /** minor units */
@@ -379,25 +407,31 @@ export async function claimSlipReference(reference: string, owner: string): Prom
   return db().set(slipRefKey(reference), owner, { ex: SLIP_REF_TTL, nx: true });
 }
 
+/** Each slip is its own field (`slip|<reference>`), so two slips arriving together both stay. */
 export async function addSlip(id: string, personId: string, slip: SlipRecord): Promise<void> {
-  const all = await getSlips(id);
-  const mine = [...(all[personId] ?? []), slip].slice(-10);
-  await db().hset(slipsKey(id), personId, JSON.stringify(mine));
+  await db().hset(slipsKey(id), `slip|${slip.reference}`, JSON.stringify({ ...slip, personId }));
   await db().expire(slipsKey(id), TTL_SECONDS);
 }
 
-/** Slips per person (organiser-only data: they show bank names). */
+/** Slips per person, oldest first, the last 10 each (organiser-only data: they show bank names). */
 export async function getSlips(id: string): Promise<Record<string, SlipRecord[]>> {
   const raw = await db().hgetall(slipsKey(id));
   const out: Record<string, SlipRecord[]> = {};
-  for (const [pid, v] of Object.entries(raw)) {
+  for (const [field, v] of Object.entries(raw)) {
     try {
-      const list = JSON.parse(v);
-      if (Array.isArray(list)) out[pid] = list as SlipRecord[];
+      const parsed = JSON.parse(v) as unknown;
+      if (field.startsWith("slip|")) {
+        const slip = parsed as SlipRecord;
+        if (slip?.personId) (out[slip.personId] ??= []).push(slip);
+      } else if (Array.isArray(parsed)) {
+        // Older bills: one field per person holding their list.
+        (out[field] ??= []).push(...(parsed as SlipRecord[]));
+      }
     } catch {
       /* ignore a bad record */
     }
   }
+  for (const pid of Object.keys(out)) out[pid] = out[pid].sort((a, b) => a.at.localeCompare(b.at)).slice(-10);
   return out;
 }
 
@@ -407,12 +441,24 @@ export async function canEditSplit(id: string, token: string | null): Promise<bo
   return !!(s && token && tokenMatches(token, s.editHash));
 }
 
-/** Records a payment without an edit token — only after a slip has been checked. */
-export async function recordCheckedPayment(id: string, personId: string, payment: Payment): Promise<PaidState | "not_found"> {
+/**
+ * Adds a checked slip's money to what this person has paid on a split — no edit token, so only
+ * after a slip has been checked. The addition is atomic, so two slips sent at the same time
+ * both count. Gives the big tick once they've paid `owed` in all.
+ */
+export async function addCheckedPayment(
+  id: string,
+  personId: string,
+  amount: number,
+  owed: number,
+): Promise<{ paidSoFar: number; full: boolean; state: PaidState } | "not_found"> {
   const s = await db().get<StoredSplit>(docKey(id));
   if (!s || !paymentKeys(s.doc).has(personId)) return "not_found";
-  await writePayment(id, s.doc, personId, payment);
-  return getPaidState(id, s.doc);
+  const paidSoFar = await db().hincrby(partKey(id), personId, amount);
+  const full = paidSoFar >= owed;
+  if (full) await writePayment(id, s.doc, personId, { kind: "full" });
+  else await Promise.all([db().expire(partKey(id), TTL_SECONDS), db().expire(docKey(id), TTL_SECONDS), linkPhoto(id, s.doc)]);
+  return { paidSoFar, full, state: await getPaidState(id, s.doc) };
 }
 
 /** Records a big-bill payment without the event token — only after a slip has been checked. */
@@ -425,12 +471,6 @@ export async function recordCheckedEventPayment(id: string, personKey: string, p
     await writePayment(bp.splitId, bill.doc, bp.personId, bp);
   }
   return (await getEvent(id)) ?? "not_found";
-}
-
-/** True if `token` is this big bill's edit token. */
-export async function canEditEvent(id: string, token: string | null): Promise<boolean> {
-  const e = await db().get<StoredEvent>(eventKey(id));
-  return !!(e && token && tokenMatches(token, e.editHash));
 }
 
 // ---- Big bills: several splits from one outing, shown and paid as one -------

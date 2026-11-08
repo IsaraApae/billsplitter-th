@@ -3,8 +3,8 @@ import { billDay } from "@/lib/draft";
 import { checkSlip } from "@/lib/slip";
 import { jsonError, safely } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
-import { addSlip, claimSlipReference, getPaidState, getSplit, isValidId, recordCheckedPayment } from "@/lib/server/redis";
-import { readAndKeep, slipTarget } from "@/lib/server/slipPay";
+import { addCheckedPayment, addSlip, claimSlipReference, getPaidState, getSplit, isValidId } from "@/lib/server/redis";
+import { readAndKeep, slipRecord, slipTarget } from "@/lib/server/slipPay";
 import { readSlipForm } from "@/lib/server/slipRead";
 
 export const maxDuration = 60;
@@ -45,25 +45,16 @@ export async function POST(req: Request, ctx: RouteContext<"/api/splits/[id]/sli
       return jsonError(409, "slip_used", "This slip has already been used.");
     }
 
-    const paidSoFar = (state.partial[ref] ?? 0) + verdict.amount;
-    const full = paidSoFar >= target.owed;
-    const next = await recordCheckedPayment(id, ref, full ? { kind: "full" } : { kind: "part", amount: paidSoFar });
+    // Added to what's stored now (not what was read before the slip), so two slips sent together both count.
+    const next = await addCheckedPayment(id, ref, verdict.amount, target.owed);
     if (next === "not_found") return jsonError(404, "not_found", "That person isn't in this split.");
-    await addSlip(id, ref, {
-      photo: await read.photo,
-      amount: verdict.amount,
-      date: read.slip.date!,
-      reference: verdict.reference,
-      receiver: verdict.receiver,
-      senderName: read.slip.senderName,
-      at: new Date().toISOString(),
-    });
+    await addSlip(id, ref, await slipRecord(read, verdict, verdict.amount));
     return Response.json({
-      result: full ? "full" : "part",
+      result: next.full ? "full" : "part",
       amount: verdict.amount,
-      left: Math.max(0, target.owed - paidSoFar),
+      left: Math.max(0, target.owed - next.paidSoFar),
       receiver: verdict.receiver,
-      ...next,
+      ...next.state,
     });
   });
 }
