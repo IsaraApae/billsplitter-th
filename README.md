@@ -51,7 +51,7 @@ The link preview friends see in chat:
 - **Owed to you:** every friend who still owes you, with their total, their unpaid bills and how long they've waited ("for 16 days", amber after a week); sort by **Most owed** or **Waiting longest**. Tick a bill paid (in full or part) right there, or **Mark all paid** for a friend.
 - **Who pays fastest:** friends ranked by the average days from the split to their payment; a bill they haven't paid counts the days so far, so not paying moves them down.
 - **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills with them in it, also ones whose link they never got. **Pay** lets them tick which bills to pay (or all), with one QR for that total, and one slip pays the ticked bills, oldest first ("Already paid?" at the top uploads a slip straight away). They pick their name once from everyone who still owes in those friends' bills; picking themselves to pay or upload a slip also tells the app.
-- **Who still owes (shareable list):** one link (`/o/…`, with its own preview card) showing everyone who still owes you, A–Z, with all their unpaid bills; each person can **Pay** (one QR for their total) or upload a slip there. Copy or share it from "Owed to you".
+- **Who still owes (shareable list):** one link (`/o/…`, with its own preview card) showing everyone who still owes you, A–Z, with all their unpaid bills and how long each has gone unpaid ("Unpaid for 17 days", "10 days ago"); each person can **Pay** (one QR for their total) or upload a slip there. Copy or share it from "Owed to you".
 - **Friends** page: tap a friend to see their splits. Renaming a friend (or yourself) updates every bill you've shared, old ones too (friends typed into older bills are found by name).
 - **Backup and restore** (Me page) to move splits, friends and edit rights to a new phone.
 
@@ -60,7 +60,7 @@ The link preview friends see in chat:
   <img src="docs/screenshots/owed.jpg" alt="Owed to you, with a link to share the list, light and dark" width="380">
   <img src="docs/screenshots/pays-fastest.jpg" alt="How long each friend hasn't paid, and who pays fastest, light and dark" width="380">
   <img src="docs/screenshots/owe.jpg" alt="What I owe on a friend's phone, light and dark" width="380">
-  <img src="docs/screenshots/list.jpg" alt="The shareable who still owes list, light and dark" width="380">
+  <img src="docs/screenshots/list.jpg" alt="The shareable who still owes list, with how long each person hasn't paid, light and dark" width="380">
 </p>
 
 ## Tech

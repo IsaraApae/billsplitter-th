@@ -212,6 +212,9 @@ export const DAY = 86_400_000;
 export const daysBetween = (from: string | number, to: string | number) =>
   Math.max(0, Math.floor((new Date(to).getTime() - new Date(from).getTime()) / DAY));
 
+/** "today", "1 day", "12 days" */
+export const dayCount = (d: number) => (d === 0 ? "today" : `${d} ${d === 1 ? "day" : "days"}`);
+
 export interface PayerSpeed {
   key: string;
   look: Look;

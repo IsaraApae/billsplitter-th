@@ -7,7 +7,7 @@ import { BoardView } from "@/components/BoardView";
 import { BillHeader } from "@/components/Poster";
 import { ICON, Money } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
-import { whoStillOwes } from "@/lib/owed";
+import { DAY, whoStillOwes } from "@/lib/owed";
 import { boardBills, isValidId, storageReady } from "@/lib/server/redis";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +61,10 @@ export default async function BoardPage({ params }: PageProps<"/o/[id]">) {
       </BillHeader>
 
       <BoardView
-        people={b.people.map((p) => ({ ...p, bills: p.bills.map((x) => ({ ...x, date: x.date.toISOString() })) }))}
+        people={b.people.map((p) => ({
+          ...p,
+          bills: p.bills.map((x) => ({ ...x, date: x.date.toISOString(), days: daysSince(x.date) })),
+        }))}
         currency={b.currency}
         organiser={b.organiser.name}
         payment={b.payment}
@@ -72,4 +75,13 @@ export default async function BoardPage({ params }: PageProps<"/o/[id]">) {
       <BoardShare id={id} title={`Owed to ${b.organiser.name}`} />
     </main>
   );
+}
+
+/**
+ * Whole days from a bill's day to today in Thailand, worked out here so the
+ * page and the phone agree. ponytail: Bangkok time; other zones can be a day off.
+ */
+function daysSince(day: Date): number {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  return Math.max(0, Math.round((Date.parse(today) - Date.parse(day.toISOString().slice(0, 10))) / DAY));
 }

@@ -7,7 +7,7 @@ import { claimMySplits } from "@/lib/client/claim";
 import { askConfirm } from "@/lib/client/confirm";
 import { refreshEntries, refreshEntry } from "@/lib/client/historyRefresh";
 import { getEditToken, getHistory, load, save as saveLocal, type HistoryEntry } from "@/lib/client/storage";
-import { daysBetween, owedToYou, paySpeed, type OwedBill, type OwedFriend, type PayerSpeed } from "@/lib/owed";
+import { dayCount, daysBetween, owedToYou, paySpeed, type OwedBill, type OwedFriend, type PayerSpeed } from "@/lib/owed";
 import { getProfile } from "@/lib/client/profile";
 import { BoardLinkCard } from "./BoardLinkCard";
 import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
@@ -16,8 +16,6 @@ import { Avatar, Callout, ICON, Money, Section, Segmented, cx } from "./ui";
 type Order = "amount" | "waiting";
 const ORDER_KEY = "bs:owedOrder";
 
-/** "today", "1 day", "12 days" */
-const dayCount = (d: number) => (d === 0 ? "today" : `${d} ${d === 1 ? "day" : "days"}`);
 /** How long this friend's oldest unpaid bill has waited, in days. */
 const waited = (f: OwedFriend, now: number) => Math.max(...f.bills.map((b) => daysBetween(b.date, now)));
 
