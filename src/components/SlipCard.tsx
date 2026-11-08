@@ -44,9 +44,10 @@ export function SlipCard<T extends SlipResult>({
   onPick?: (ref: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [picked, setPicked] = useState<string | null>(null);
-  if (choices.length === 0) return null;
-  const chosen = choices.find((c) => c.ref === picked) ?? (choices.length === 1 ? choices[0] : undefined);
+  // Held from the moment they pick: once their slip ticks them, the page drops them from
+  // `choices`, and the sheet must still show their result (not someone else, or nothing).
+  const [chosen, setChosen] = useState<SlipChoice | null>(null);
+  if (choices.length === 0 && !open) return null;
 
   return (
     <Section title="Already paid?">
@@ -60,7 +61,10 @@ export function SlipCard<T extends SlipResult>({
           className="btn-primary h-12 w-full"
           onClick={() => {
             setOpen(true);
-            if (choices.length === 1) onPick?.(choices[0].ref);
+            if (choices.length === 1) {
+              setChosen(choices[0]);
+              onPick?.(choices[0].ref);
+            }
           }}
         >
           <ImageUp size={20} {...ICON} aria-hidden /> I&apos;ve paid — upload slip
@@ -71,7 +75,7 @@ export function SlipCard<T extends SlipResult>({
         open={open}
         onClose={() => {
           setOpen(false);
-          setPicked(null);
+          setChosen(null);
           onClose?.();
         }}
         title={chosen ? "Upload your slip" : pickTitle}
@@ -85,7 +89,7 @@ export function SlipCard<T extends SlipResult>({
                 {chosen.detail && <span className="block text-[13px] text-ink-2">{chosen.detail}</span>}
               </span>
               {choices.length > 1 && (
-                <button type="button" className="btn-ghost min-h-10 px-3 text-[15px]" onClick={() => setPicked(null)}>
+                <button type="button" className="btn-ghost min-h-10 px-3 text-[15px]" onClick={() => setChosen(null)}>
                   <ChevronLeft size={18} {...ICON} aria-hidden /> Not you?
                 </button>
               )}
@@ -97,7 +101,7 @@ export function SlipCard<T extends SlipResult>({
             {choices.map((c) => (
               <li key={c.ref}>
                 <button type="button" className="flex min-h-[60px] w-full items-center gap-3 px-5 py-2 text-left" onClick={() => {
-                    setPicked(c.ref);
+                    setChosen(c);
                     onPick?.(c.ref);
                   }}
                 >
