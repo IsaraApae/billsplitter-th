@@ -1,5 +1,6 @@
 import { parseSplitDoc } from "@/lib/schema";
 import { jsonError, readJson, safely } from "@/lib/server/http";
+import { keepOwnPhoto } from "@/lib/server/qrStore";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { getPaidState, getSplit, isValidId, touchOwner, updateSplit } from "@/lib/server/redis";
 
@@ -28,7 +29,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/splits/[id]">) {
     if (body === undefined) return jsonError(400, "bad_request", "Invalid or too-large request.");
     const parsed = parseSplitDoc(body);
     if (!parsed.ok) return jsonError(422, "invalid", parsed.error);
-    const r = await updateSplit(id, token, parsed.doc);
+    const r = await updateSplit(id, token, keepOwnPhoto(parsed.doc));
     if (r === "not_found") return jsonError(404, "not_found", "This split doesn't exist or has expired.");
     if (r === "forbidden") return jsonError(403, "forbidden", "Only the creator can edit this split.");
     if (parsed.doc.payment.ownerId) await touchOwner(parsed.doc.payment.ownerId);
