@@ -24,9 +24,10 @@ export function BoardLinkCard({ name }: { name: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Any bill in History the server doesn't know about yet goes on the list
+    // (the link itself doesn't depend on it, so both go at once).
+    void claimMySplits(true);
     (async () => {
-      // Make sure every bill in History is on the list first.
-      await claimMySplits(true);
       try {
         const r = await fetch("/api/boards", {
           method: "POST",

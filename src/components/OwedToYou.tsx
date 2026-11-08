@@ -1,23 +1,19 @@
 "use client";
 
-import { CheckCheck, ChevronDown, ChevronRight, PartyPopper, Timer } from "lucide-react";
+import { CheckCheck, ChevronDown, ChevronRight, PartyPopper } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { claimMySplits } from "@/lib/client/claim";
 import { askConfirm } from "@/lib/client/confirm";
 import { refreshEntries, refreshEntry } from "@/lib/client/historyRefresh";
-import { getEditToken, getHistory, load, save as saveLocal, type HistoryEntry } from "@/lib/client/storage";
-import { daysBetween, owedToYou, paySpeed, type OwedBill, type OwedFriend, type PayerSpeed } from "@/lib/owed";
+import { getEditToken, getHistory, type HistoryEntry } from "@/lib/client/storage";
+import { dayCount, daysBetween, owedToYou, paySpeed, type OwedBill, type OwedFriend } from "@/lib/owed";
 import { getProfile } from "@/lib/client/profile";
 import { BoardLinkCard } from "./BoardLinkCard";
 import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
-import { Avatar, Callout, ICON, Money, Section, Segmented, cx } from "./ui";
+import { PaySpeedList } from "./PaySpeedList";
+import { Avatar, Callout, ICON, Money, cx } from "./ui";
 
-type Order = "amount" | "waiting";
-const ORDER_KEY = "bs:owedOrder";
-
-/** "today", "1 day", "12 days" */
-const dayCount = (d: number) => (d === 0 ? "today" : `${d} ${d === 1 ? "day" : "days"}`);
 /** How long this friend's oldest unpaid bill has waited, in days. */
 const waited = (f: OwedFriend, now: number) => Math.max(...f.bills.map((b) => daysBetween(b.date, now)));
 
@@ -30,7 +26,6 @@ export function OwedToYou() {
   const [ask, setAsk] = useState<{ f: OwedFriend; b: OwedBill } | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [order, setOrder] = useState<Order>(() => load<Order>(ORDER_KEY, "amount"));
   const [now] = useState(Date.now);
 
   /** Records a payment on one bill (with that bill's edit token), then refreshes it. */
@@ -96,7 +91,6 @@ export function OwedToYou() {
   }, []);
 
   const friends = owedToYou(entries);
-  if (order === "waiting") friends.sort((a, b) => waited(b, now) - waited(a, now) || b.total - a.total);
   const speed = paySpeed(entries, now);
   const totals = new Map<string, number>();
   for (const f of friends) totals.set(f.currency, (totals.get(f.currency) ?? 0) + f.total);
@@ -129,18 +123,6 @@ export function OwedToYou() {
       </p>
       <BoardLinkCard name={myName} />
       {error && <Callout tone="error">{error}</Callout>}
-      <Segmented
-        label="Order"
-        value={order}
-        onChange={(o) => {
-          setOrder(o);
-          saveLocal(ORDER_KEY, o);
-        }}
-        options={[
-          { value: "amount", label: "Most owed" },
-          { value: "waiting", label: "Waiting longest" },
-        ]}
-      />
       <ul className="card rows overflow-hidden">
         {friends.map((f) => (
           <FriendRow
@@ -202,7 +184,7 @@ function FriendRow({
           <span className="block truncate font-semibold">{f.look.name}</span>
           <span className="block text-[13px] text-ink-2">
             {n} {n === 1 ? "bill" : "bills"} unpaid ·{" "}
-            <span className={cx(w >= 7 && "font-semibold text-warn")}>{w === 0 ? "since today" : `for ${dayCount(w)}`}</span>
+            <span className={cx("whitespace-nowrap", w >= 7 && "font-semibold text-warn")}>{w === 0 ? "since today" : `for ${dayCount(w)}`}</span>
           </span>
         </span>
         <Money value={f.total} currency={f.currency} className="text-[17px] font-bold tracking-tight" />
@@ -256,42 +238,5 @@ function FriendRow({
         </ul>
       )}
     </li>
-  );
-}
-
-/** Friends ranked by how fast they pay you. */
-function PaySpeedList({ speed }: { speed: PayerSpeed[] }) {
-  if (speed.length < 2) return null;
-  return (
-    <Section title="Who pays fastest">
-      <ol className="card rows overflow-hidden">
-        {speed.map((p, i) => {
-          const d = Math.round(p.days);
-          const bills = p.paid + p.unpaid;
-          return (
-            <li key={p.key} className="flex min-h-[60px] items-center gap-3 py-2 pr-5 pl-4">
-              <span className="w-6 shrink-0 text-center text-[15px] font-bold text-ink-2 tabular-nums">{i + 1}</span>
-              <Avatar person={p.look} size={36} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">{p.look.name}</span>
-                <span className="block text-[13px] text-ink-2">
-                  {/* With a bill still unpaid, the average can only grow: "8+ days". */}
-                  {p.unpaid > 0 ? `Pays in ${Math.max(d, 1)}+ ${Math.max(d, 1) === 1 ? "day" : "days"}` : d === 0 ? "Pays the same day" : `Pays in about ${dayCount(d)}`}
-                  {" · "}
-                  {bills} {bills === 1 ? "bill" : "bills"}
-                </span>
-              </span>
-              {p.unpaid > 0 && (
-                <span className={cx("flex shrink-0 items-center gap-1 text-[13px]", p.waiting >= 7 ? "font-semibold text-warn" : "text-ink-2")}>
-                  <Timer size={16} {...ICON} aria-hidden />
-                  {p.waiting === 0 ? "unpaid today" : `unpaid ${dayCount(p.waiting)}`}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      <p className="px-5 text-[13px] text-ink-2">Average days from the split to their payment; a bill they haven&apos;t paid counts the days so far.</p>
-    </Section>
   );
 }

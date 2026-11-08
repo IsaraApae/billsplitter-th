@@ -10,7 +10,8 @@ import { PayChooser } from "./PayChooser";
 import { organiserQr, usePrefetchQr } from "./PayQr";
 import { SlipCard } from "./SlipCard";
 import { type SlipResult } from "./SlipUpload";
-import { Avatar, ICON, Money, Sheet } from "./ui";
+import { dayCount } from "@/lib/owed";
+import { Avatar, ICON, Money, Sheet, cx } from "./ui";
 
 type Look = Pick<Person, "name" | "emoji" | "color">;
 
@@ -18,7 +19,13 @@ export interface BoardViewPerson {
   key: string;
   look: Look;
   total: number;
-  bills: { id: string; title: string; date: string; left: number; part: boolean; ref: string }[];
+  /** `days`: whole days since the bill */
+  bills: { id: string; title: string; date: string; days: number; left: number; part: boolean; ref: string }[];
+}
+
+/** "16 days ago", amber after a week. */
+function Waiting({ days, className }: { days: number; className?: string }) {
+  return <span className={cx(className, "whitespace-nowrap", days >= 7 && "font-semibold text-warn")}>{days === 0 ? "today" : `${dayCount(days)} ago`}</span>;
 }
 
 const items = (p: BoardViewPerson) => JSON.stringify(p.bills.map((b) => ({ id: b.id, ref: b.ref })));
@@ -62,39 +69,49 @@ export function BoardView({
         onClose={refreshIfPaid}
       />
 
-      {people.map((p) => (
-        <section key={p.key} className="space-y-2" aria-label={p.look.name}>
-          <div className="flex items-center gap-3 px-2">
-            <Avatar person={p.look} size={32} />
-            <h2 className="min-w-0 flex-1 truncate text-[19px] font-bold">{p.look.name}</h2>
-            <Money value={p.total} currency={currency} className="text-[19px] font-bold tracking-tight" />
-            <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPaying(p.key)}>
-              Pay
-            </button>
-          </div>
-          <ul className="card rows overflow-hidden">
-            {p.bills.map((bill) => (
-              <li key={bill.id}>
-                <Link href={`/s/${bill.id}`} className="flex min-h-[60px] items-center gap-3 py-2 pr-3 pl-4">
-                  <PaidMark status={bill.part ? "part" : "none"} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{bill.title}</span>
-                    <span className="block truncate text-[13px] text-ink-2">
-                      {new Date(bill.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                      {bill.part && <span className="font-semibold text-accent"> · Part paid</span>}
+      {people.map((p) => {
+        const oldest = Math.max(...p.bills.map((b) => b.days));
+        return (
+          <section key={p.key} className="space-y-2" aria-label={p.look.name}>
+            <div className="flex items-center gap-3 px-2">
+              <Avatar person={p.look} size={32} />
+              <span className="min-w-0 flex-1">
+                <h2 className="truncate text-[19px] leading-tight font-bold">{p.look.name}</h2>
+                <span className={cx("block text-[13px]", oldest >= 7 ? "font-semibold text-warn" : "text-ink-2")}>
+                  {oldest === 0 ? "Unpaid since today" : `Unpaid for ${dayCount(oldest)}`}
+                </span>
+              </span>
+              <Money value={p.total} currency={currency} className="text-[19px] font-bold tracking-tight" />
+              <button type="button" className="chip-accent min-h-10 px-4" onClick={() => setPaying(p.key)}>
+                Pay
+              </button>
+            </div>
+            <ul className="card rows overflow-hidden">
+              {p.bills.map((bill) => (
+                <li key={bill.id}>
+                  <Link href={`/s/${bill.id}`} className="flex min-h-[60px] items-center gap-3 py-2 pr-3 pl-4">
+                    <PaidMark status={bill.part ? "part" : "none"} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{bill.title}</span>
+                      <span className="block truncate text-[13px] text-ink-2">
+                        {new Date(bill.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                        {" · "}
+                        <Waiting days={bill.days} />
+                        {bill.part && <span className="font-semibold text-accent"> · Part paid</span>}
+                      </span>
                     </span>
-                  </span>
-                  <span className="shrink-0 text-right leading-tight whitespace-nowrap">
-                    {bill.part && <span className="block text-[11px] text-ink-2">left to pay</span>}
-                    <Money value={bill.left} currency={currency} className="text-[17px] font-bold tracking-tight" />
-                  </span>
-                  <ChevronRight size={20} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+                    <span className="shrink-0 text-right leading-tight whitespace-nowrap">
+                      {bill.part && <span className="block text-[11px] text-ink-2">left to pay</span>}
+                      <Money value={bill.left} currency={currency} className="text-[17px] font-bold tracking-tight" />
+                    </span>
+                    <ChevronRight size={20} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
 
       <Sheet
         open={!!payPerson}

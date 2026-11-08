@@ -2,7 +2,7 @@
 // to you" (the organiser's view across their History). Pure.
 
 import { calculate, ORGANISER_ID } from "./calc";
-import { billDate } from "./draft";
+import { billDate, billDay } from "./draft";
 import { organiserLines, settlesDirectly, transferKey, transfers } from "./settle";
 import type { PaymentInfo, Person, SplitDoc } from "./types";
 
@@ -212,6 +212,9 @@ export const DAY = 86_400_000;
 export const daysBetween = (from: string | number, to: string | number) =>
   Math.max(0, Math.floor((new Date(to).getTime() - new Date(from).getTime()) / DAY));
 
+/** "today", "1 day", "12 days" */
+export const dayCount = (d: number) => (d === 0 ? "today" : `${d} ${d === 1 ? "day" : "days"}`);
+
 export interface PayerSpeed {
   key: string;
   look: Look;
@@ -257,6 +260,34 @@ export function paySpeed(entries: HistoryLike[], now = Date.now()): PayerSpeed[]
   return all
     .map(({ sum, ...p }) => ({ ...p, days: sum / (p.paid + p.unpaid) }))
     .sort((a, b) => a.days - b.days || a.unpaid - b.unpaid || b.paid - a.paid);
+}
+
+/** Pay speed from the organiser's bills as stored (for the shareable list). */
+export function boardSpeed(
+  bills: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[],
+  now = Date.now(),
+): PayerSpeed[] {
+  return paySpeed(
+    bills.map((b) => {
+      const lines = organiserLines(b.doc, { paid: b.paid, partial: b.partial }).filter((l) => l.amount > 0);
+      const person = (id: string) => b.doc.people.find((p) => p.id === id);
+      return {
+        id: b.id,
+        title: b.doc.title,
+        // From the start of the bill's day in Thailand, so it agrees with the list's "Unpaid for 17 days".
+        createdAt: `${billDay(b.doc)}T00:00:00+07:00`,
+        currency: b.doc.currency,
+        members: lines.flatMap((l) => {
+          const p = person(l.personId);
+          return p ? [{ id: p.id, name: p.name, emoji: p.emoji, color: p.color, amount: l.amount }] : [];
+        }),
+        paidIds: lines.filter((l) => l.status === "full").map((l) => l.personId),
+        partialPaid: Object.fromEntries(lines.map((l) => [l.personId, l.paidSoFar])),
+        paidAt: Object.fromEntries(lines.flatMap((l) => (b.paidAt?.[l.key] ? [[l.personId, b.paidAt[l.key]]] : []))),
+      };
+    }),
+    now,
+  );
 }
 
 // ---- Who still owes (the organiser's shareable list) -----------------------

@@ -7,7 +7,9 @@ import { BoardView } from "@/components/BoardView";
 import { BillHeader } from "@/components/Poster";
 import { ICON, Money } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
-import { whoStillOwes } from "@/lib/owed";
+import { PaySpeedList } from "@/components/PaySpeedList";
+import { toDay } from "@/lib/draft";
+import { boardSpeed, DAY, whoStillOwes } from "@/lib/owed";
 import { boardBills, isValidId, storageReady } from "@/lib/server/redis";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +17,7 @@ export const dynamic = "force-dynamic";
 const loadBoard = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
   const bills = await boardBills(id).catch(() => null);
-  return bills ? whoStillOwes(bills) : null;
+  return bills ? { ...whoStillOwes(bills), speed: boardSpeed(bills) } : null;
 });
 
 export async function generateMetadata({ params }: PageProps<"/o/[id]">): Promise<Metadata> {
@@ -61,7 +63,10 @@ export default async function BoardPage({ params }: PageProps<"/o/[id]">) {
       </BillHeader>
 
       <BoardView
-        people={b.people.map((p) => ({ ...p, bills: p.bills.map((x) => ({ ...x, date: x.date.toISOString() })) }))}
+        people={b.people.map((p) => ({
+          ...p,
+          bills: p.bills.map((x) => ({ ...x, date: x.date.toISOString(), days: daysSince(x.date) })),
+        }))}
         currency={b.currency}
         organiser={b.organiser.name}
         payment={b.payment}
@@ -69,7 +74,18 @@ export default async function BoardPage({ params }: PageProps<"/o/[id]">) {
 
       {n > 0 && <p className="px-5 text-[13px] text-ink-2">Tap Pay to pay everything at once, or a bill to pay just that one.</p>}
 
+      <PaySpeedList speed={b.speed} />
+
       <BoardShare id={id} title={`Owed to ${b.organiser.name}`} />
     </main>
   );
+}
+
+/**
+ * Whole days from a bill's day to today in Thailand, worked out here so the
+ * page and the phone agree. ponytail: Bangkok time; other zones can be a day off.
+ */
+function daysSince(day: Date): number {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  return Math.max(0, Math.round((Date.parse(today) - Date.parse(toDay(day))) / DAY));
 }
