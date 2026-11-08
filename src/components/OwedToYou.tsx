@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCheck, ChevronDown, ChevronRight, PartyPopper } from "lucide-react";
+import { CheckCheck, ChevronDown, ChevronRight, PartyPopper, Timer } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { claimMySplits } from "@/lib/client/claim";
@@ -188,7 +188,11 @@ function FriendRow({
           <span className="block truncate font-semibold">{f.look.name}</span>
           <span className="block text-[13px] text-ink-2">
             {n} {n === 1 ? "bill" : "bills"} unpaid ·{" "}
-            <span className={cx("whitespace-nowrap", w >= 7 && "font-semibold text-warn")}>{w === 0 ? "since today" : `for ${dayCount(w)}`}</span>
+            {/* The same timer as "Who pays fastest" shows for time unpaid. */}
+            <span className={cx("inline-flex items-center gap-1 whitespace-nowrap align-bottom", w >= 7 && "font-semibold text-warn")}>
+              <Timer size={14} {...ICON} aria-hidden className="shrink-0" />
+              {w === 0 ? "since today" : `for ${dayCount(w)}`}
+            </span>
           </span>
         </span>
         <Money value={f.total} currency={f.currency} className="text-[17px] font-bold tracking-tight" />
