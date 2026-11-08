@@ -31,6 +31,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/events/[id]">) {
     const r = await updateEvent(id, token.slice(0, 100), { title, date }, splits);
     if (r === "not_found") return jsonError(404, "not_found", "This big bill doesn't exist or has expired.");
     if (r === "forbidden") return jsonError(403, "forbidden", "Only the organiser can change this big bill.");
+    if (r === "mixed_currency") return jsonError(422, "mixed_currency", "A big bill can only combine bills in one currency.");
     return Response.json({ id });
   });
 }

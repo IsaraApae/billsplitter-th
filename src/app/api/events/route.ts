@@ -14,6 +14,7 @@ export async function POST(req: Request) {
     if (splits.some((s) => !s.token)) return jsonError(403, "forbidden", "You can only combine your own splits.");
     const r = await createEvent({ title, date }, splits as { id: string; token: string }[]);
     if (r === "forbidden") return jsonError(403, "forbidden", "You can only combine your own splits.");
+    if (r === "mixed_currency") return jsonError(422, "mixed_currency", "A big bill can only combine bills in one currency.");
     return Response.json(r, { status: 201 });
   });
 }

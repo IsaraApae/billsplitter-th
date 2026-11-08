@@ -499,11 +499,18 @@ async function ownsSplits(splits: { id: string; token?: string }[], known: strin
   return true;
 }
 
+/** A big bill adds its bills' totals up, so they must all be in one currency. */
+async function oneCurrency(ids: string[]): Promise<boolean> {
+  const docs = await Promise.all(ids.map((sid) => db().get<StoredSplit>(docKey(sid))));
+  return new Set(docs.flatMap((s) => (s ? [s.doc.currency] : []))).size <= 1;
+}
+
 export async function createEvent(
   meta: Omit<EventMeta, "splitIds">,
   splits: { id: string; token: string }[],
-): Promise<{ id: string; token: string } | "forbidden"> {
+): Promise<{ id: string; token: string } | "forbidden" | "mixed_currency"> {
   if (!(await ownsSplits(splits))) return "forbidden";
+  if (!(await oneCurrency(splits.map((x) => x.id)))) return "mixed_currency";
   const token = newToken();
   const now = new Date().toISOString();
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -520,11 +527,12 @@ export async function updateEvent(
   token: string,
   meta: Omit<EventMeta, "splitIds">,
   splits: { id: string; token?: string }[],
-): Promise<"ok" | "not_found" | "forbidden"> {
+): Promise<"ok" | "not_found" | "forbidden" | "mixed_currency"> {
   const e = await db().get<StoredEvent>(eventKey(id));
   if (!e) return "not_found";
   if (!tokenMatches(token, e.editHash)) return "forbidden";
   if (!(await ownsSplits(splits, e.splitIds))) return "forbidden";
+  if (!(await oneCurrency(splits.map((x) => x.id)))) return "mixed_currency";
   const next: StoredEvent = { ...e, ...meta, splitIds: splits.map((x) => x.id), updatedAt: new Date().toISOString() };
   await db().set(eventKey(id), next, { ex: TTL_SECONDS });
   return "ok";
