@@ -121,7 +121,10 @@ export function OwedToYou() {
         ))}{" "}
         from {people} {people === 1 ? "friend" : "friends"}
       </p>
-      <BoardLinkCard name={myName} />
+      <BoardLinkCard
+        name={myName}
+        version={`${new Date(now).toDateString()}|${people}|${friends.map((f) => `${f.key}:${f.total}${f.currency}`).join()}`}
+      />
       {error && <Callout tone="error">{error}</Callout>}
       <ul className="card rows overflow-hidden">
         {friends.map((f) => (

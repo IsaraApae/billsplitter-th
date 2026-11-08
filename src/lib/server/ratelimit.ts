@@ -2,12 +2,14 @@ import "server-only";
 import { Ratelimit } from "@upstash/ratelimit";
 import { countHit, redis } from "./redis";
 
-type Bucket = "scan" | "write" | "read";
+type Bucket = "scan" | "write" | "read" | "og";
 
 const LIMITS: Record<Bucket, [number, `${number} s` | `${number} m`]> = {
   scan: [10, "1 m"],
   write: [30, "1 m"],
   read: [120, "1 m"],
+  // Link preview images: each is drawn on the server, and the list one reads every unpaid bill.
+  og: [40, "1 m"],
 };
 
 const limiters = new Map<Bucket, Ratelimit>();

@@ -1,10 +1,13 @@
 import { calculate, ORGANISER_ID } from "@/lib/calc";
 import { billDate } from "@/lib/draft";
+import { rateLimit } from "@/lib/server/ratelimit";
 import { shareImage } from "@/lib/server/shareImage";
 import { loadSplit } from "@/lib/server/splits";
 
 /** Link preview image for a split (?v= only changes the URL, so previews refresh after edits). */
-export async function GET(_req: Request, ctx: RouteContext<"/api/og/s/[id]">) {
+export async function GET(req: Request, ctx: RouteContext<"/api/og/s/[id]">) {
+  const limited = await rateLimit(req, "og");
+  if (limited) return limited;
   const { id } = await ctx.params;
   const s = await loadSplit(id);
   const img = s

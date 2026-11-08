@@ -1,10 +1,13 @@
 import { calculate } from "@/lib/calc";
 import { eventPeople } from "@/lib/event";
 import { getEvent, isValidId, storageReady } from "@/lib/server/redis";
+import { rateLimit } from "@/lib/server/ratelimit";
 import { shareImage } from "@/lib/server/shareImage";
 
 /** Link preview image for a big bill (?v= only changes the URL, so previews refresh after edits). */
-export async function GET(_req: Request, ctx: RouteContext<"/api/og/e/[id]">) {
+export async function GET(req: Request, ctx: RouteContext<"/api/og/e/[id]">) {
+  const limited = await rateLimit(req, "og");
+  if (limited) return limited;
   const { id } = await ctx.params;
   const e = isValidId(id) && storageReady ? await getEvent(id).catch(() => null) : null;
   let img: Response;
