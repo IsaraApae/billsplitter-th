@@ -114,7 +114,7 @@ async function loadOtherBills(
     const me = whoAmI(b.doc, name, picks[b.id]);
     if (!me) return;
     try {
-      const q = new URLSearchParams({ person: me.id, name: me.name });
+      const q = new URLSearchParams({ person: me.id });
       const r = await fetch(`/api/splits/${b.id}/others?${q}`, { cache: "no-store" });
       if (!r.ok) return;
       const d = (await r.json()) as { splits: (BillData & { id: string })[] };

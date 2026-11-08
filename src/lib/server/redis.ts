@@ -4,6 +4,7 @@ import type { RedisClientType } from "redis";
 import { after } from "next/server";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eventPeople, spreadPayment, type EventBill, type EventMeta } from "../event";
+import { oweLines } from "../owed";
 import { paymentKeys } from "../settle";
 import type { SplitDoc } from "../types";
 
@@ -668,10 +669,13 @@ const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
  */
 export async function otherSplitsWith(
   id: string,
-  person: { id: string; name: string },
+  personId: string,
 ): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[]> {
-  const owner = await db().get<string>(splitOwnerKey(id));
-  if (!owner) return [];
+  const [owner, base] = await Promise.all([db().get<string>(splitOwnerKey(id)), db().get<StoredSplit>(docKey(id))]);
+  // Only about someone who is in the bill the caller holds, by the name that bill gives them
+  // (not any name the caller likes), so one link can't be used to look up anyone else.
+  const person = base?.doc.people.find((p) => p.id === personId && p.id !== "me");
+  if (!owner || !person) return [];
   const ids = (await db().hkeys(organiserKey(owner))).filter((x) => x !== id && isValidId(x)).slice(0, 200);
   const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[] = [];
   await Promise.all(
@@ -686,6 +690,8 @@ export async function otherSplitsWith(
       );
       if (!there) return;
       const state = await getPaidState(sid, s.doc);
+      // Only bills they still owe on: What I owe needs nothing else, and nothing else need be shown.
+      if (oweLines({ id: sid, doc: s.doc, paid: state.paid, partial: state.partial, href: `/s/${sid}` }, there).length === 0) return;
       out.push({ id: sid, doc: s.doc, ...state });
     }),
   );

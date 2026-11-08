@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
 
 // No Redis settings in tests, so this runs on the in-memory store.
-const { addCheckedPayment, addSlip, createSplit, getPaidState, getSlips, photoInUse, updateSplit } = await import("./redis");
+const { addCheckedPayment, addSlip, claimSplits, createSplit, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
 
 const doc = (extra: Partial<SplitDoc> = {}): SplitDoc => ({
   ...newDoc(),
@@ -50,6 +50,25 @@ describe("slips paying the same person at once", () => {
   it("says not_found for someone who isn't in the split", async () => {
     const { id } = await createSplit(doc());
     expect(await addCheckedPayment(id, "nobody", 100, 100)).toBe("not_found");
+  });
+});
+
+describe("the organiser's other bills, for What I owe", () => {
+  it("only answer for someone in the bill asked about, and only bills they still owe on", async () => {
+    const people = [
+      { id: "me", name: "Isara" },
+      { id: "mint", name: "Mint" },
+    ];
+    const held = await createSplit(doc({ people }));
+    const owed = await createSplit(doc({ title: "Karaoke", people: [{ id: "me", name: "Isara" }, { id: "x9", name: "mint " }] }));
+    const paid = await createSplit(doc({ title: "Coffee", people }));
+    const notMint = await createSplit(doc({ title: "Lunch", people: [{ id: "me", name: "Isara" }, { id: "ploy", name: "Ploy" }] }));
+    await claimSplits("phone1", [held, owed, paid, notMint]);
+    await addCheckedPayment(paid.id, "mint", 50000, 50000);
+
+    expect((await otherSplitsWith(held.id, "mint")).map((s) => s.doc.title)).toEqual(["Karaoke"]);
+    // Ploy isn't in the bill held, so nothing about her comes back.
+    expect(await otherSplitsWith(held.id, "ploy")).toEqual([]);
   });
 });
 
