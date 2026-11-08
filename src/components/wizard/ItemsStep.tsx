@@ -136,9 +136,10 @@ export function ItemsStep({
       return;
     }
 
-    // Apply against the latest doc (the user may have edited while we scanned).
+    // Apply against the latest doc (the user may have edited while we scanned, even on
+    // another step, after this one has gone and docRef has stopped following along).
     const r = applyScan(docRef.current, result);
-    setDoc(() => r.doc);
+    setDoc((d) => applyScan(d, result).doc);
     setScan({ status: "idle" });
 
     const notes: ScanInfo["notes"] = [];
