@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { namesIn, owedToYou, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
+import { daysBetween, namesIn, owedToYou, paySpeed, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type HistoryLike, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -65,6 +65,31 @@ describe("owed to you", () => {
     expect(friends.map((f) => [f.look.name, f.total, f.bills.map((b) => [b.title, b.left, b.part])])).toEqual([
       ["Mint", 51700, [["Dinner", 26700, false], ["Karaoke", 25000, true]]],
     ]);
+  });
+});
+
+describe("pay speed (who pays fastest)", () => {
+  const now = Date.parse("2026-10-20T12:00:00Z");
+  const at = (d: string) => Date.parse(d);
+  const m = (id: string, name: string, amount = 10000) => ({ id, name, amount });
+  const bills: HistoryLike[] = [
+    { id: "a", title: "Dinner", createdAt: "2026-10-01T12:00:00Z", currency: "THB",
+      members: [m("me", "Isara"), m("mint01", "Mint"), m("ploy01", "Ploy"), m("bank1", "Bank")],
+      paidIds: ["mint01", "ploy01", "bank1"],
+      paidAt: { mint01: at("2026-10-01T20:00:00Z"), ploy01: at("2026-10-05T12:00:00Z") } }, // Bank's tick is too old to have a time
+    { id: "b", title: "Karaoke", createdAt: "2026-10-10T12:00:00Z", currency: "THB",
+      members: [m("me", "Isara"), m("x9", "mint"), m("ploy01", "Ploy", 30000)],
+      paidIds: ["x9"], paidAt: { x9: at("2026-10-12T12:00:00Z") }, partialPaid: { ploy01: 5000 } },
+  ];
+  it("ranks by average days to pay, an unpaid bill counting the days so far", () => {
+    expect(paySpeed(bills, now).map((p) => [p.look.name, p.days, p.paid, p.unpaid, p.owed, p.waiting])).toEqual([
+      ["Mint", 1, 2, 0, 0, 0], // same day and 2 days
+      ["Ploy", 7, 1, 1, 25000, 10], // 4 days, and 10 days and counting
+    ]);
+  });
+  it("counts whole days", () => {
+    expect(daysBetween("2026-10-01T12:00:00Z", now)).toBe(19);
+    expect(daysBetween(now, "2026-10-01")).toBe(0);
   });
 });
 

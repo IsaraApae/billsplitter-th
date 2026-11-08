@@ -145,6 +145,8 @@ export interface HistoryLike {
   partialPaid?: Record<string, number>;
   /** friends pay each payer directly: payments are recorded per transfer */
   direct?: boolean;
+  /** when each friend's payment was ticked: personId → ms */
+  paidAt?: Record<string, number>;
 }
 
 export interface OwedBill {
@@ -202,6 +204,59 @@ export function owedToYou(entries: HistoryLike[]): OwedFriend[] {
   }
   for (const f of friends) f.bills.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
   return friends.sort((a, b) => b.total - a.total);
+}
+
+export const DAY = 86_400_000;
+
+/** Whole days from `from` to `to` (dates as ISO strings or ms). */
+export const daysBetween = (from: string | number, to: string | number) =>
+  Math.max(0, Math.floor((new Date(to).getTime() - new Date(from).getTime()) / DAY));
+
+export interface PayerSpeed {
+  key: string;
+  look: Look;
+  /** average days from the split to their payment; an unpaid bill counts the days so far */
+  days: number;
+  /** bills paid with a known time, and bills still unpaid */
+  paid: number;
+  unpaid: number;
+  /** what they still owe you, and how long the oldest of it has waited (days) */
+  owed: number;
+  waiting: number;
+}
+
+/**
+ * Friends ranked by how fast they pay you, fastest first. Each bill counts the
+ * days from the split to the tick; a bill they haven't paid counts the days so
+ * far, so not paying drags them down. Payments ticked before times were kept
+ * are left out. One currency at a time isn't needed: days don't have one.
+ */
+export function paySpeed(entries: HistoryLike[], now = Date.now()): PayerSpeed[] {
+  const all: (PayerSpeed & { sum: number })[] = [];
+  for (const h of entries) {
+    for (const m of h.members ?? []) {
+      if (m.id === ORGANISER_ID || m.amount === undefined || m.amount <= 0) continue;
+      const paidAt = h.paidAt?.[m.id];
+      const isPaid = !!h.paidIds?.includes(m.id);
+      if (isPaid && !paidAt) continue;
+      let p = all.find((x) => x.key === m.id || norm(x.look.name) === norm(m.name));
+      if (!p) {
+        p = { key: m.id, look: { name: m.name, emoji: m.emoji, color: m.color }, days: 0, paid: 0, unpaid: 0, owed: 0, waiting: 0, sum: 0 };
+        all.push(p);
+      }
+      const d = daysBetween(h.createdAt, isPaid ? paidAt! : now);
+      p.sum += d;
+      if (isPaid) p.paid++;
+      else {
+        p.unpaid++;
+        p.owed += m.amount - (h.partialPaid?.[m.id] ?? 0);
+        p.waiting = Math.max(p.waiting, d);
+      }
+    }
+  }
+  return all
+    .map(({ sum, ...p }) => ({ ...p, days: sum / (p.paid + p.unpaid) }))
+    .sort((a, b) => a.days - b.days || a.unpaid - b.unpaid || b.paid - a.paid);
 }
 
 // ---- Who still owes (the organiser's shareable list) -----------------------

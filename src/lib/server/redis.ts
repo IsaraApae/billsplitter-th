@@ -189,8 +189,10 @@ export async function getSplit(id: string): Promise<{ doc: SplitDoc; updatedAt: 
   return { doc: s.doc, updatedAt: s.updatedAt };
 }
 
-export async function getPaid(id: string): Promise<string[]> {
-  return db().hkeys(paidKey(id));
+/** Who's paid in full, and when each was ticked (ms; the value stored with the tick). */
+export async function getPaid(id: string): Promise<Record<string, number>> {
+  const raw = (await db().hgetall(paidKey(id))) ?? {};
+  return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, Number(v) || 0]));
 }
 
 export type UpdateResult = "ok" | "not_found" | "forbidden";
@@ -294,6 +296,8 @@ export type Payment = { kind: "full" } | { kind: "part"; amount: number } | { ki
 export interface PaidState {
   paid: string[];
   partial: Record<string, number>;
+  /** when each payment in `paid` was ticked (ms since 1970) */
+  paidAt?: Record<string, number>;
 }
 
 /** Current payments of a split's people, or transfers when settling directly (ignoring ones no longer in it). */
@@ -303,15 +307,16 @@ export async function getPaidState(id: string, doc: SplitDoc): Promise<PaidState
 
 /** A split's payments as stored. Needs no split, so it can be read alongside it rather than after it. */
 export async function getPayments(id: string): Promise<PaidState> {
-  const [paid, partial] = await Promise.all([getPaid(id), getPartial(id)]);
-  return { paid, partial };
+  const [paidAt, partial] = await Promise.all([getPaid(id), getPartial(id)]);
+  return { paid: Object.keys(paidAt), partial, paidAt };
 }
 
 /** The payments of people (or transfers) still in the split. */
-export function paidStateOf(doc: SplitDoc, { paid, partial }: PaidState): PaidState {
+export function paidStateOf(doc: SplitDoc, { paid, partial, paidAt = {} }: PaidState): PaidState {
   const ids = paymentKeys(doc);
   return {
     paid: paid.filter((p) => ids.has(p)),
+    paidAt: Object.fromEntries(Object.entries(paidAt).filter(([p, t]) => ids.has(p) && t > 0)),
     partial: Object.fromEntries(Object.entries(partial).filter(([p]) => ids.has(p) && !paid.includes(p))),
   };
 }
