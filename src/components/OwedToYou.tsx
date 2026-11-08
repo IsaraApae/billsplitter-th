@@ -1,17 +1,25 @@
 "use client";
 
-import { CheckCheck, ChevronDown, ChevronRight, PartyPopper } from "lucide-react";
+import { CheckCheck, ChevronDown, ChevronRight, PartyPopper, Timer } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { claimMySplits } from "@/lib/client/claim";
 import { askConfirm } from "@/lib/client/confirm";
 import { refreshEntries, refreshEntry } from "@/lib/client/historyRefresh";
-import { getEditToken, getHistory, type HistoryEntry } from "@/lib/client/storage";
-import { owedToYou, type OwedBill, type OwedFriend } from "@/lib/owed";
+import { getEditToken, getHistory, load, save as saveLocal, type HistoryEntry } from "@/lib/client/storage";
+import { daysBetween, owedToYou, paySpeed, type OwedBill, type OwedFriend, type PayerSpeed } from "@/lib/owed";
 import { getProfile } from "@/lib/client/profile";
 import { BoardLinkCard } from "./BoardLinkCard";
 import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
-import { Avatar, Callout, ICON, Money, cx } from "./ui";
+import { Avatar, Callout, ICON, Money, Section, Segmented, cx } from "./ui";
+
+type Order = "amount" | "waiting";
+const ORDER_KEY = "bs:owedOrder";
+
+/** "today", "1 day", "12 days" */
+const dayCount = (d: number) => (d === 0 ? "today" : `${d} ${d === 1 ? "day" : "days"}`);
+/** How long this friend's oldest unpaid bill has waited, in days. */
+const waited = (f: OwedFriend, now: number) => Math.max(...f.bills.map((b) => daysBetween(b.date, now)));
 
 /** "Owed to you": each friend who still owes you, across your splits. */
 export function OwedToYou() {
@@ -22,6 +30,8 @@ export function OwedToYou() {
   const [ask, setAsk] = useState<{ f: OwedFriend; b: OwedBill } | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [order, setOrder] = useState<Order>(() => load<Order>(ORDER_KEY, "amount"));
+  const [now] = useState(Date.now);
 
   /** Records a payment on one bill (with that bill's edit token), then refreshes it. */
   async function save(b: OwedBill, input: PaymentInput): Promise<boolean> {
@@ -71,7 +81,10 @@ export function OwedToYou() {
     const unsettled = new Set(owedToYou(getHistory()).flatMap((f) => f.bills.map((b) => b.id)));
     void refreshEntries(
       // Older entries don't say what each person owes yet: they need a look too.
-      getHistory().filter((h) => unsettled.has(h.id) || !h.members || h.members.some((m) => m.amount === undefined)),
+      // Paid bills without payment times are looked at once, for "Who pays fastest".
+      getHistory().filter(
+        (h) => unsettled.has(h.id) || !h.members || h.members.some((m) => m.amount === undefined) || (!!h.paidIds?.length && !h.paidAt),
+      ),
       (h, patch) => {
         if (patch !== "gone") setEntries((es) => es.map((e) => (e.id === h.id ? { ...e, ...patch } : e)));
       },
@@ -83,17 +96,22 @@ export function OwedToYou() {
   }, []);
 
   const friends = owedToYou(entries);
+  if (order === "waiting") friends.sort((a, b) => waited(b, now) - waited(a, now) || b.total - a.total);
+  const speed = paySpeed(entries, now);
   const totals = new Map<string, number>();
   for (const f of friends) totals.set(f.currency, (totals.get(f.currency) ?? 0) + f.total);
   const people = new Set(friends.map((f) => f.key)).size;
 
   if (friends.length === 0) {
     return (
-      <div className="card p-8 text-center">
-        <p className="flex items-center justify-center gap-2 text-[17px] font-semibold">
-          <PartyPopper size={22} {...ICON} className="text-accent" aria-hidden /> Nobody owes you anything
-        </p>
-        <p className="mt-2 text-ink-2">Friends who haven&apos;t paid you yet show up here.</p>
+      <div className="space-y-5">
+        <div className="card p-8 text-center">
+          <p className="flex items-center justify-center gap-2 text-[17px] font-semibold">
+            <PartyPopper size={22} {...ICON} className="text-accent" aria-hidden /> Nobody owes you anything
+          </p>
+          <p className="mt-2 text-ink-2">Friends who haven&apos;t paid you yet show up here.</p>
+        </div>
+        <PaySpeedList speed={speed} />
       </div>
     );
   }
@@ -111,11 +129,24 @@ export function OwedToYou() {
       </p>
       <BoardLinkCard name={myName} />
       {error && <Callout tone="error">{error}</Callout>}
+      <Segmented
+        label="Order"
+        value={order}
+        onChange={(o) => {
+          setOrder(o);
+          saveLocal(ORDER_KEY, o);
+        }}
+        options={[
+          { value: "amount", label: "Most owed" },
+          { value: "waiting", label: "Waiting longest" },
+        ]}
+      />
       <ul className="card rows overflow-hidden">
         {friends.map((f) => (
           <FriendRow
             key={`${f.key}|${f.currency}`}
             f={f}
+            now={now}
             open={open === f.key + f.currency}
             onToggle={() => setOpen((o) => (o === f.key + f.currency ? null : f.key + f.currency))}
             busy={busy}
@@ -125,6 +156,7 @@ export function OwedToYou() {
         ))}
       </ul>
       <p className="px-5 text-[13px] text-ink-2">Tap a name to see their unpaid bills; tap a circle to tick a payment.</p>
+      <PaySpeedList speed={speed} />
       <PaymentSheet
         open={!!ask}
         onClose={() => setAsk(null)}
@@ -145,6 +177,7 @@ export function OwedToYou() {
 
 function FriendRow({
   f,
+  now,
   open,
   onToggle,
   busy,
@@ -152,6 +185,7 @@ function FriendRow({
   onMarkAll,
 }: {
   f: OwedFriend;
+  now: number;
   open: boolean;
   onToggle: () => void;
   busy: Set<string>;
@@ -159,6 +193,7 @@ function FriendRow({
   onMarkAll: () => void;
 }) {
   const n = f.bills.length;
+  const w = waited(f, now);
   return (
     <li>
       <button type="button" className="flex min-h-[64px] w-full items-center gap-3 py-2 pr-3 pl-4 text-left" aria-expanded={open} onClick={onToggle}>
@@ -166,7 +201,8 @@ function FriendRow({
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">{f.look.name}</span>
           <span className="block text-[13px] text-ink-2">
-            {n} {n === 1 ? "bill" : "bills"} unpaid
+            {n} {n === 1 ? "bill" : "bills"} unpaid ·{" "}
+            <span className={cx(w >= 7 && "font-semibold text-warn")}>{w === 0 ? "since today" : `for ${dayCount(w)}`}</span>
           </span>
         </span>
         <Money value={f.total} currency={f.currency} className="text-[17px] font-bold tracking-tight" />
@@ -196,6 +232,8 @@ function FriendRow({
                   <span className="block truncate">{b.title}</span>
                   <span className="block truncate text-[13px] text-ink-2">
                     {new Date(b.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                    {" · "}
+                    {daysBetween(b.date, now) === 0 ? "today" : `${dayCount(daysBetween(b.date, now))} ago`}
                     {b.part && <span className="font-semibold text-accent"> · Part paid</span>}
                   </span>
                 </span>
@@ -218,5 +256,42 @@ function FriendRow({
         </ul>
       )}
     </li>
+  );
+}
+
+/** Friends ranked by how fast they pay you. */
+function PaySpeedList({ speed }: { speed: PayerSpeed[] }) {
+  if (speed.length < 2) return null;
+  return (
+    <Section title="Who pays fastest">
+      <ol className="card rows overflow-hidden">
+        {speed.map((p, i) => {
+          const d = Math.round(p.days);
+          const bills = p.paid + p.unpaid;
+          return (
+            <li key={p.key} className="flex min-h-[60px] items-center gap-3 py-2 pr-5 pl-4">
+              <span className="w-6 shrink-0 text-center text-[15px] font-bold text-ink-2 tabular-nums">{i + 1}</span>
+              <Avatar person={p.look} size={36} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold">{p.look.name}</span>
+                <span className="block text-[13px] text-ink-2">
+                  {/* With a bill still unpaid, the average can only grow: "8+ days". */}
+                  {p.unpaid > 0 ? `Pays in ${Math.max(d, 1)}+ ${Math.max(d, 1) === 1 ? "day" : "days"}` : d === 0 ? "Pays the same day" : `Pays in about ${dayCount(d)}`}
+                  {" · "}
+                  {bills} {bills === 1 ? "bill" : "bills"}
+                </span>
+              </span>
+              {p.unpaid > 0 && (
+                <span className={cx("flex shrink-0 items-center gap-1 text-[13px]", p.waiting >= 7 ? "font-semibold text-warn" : "text-ink-2")}>
+                  <Timer size={16} {...ICON} aria-hidden />
+                  {p.waiting === 0 ? "unpaid today" : `unpaid ${dayCount(p.waiting)}`}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="px-5 text-[13px] text-ink-2">Average days from the split to their payment; a bill they haven&apos;t paid counts the days so far.</p>
+    </Section>
   );
 }

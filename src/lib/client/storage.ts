@@ -66,6 +66,8 @@ export interface HistoryEntry {
   partialPaid?: Record<string, number>;
   /** friends pay each payer directly: progress counts transfers, so refresh from the whole split */
   direct?: boolean;
+  /** when each friend's payment to you was ticked: personId → ms (absent until refreshed) */
+  paidAt?: Record<string, number>;
 }
 
 /**

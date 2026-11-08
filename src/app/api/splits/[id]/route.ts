@@ -11,8 +11,8 @@ export async function GET(req: Request, ctx: RouteContext<"/api/splits/[id]">) {
   return safely(async () => {
     const s = await getSplit(id);
     if (!s) return jsonError(404, "not_found", "This split doesn't exist or has expired.");
-    const { paid, partial } = await getPaidState(id, s.doc);
-    return Response.json({ doc: s.doc, updatedAt: s.updatedAt, paid, partial }, { headers: { "Cache-Control": "no-store" } });
+    const { paid, partial, paidAt } = await getPaidState(id, s.doc);
+    return Response.json({ doc: s.doc, updatedAt: s.updatedAt, paid, partial, paidAt }, { headers: { "Cache-Control": "no-store" } });
   });
 }
 

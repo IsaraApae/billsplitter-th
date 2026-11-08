@@ -1,6 +1,7 @@
 "use client";
 
-import { paymentSummary } from "../settle";
+import { ORGANISER_ID } from "../calc";
+import { parseTransferKey, paymentSummary } from "../settle";
 import type { SplitDoc } from "../types";
 import { historyFromDoc, paidProgress, patchHistory, type HistoryEntry } from "./storage";
 
@@ -37,17 +38,19 @@ export async function refreshEntry(h: HistoryEntry): Promise<Partial<HistoryEntr
     if (!r.ok) return null;
     let patch: Partial<HistoryEntry>;
     if (full) {
-      const data: { doc: SplitDoc; paid: string[]; partial?: Record<string, number> } = await r.json();
+      const data: { doc: SplitDoc; paid: string[]; partial?: Record<string, number>; paidAt?: Record<string, number> } = await r.json();
       patch = {
         ...historyFromDoc(data.doc),
         ...paymentSummary(data.doc, { paid: data.paid, partial: data.partial ?? {} }),
+        paidAt: paidToMe(data.paidAt),
       };
     } else {
-      const data: { paid: string[]; partial?: Record<string, number> } = await r.json();
+      const data: { paid: string[]; partial?: Record<string, number>; paidAt?: Record<string, number> } = await r.json();
       patch = {
         ...paidProgress(h.personIds ?? [], data.paid),
         paidIds: data.paid,
         partialPaid: data.partial ?? {},
+        paidAt: paidToMe(data.paidAt),
       };
     }
     patchHistory(h.id, patch);
@@ -55,4 +58,15 @@ export async function refreshEntry(h: HistoryEntry): Promise<Partial<HistoryEntr
   } catch {
     return null;
   }
+}
+
+/** Payment times by friend: a transfer to you ("t:mint:me") counts as Mint's. */
+function paidToMe(paidAt: Record<string, number> = {}): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, t] of Object.entries(paidAt)) {
+    const tr = parseTransferKey(k);
+    if (!tr) out[k] = t;
+    else if (tr.to === ORGANISER_ID) out[tr.from] = t;
+  }
+  return out;
 }
