@@ -202,7 +202,7 @@ function FriendRow({
           <span className="block truncate font-semibold">{f.look.name}</span>
           <span className="block text-[13px] text-ink-2">
             {n} {n === 1 ? "bill" : "bills"} unpaid ·{" "}
-            <span className={cx(w >= 7 && "font-semibold text-warn")}>{w === 0 ? "since today" : `for ${dayCount(w)}`}</span>
+            <span className={cx("whitespace-nowrap", w >= 7 && "font-semibold text-warn")}>{w === 0 ? "since today" : `for ${dayCount(w)}`}</span>
           </span>
         </span>
         <Money value={f.total} currency={f.currency} className="text-[17px] font-bold tracking-tight" />

@@ -20,13 +20,17 @@ The link preview friends see in chat:
 **Making a split**
 - **Scan a receipt** (Thai or English) with Gemini: items, quantities, per-item discounts, receipt-wide discount, service charge, VAT, and the shop's brand as the title. If one AI model misreads the photo, the next one tries before the scan gives up. Service charge, VAT and any "rounding / ปัดเศษ" line are used exactly as printed, so the total matches the receipt. Warns when the items don't add up to the printed total.
 - **Split equally or by item.** Items can be shared unevenly ("Mint had 2 of the 3 beers") or split into separate lines ("2× Water" → two bottles shared by different people).
+- **Which items had the discount?** When a promotion covers only some items ("Drinks 20%"), the scan reads the receipt's own marks and puts the discount on those items, if they add up to it exactly. Not sure? Enter the printed amount and **Find the items for me** works out which items it is exactly 5–50% of: the drinks before a coincidental mix, your own items before a friend's, and it ticks them only when one set fits.
 - **Discount, service charge, VAT** (off by default), and **round to whole baht**: friends pay whole amounts and together never less than their exact shares, so the organiser never loses money. With "split equally", everyone's share is the same whole amount.
 - **Leftover satang go to friends:** when an amount doesn't divide evenly (฿50 / 3), the organiser gets the smaller part (฿16.66, friends ฿16.67). New splits only; older bills keep their amounts.
 - **Several payers:** a friend who paid part of the bill (e.g. the drinks) either settles with you (pays that much less, or gets money back), or everyone pays each payer directly: the app works out the fewest transfers ("Ploy → Mint ฿150"), each with the payer's own PromptPay QR, its own tick and slip check.
 - **Bill date** with the app's own calendar: the day you make the split (scanning a receipt doesn't change it).
 - **Friends and groups** saved on the phone; "Who's eating with you?" and "Same as last time" pick them quickly.
 
-<img src="docs/screenshots/items.jpg" alt="Items on a new split, light and dark" width="380">
+<p>
+  <img src="docs/screenshots/items.jpg" alt="Items on a new split, light and dark" width="380">
+  <img src="docs/screenshots/discount.jpg" alt="Find the items for me: the discount's items picked from the printed amount, light and dark" width="380">
+</p>
 
 **Sharing and getting paid**
 - **One link per bill**, with a link preview (date, title, the total on a paper receipt, the people) that refreshes when the bill is edited. Titles and names in Thai, English or with accents (é, ü, ğ) keep their letters in the poster type, on the pages and the previews. Tap a person to see what they had.
@@ -44,7 +48,8 @@ The link preview friends see in chat:
 
 **History and the phone**
 - **History**, newest bill date first, with big bills holding their bills; tap a person to see their splits and what they owe you (or you owe them). Tap yourself to see what you spent.
-- **Owed to you:** every friend who still owes you, with their total and unpaid bills (from History, on top of the History page). Tick a bill paid (in full or part) right there, or **Mark all paid** for a friend.
+- **Owed to you:** every friend who still owes you, with their total, their unpaid bills and how long they've waited ("for 16 days", amber after a week); sort by **Most owed** or **Waiting longest**. Tick a bill paid (in full or part) right there, or **Mark all paid** for a friend.
+- **Who pays fastest:** friends ranked by the average days from the split to their payment; a bill they haven't paid counts the days so far, so not paying moves them down.
 - **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills with them in it, also ones whose link they never got. **Pay** lets them tick which bills to pay (or all), with one QR for that total, and one slip pays the ticked bills, oldest first ("Already paid?" at the top uploads a slip straight away). They pick their name once from everyone who still owes in those friends' bills; picking themselves to pay or upload a slip also tells the app.
 - **Who still owes (shareable list):** one link (`/o/…`, with its own preview card) showing everyone who still owes you, A–Z, with all their unpaid bills; each person can **Pay** (one QR for their total) or upload a slip there. Copy or share it from "Owed to you".
 - **Friends** page: tap a friend to see their splits. Renaming a friend (or yourself) updates every bill you've shared, old ones too (friends typed into older bills are found by name).
@@ -53,6 +58,7 @@ The link preview friends see in chat:
 <p>
   <img src="docs/screenshots/history.jpg" alt="History, light and dark" width="380">
   <img src="docs/screenshots/owed.jpg" alt="Owed to you, with a link to share the list, light and dark" width="380">
+  <img src="docs/screenshots/pays-fastest.jpg" alt="How long each friend hasn't paid, and who pays fastest, light and dark" width="380">
   <img src="docs/screenshots/owe.jpg" alt="What I owe on a friend's phone, light and dark" width="380">
   <img src="docs/screenshots/list.jpg" alt="The shareable who still owes list, light and dark" width="380">
 </p>
@@ -97,6 +103,8 @@ node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]    
 - **Several payers** — `src/lib/settle.ts`: what each person paid at the table minus their share, then the fewest transfers (largest debts to largest credits). Transfer payments are recorded under `t:{from}:{to}` keys; History and big bills use each friend's money with the organiser.
 - **Maths** — `src/lib/calc.ts`, pure and integer-only (satang). Items → discount → service charge on the discounted subtotal → VAT on (subtotal + service). Shares use largest-remainder allocation, so everyone's amounts always add up exactly (in new splits the leftover units go to the friends, never the organiser); uneven shares are weights on the same allocation. Rounding, paid-upfront and the organiser's share are applied on top, never letting the organiser lose money.
 - **Scanning** — the phone fixes the photo's rotation and sends a ~2048 px JPEG to `POST /api/scan`. `src/lib/server/gemini.ts` races a chain of Gemini models (best first: 3.8 Flash, 3.7 Flash, 3.6 Flash, 3.5 Flash, 3.5 Flash-Lite, 3.1 Flash-Lite): the best one and Flash-Lite start together, others join when one fails or is slow. Flash-Lite's answer is only taken straight away if its numbers add up. A garbled answer or a refused photo counts as that model failing; if a model finds no items, a second one is asked, and two agreeing settles it. Busy, out-of-quota or timed-out models cool down (shared via Redis). Strict JSON schema, temperature 0, lowest thinking level. Results go through `src/lib/scanFilter.ts` and `applyScan`. See [`docs/scan-reliability.md`](docs/scan-reliability.md).
+- **Discount items** — `src/lib/discountMatch.ts`: a percentage leaves a fingerprint (10% of ฿599 is exactly ฿59.90), so it searches for the sets of items whose total gives exactly the printed discount, folds sets that only swap same-priced items, and ranks one kind of thing (all drinks or all food) and the organiser's items first.
+- **Pay speed** — each paid tick stores its time in Redis; History keeps it, and `paySpeed` in `src/lib/owed.ts` averages the days from each split to each friend's payment.
 - **Sharing** — `POST /api/splits` → `{ id, token }`; only a SHA-256 of the edit token is stored. Splits live 90 days after the last activity. `/api/splits/{id}/paid` records payments (full, part or none; organiser only). Shared links carry `?v=` so chat apps refresh their preview after an edit; preview images come from `/api/og/s|e/{id}`.
 - **Slips** — `POST /api/splits/{id}/slip` (and `/api/events/{id}/slip`): read with Gemini, checked by `src/lib/slip.ts`, each slip reference can be used once.
 - **What I owe** — the organiser's phone tells the server which splits it made (`POST /api/organiser/claim`, each proven with its edit token, under a random phone id); `GET /api/splits/{id}/others` returns that organiser's other splits with the same person (by id or name).
@@ -106,4 +114,4 @@ node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]    
 
 ## Deploying
 
-The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
+The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Pushes that only change `README.md` or `docs/` skip the build (`ignoreCommand` in `vercel.json`). Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
