@@ -2,6 +2,8 @@
 
 # Bill Splitter
 
+[![CI](https://github.com/IsaraApae/billsplitter-th/actions/workflows/ci.yml/badge.svg)](https://github.com/IsaraApae/billsplitter-th/actions/workflows/ci.yml)
+
 Split a restaurant bill with friends in Thailand: scan the receipt, tick who had what, share one link, and see who has paid. PromptPay QR codes, transfer-slip checking, "big bills" for a whole night out, and a surreal Y2K poster look (checkerboards, chess pieces, flowers) in day and night versions.
 
 **Live:** https://billsplitter-th.vercel.app
@@ -71,22 +73,27 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · Redis (R
 
 ```bash
 npm install
+cp .env.example .env.local   # optional: fill in only what you need (see below)
 npm run dev              # http://localhost:3000  (add `-- -H 0.0.0.0` to open it from a phone on the same Wi-Fi)
 npm test                 # Vitest: money maths, rounding, scan clean-up, slips, big bills, PromptPay, backup…
 npm run lint
+npm run typecheck        # generates Next's route types, then tsc
 npm run build
 ```
 
-Without Redis/Blob settings, `npm run dev` uses in-memory stores, so sharing and uploads work locally (lost on restart). Without `GEMINI_API_KEY`, scanning says it isn't set up and items are added by hand.
+Without Redis/Blob settings, `npm run dev` uses in-memory stores, so sharing and uploads work locally (lost on restart). Without `GEMINI_API_KEY`, scanning says it isn't set up and items are added by hand. GitHub Actions runs lint, typecheck, tests and the build on every push to `main` and every pull request; Dependabot opens update PRs weekly.
 
 Scripts:
 
 ```bash
 node scripts/scan-reliability.mts [--url …] [--image receipt.jpg] [--n 10] [--gap 5]   # success rate + timing of /api/scan
 node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]          # live end-to-end check
+python3 scripts/make-art.py                                                           # redraws the scene, meadow, preview art and icons (needs numpy and Pillow; cwebp optional)
 ```
 
 ## Environment variables
+
+All of them are listed in [`.env.example`](.env.example).
 
 | Name | What it's for | Required |
 | --- | --- | --- |
@@ -96,7 +103,7 @@ node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]    
 | `GEMINI_API_KEY` | Receipt scanning and slip reading — https://aistudio.google.com/apikey (server only) | for scanning |
 | `GEMINI_MODELS` | Comma-separated model list to use instead of the built-in chain | no |
 | `NEXT_PUBLIC_SITE_URL` | Absolute site URL for link previews on a custom domain | no |
-| `CRON_SECRET` | Lets only Vercel Cron run the daily photo clean-up | no |
+| `CRON_SECRET` | Lets only Vercel Cron run the daily photo clean-up (without it, anyone can trigger it, at most once every 6 hours) | recommended |
 
 ## How it works
 
@@ -107,11 +114,15 @@ node scripts/smoke-prod.mts https://billsplitter-th.vercel.app [receipt.jpg]    
 - **Pay speed** — each paid tick stores its time in Redis; History keeps it, and `paySpeed` in `src/lib/owed.ts` averages the days from each split to each friend's payment.
 - **Sharing** — `POST /api/splits` → `{ id, token }`; only a SHA-256 of the edit token is stored. Splits live 90 days after the last activity. `/api/splits/{id}/paid` records payments (full, part or none; organiser only). Shared links carry `?v=` so chat apps refresh their preview after an edit; preview images come from `/api/og/s|e/{id}`.
 - **Slips** — `POST /api/splits/{id}/slip` (and `/api/events/{id}/slip`): read with Gemini, checked by `src/lib/slip.ts`, each slip reference can be used once.
-- **What I owe** — the organiser's phone tells the server which splits it made (`POST /api/organiser/claim`, each proven with its edit token, under a random phone id); `GET /api/splits/{id}/others` returns that organiser's other splits with the same person (by id or name).
+- **What I owe** — the organiser's phone tells the server which splits it made (`POST /api/organiser/claim`, each proven with its edit token, under a random phone id); `GET /api/splits/{id}/others` returns that organiser's other splits where the same person still owes (only for someone in split `{id}`, matched by id or by the name that split gives them).
 - **Big bills** — `/api/events`: a title, a date and a list of bills you own (checked with their edit tokens); `src/lib/event.ts` merges people across the bills and spreads payments.
 - **Storage** — the phone keeps History, friends, groups, edit tokens and the draft in `localStorage` (backup/restore on the Me page). The server keeps splits, payments, big bills, slip records and model cool-downs in Redis, and pictures in Vercel Blob. A daily Vercel Cron job deletes receipt photos no split uses and old slip pictures.
-- All API routes are validated (zod) and rate limited per IP.
+- All API routes are validated (zod) and rate limited per IP. Uploads must really be JPEG, PNG or WebP (checked by their bytes), and pictures are only ever served from this deployment's own Blob store, as images.
 
 ## Deploying
 
-The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Pushes that only change `README.md` or `docs/` skip the build (`ignoreCommand` in `vercel.json`). Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
+The repo is connected to Vercel: pushing to `main` deploys production (https://billsplitter-th.vercel.app); other branches get preview deployments. Pushes that only change `README.md`, `docs/`, `.github/`, `LICENSE` or `.env.example` since the last deployment skip the build (`ignoreCommand` in `vercel.json` compares with `VERCEL_GIT_PREVIOUS_SHA`, and builds whenever it can't tell). Check a deploy with `node scripts/smoke-prod.mts https://billsplitter-th.vercel.app`.
+
+## License
+
+[MIT](LICENSE). The fonts in `assets/fonts` are under the SIL Open Font License ([`OFL-LICENSE.txt`](assets/fonts/OFL-LICENSE.txt)).
