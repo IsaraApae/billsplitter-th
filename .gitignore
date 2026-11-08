@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (the example with no values is committed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -43,8 +44,6 @@ next-env.d.ts
 # local test photos (may contain personal data)
 /test-receipts/
 /public/_tmp-*
-.vercel
-.env*
 
 # Design review captures
 .impeccable/review/
