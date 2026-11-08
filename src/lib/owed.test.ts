@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { daysBetween, namesIn, owedToYou, paySpeed, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type HistoryLike, type LoadedBill } from "./owed";
+import { boardSpeed, daysBetween, namesIn, owedToYou, paySpeed, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type HistoryLike, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -87,6 +87,15 @@ describe("pay speed (who pays fastest)", () => {
       ["Ploy", 7, 1, 1, 25000, 10], // 4 days, and 10 days and counting
     ]);
   });
+  it("works from the stored bills for the shared list", () => {
+    const created = { createdAt: "2026-10-01T12:00:00Z" };
+    const dinner = { ...bill("b1", "Dinner", [isara, mint, ploy], 90000, { paid: ["mint01"] }, created), paidAt: { mint01: at("2026-10-03T12:00:00Z") } };
+    expect(boardSpeed([dinner], now).map((p) => [p.look.name, p.days, p.unpaid, p.owed])).toEqual([
+      ["Mint", 2, 0, 0],
+      ["Ploy", 19, 1, 30000],
+    ]);
+  });
+
   it("counts whole days", () => {
     expect(daysBetween("2026-10-01T12:00:00Z", now)).toBe(19);
     expect(daysBetween(now, "2026-10-01")).toBe(0);

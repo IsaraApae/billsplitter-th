@@ -617,11 +617,11 @@ const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
 export async function otherSplitsWith(
   id: string,
   person: { id: string; name: string },
-): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[]> {
+): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[]> {
   const owner = await db().get<string>(splitOwnerKey(id));
   if (!owner) return [];
   const ids = (await db().hkeys(organiserKey(owner))).filter((x) => x !== id && isValidId(x)).slice(0, 200);
-  const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] = [];
+  const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[] = [];
   await Promise.all(
     ids.map(async (sid) => {
       const s = await db().get<StoredSplit>(docKey(sid));
@@ -663,7 +663,7 @@ export async function boardFor(owner: string): Promise<string> {
 /** The organiser's splits (with payments) behind a list link, or null if there's no such list. */
 export async function boardBills(
   id: string,
-): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] | null> {
+): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[] | null> {
   const owner = await db().get<string>(boardKey(id));
   return owner ? ownerBills(owner) : null;
 }
@@ -671,16 +671,16 @@ export async function boardBills(
 /** Every split by the organiser of split `id` (just that split if its organiser isn't known), with payments. */
 export async function sameOrganiserBills(
   id: string,
-): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[]> {
+): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[]> {
   const owner = await db().get<string>(splitOwnerKey(id));
   if (owner) return ownerBills(owner);
   const s = await db().get<StoredSplit>(docKey(id));
   return s ? [{ id, doc: s.doc, ...(await getPaidState(id, s.doc)) }] : [];
 }
 
-async function ownerBills(owner: string): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[]> {
+async function ownerBills(owner: string): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[]> {
   const ids = (await db().hkeys(organiserKey(owner))).filter(isValidId).slice(0, 300);
-  const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number> }[] = [];
+  const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[] = [];
   await Promise.all(
     ids.map(async (sid) => {
       const [s, payments] = await Promise.all([db().get<StoredSplit>(docKey(sid)), getPayments(sid)]);
