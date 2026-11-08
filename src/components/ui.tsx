@@ -256,7 +256,8 @@ export function QtyStepper({
       >
         <Minus size={20} {...ICON} />
       </button>
-      <span className="tnum w-7 text-center font-semibold" aria-label={label}>
+      <span className="tnum w-7 text-center font-semibold">
+        <span className="sr-only">{label}: </span>
         {value}
       </span>
       <button type="button" aria-label={`Increase ${label}`} className="icon-plain" onClick={() => onChange(Math.min(999, value + 1))}>

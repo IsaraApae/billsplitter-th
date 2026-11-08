@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { PayQr, type PayQrSource } from "./PayQr";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { Callout, ICON, Money, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 export interface PayBill {
   /** split id */
@@ -85,7 +86,7 @@ export function PayChooser({
                   >
                     {on && <Check size={16} {...ICON} />}
                   </span>
-                  <span className="min-w-0 flex-1 truncate">{b.title}</span>
+                  <span className="min-w-0 flex-1 truncate" {...langOf(b.title)}>{b.title}</span>
                   <Money value={b.left} currency={currency} className={on ? "font-semibold" : "text-ink-2"} />
                 </button>
               </li>

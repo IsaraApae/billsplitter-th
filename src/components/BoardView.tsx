@@ -12,6 +12,7 @@ import { SlipCard } from "./SlipCard";
 import { type SlipResult } from "./SlipUpload";
 import { dayCount } from "@/lib/owed";
 import { Avatar, ICON, Money, Sheet, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 type Look = Pick<Person, "name" | "emoji" | "color">;
 
@@ -92,7 +93,7 @@ export function BoardView({
                   <Link href={`/s/${bill.id}`} className="flex min-h-[60px] items-center gap-3 py-2 pr-3 pl-4">
                     <PaidMark status={bill.part ? "part" : "none"} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{bill.title}</span>
+                      <span className="block truncate font-semibold" {...langOf(bill.title)}>{bill.title}</span>
                       <span className="block truncate text-[13px] text-ink-2">
                         {new Date(bill.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                         {" · "}

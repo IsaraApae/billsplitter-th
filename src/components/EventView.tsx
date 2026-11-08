@@ -18,6 +18,7 @@ import { SlipCard } from "./SlipCard";
 import { slipPersonId, SlipsUploaded, SlipTag, type SlipRow } from "./SlipsUploaded";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { Avatar, Callout, ICON, Money, Section, Sheet, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 const POLL_MS = 10_000;
 
@@ -433,7 +434,7 @@ function PersonRow({
         >
           <Avatar person={p} size={32} />
           <span className="min-w-0 flex-1 overflow-hidden">
-            <span className="line-clamp-2 font-semibold">
+            <span className="line-clamp-2 font-semibold" {...langOf(p.name)}>
               {p.name}
             </span>
             <span
@@ -513,7 +514,7 @@ function PersonRow({
                     {!p.organiser && <PaidMark status={b.status} small />}
                   </span>
                 )}
-                <span className="truncate">{b.title}</span>
+                <span className="truncate" {...langOf(b.title)}>{b.title}</span>
               </span>
               {b.status === "part" ? (
                 <span className="shrink-0 text-right leading-tight whitespace-nowrap">

@@ -16,6 +16,7 @@ import { organiserQr, usePrefetchQr, type PayQrSource } from "./PayQr";
 import { SlipCard } from "./SlipCard";
 import { type SlipResult } from "./SlipUpload";
 import { Avatar, Callout, ICON, Money, Section, Sheet } from "./ui";
+import { langOf } from "@/lib/lang";
 
 /** The QR for paying whoever a line is owed to (the organiser's, or a payer's own PromptPay). */
 function qrFor(l: OweLine): PayQrSource | null {
@@ -241,7 +242,7 @@ export function WhatIOwe() {
                 }}
               >
                 <Avatar person={p} size={36} />
-                <span className="truncate font-semibold">{p.name}</span>
+                <span className="truncate font-semibold" {...langOf(p.name)}>{p.name}</span>
               </button>
             </li>
           ))}
@@ -335,7 +336,7 @@ export function WhatIOwe() {
                 <Link href={l.href} className="flex min-h-[60px] items-center gap-3 py-2 pr-3 pl-4">
                   <PaidMark status={l.part ? "part" : "none"} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{l.title}</span>
+                    <span className="block truncate font-semibold" {...langOf(l.title)}>{l.title}</span>
                     <span className="block truncate text-[13px] text-ink-2">
                       {l.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                       {l.part && <span className="font-semibold text-accent"> · Part paid</span>}

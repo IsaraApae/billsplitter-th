@@ -12,6 +12,7 @@ import { addFriend, findByName, sortFriends, withLastSplit, type Friend, type Fr
 import { PERSON_COLORS, type PersonColor } from "@/lib/types";
 import { EmojiColorPicker } from "./MeSettings";
 import { Avatar, Callout, ICON, Section, Sheet, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 type Editing = { kind: "friend"; friend: Friend | null } | { kind: "group"; group: FriendGroup | null } | null;
 
@@ -124,6 +125,7 @@ export function FriendsManager() {
                   <Link
                     href={`/history?person=${encodeURIComponent(f.id)}`}
                     className="block truncate font-semibold outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+                    {...langOf(f.name)}
                   >
                     {f.name}
                   </Link>
@@ -296,7 +298,7 @@ function GroupForm({
             <li key={f.id}>
               <label className="flex min-h-[56px] cursor-pointer items-center gap-3 pr-4 pl-5 hover:bg-[var(--hover)]">
                 <Avatar person={f} size={34} />
-                <span className="flex-1 truncate font-medium">{f.name}</span>
+                <span className="flex-1 truncate font-medium" {...langOf(f.name)}>{f.name}</span>
                 <input
                   type="checkbox"
                   className="peer sr-only"

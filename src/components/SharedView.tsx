@@ -37,6 +37,7 @@ import { asShare, TransferRow } from "./Transfers";
 import { SlipUpload, type SlipResult } from "./SlipUpload";
 import { ZoomableImage } from "./ZoomableImage";
 import { Callout, ICON, Money, Section, Sheet, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 const POLL_MS = 10_000;
 
@@ -307,7 +308,7 @@ export function SharedView({
       </BillHeader>
 
       <section className="card px-5 py-4">
-        <div aria-label="Payment progress">
+        <div role="group" aria-label="Payment progress">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-2">
             <span className="flex items-center gap-1.5 font-semibold whitespace-nowrap">
               {allPaid && <PartyPopper size={20} {...ICON} className="text-accent" aria-hidden />}
@@ -336,7 +337,7 @@ export function SharedView({
 
       {(qr || pp || doc.payment.note) && (
         <Section title={direct ? `Paying ${doc.people.find((p) => p.id === ME_ID)?.name ?? "the organiser"}` : "How to pay"}>
-          <div className="card rows" aria-label="How to pay">
+          <div className="card rows" role="group" aria-label="How to pay">
             {qr && (
               <div className="flex items-start gap-3 px-5 py-4 text-[15px] text-ink-2">
                 <QrCode size={22} {...ICON} className="mt-px shrink-0 text-accent" aria-hidden />
@@ -641,7 +642,7 @@ export function SharedView({
           <ul className="space-y-1.5 px-5 pb-4 text-[15px]">
             {calc.lines.map((l, i) => (
               <li key={l.itemId} className="flex justify-between gap-3">
-                <span className="min-w-0 truncate">
+                <span className="min-w-0 truncate" {...langOf(l.name)}>
                   {doc.items[i].qty > 1 && <span className="text-ink-2">{doc.items[i].qty}× </span>}
                   {l.name}
                 </span>

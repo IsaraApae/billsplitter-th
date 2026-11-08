@@ -155,6 +155,10 @@ export function SlipUpload<T extends SlipResult>({
 
   return (
     <div className="card space-y-3 p-5">
+      {/* Always there, so screen readers hear each stage once (not every percent). */}
+      <p className="sr-only" aria-live="polite">
+        {progress ? `${progress.of ? `${progress.of}: ` : ""}${STAGE_TEXT[progress.stage]}` : ""}
+      </p>
       {!bare && (
         <>
           <p className="flex items-center gap-2 font-semibold">
@@ -172,7 +176,7 @@ export function SlipUpload<T extends SlipResult>({
         <img src={preview} alt="Your slip" className="mx-auto max-h-56 rounded-[8px] border border-[var(--line)] object-contain" />
       )}
       {progress ? (
-        <div className="space-y-2 py-1" aria-live="polite">
+        <div className="space-y-2 py-1">
           <div className="flex items-baseline justify-between gap-2 text-[15px]">
             <span className="font-semibold">
               {progress.of && <span className="text-ink-2">{progress.of} · </span>}

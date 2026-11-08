@@ -221,7 +221,7 @@ export function ItemsStep({
         <div className="card rows">
           <div className="px-5 py-4">
             <input
-              className="w-full bg-transparent text-center text-[26px] font-semibold tracking-tight text-ink outline-none placeholder:font-normal placeholder:text-ink-3"
+              className="w-full rounded-[var(--r)] bg-transparent text-center text-[26px] font-semibold tracking-tight text-ink outline-none placeholder:font-normal placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               placeholder="Title, e.g. Friday dinner"
               aria-label="Split title"
               maxLength={80}
@@ -236,15 +236,21 @@ export function ItemsStep({
         </div>
       </div>
 
+      {/* Always there, so screen readers hear each stage once, not the seconds ticking by. */}
+      <p className="sr-only" aria-live="polite">
+        {scan.status === "preparing" ? "Preparing photo…" : scan.status === "scanning" ? "Reading receipt…" : ""}
+      </p>
       {busy && (
-        <div className="card flex items-center gap-3 p-5" aria-live="polite">
+        <div className="card flex items-center gap-3 p-5">
           <ScanLine size={22} {...ICON} className="shrink-0 text-accent" aria-hidden />
           <span className="text-[17px]">
             {scan.status === "preparing" && "Preparing photo…"}
             {scan.status === "scanning" && (
               <>
                 Reading receipt…{" "}
-                <span className="tnum text-ink-2">{Math.max(0, Math.round((now - scan.startedAt) / 1000))}s</span>
+                <span className="tnum text-ink-2" aria-hidden>
+                  {Math.max(0, Math.round((now - scan.startedAt) / 1000))}s
+                </span>
               </>
             )}
           </span>

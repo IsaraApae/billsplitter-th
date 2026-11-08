@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { langOf } from "@/lib/lang";
 
 /** Poster-size title, smaller as it gets longer, so a long bill name still fits. */
 function titleSize(title: string) {
@@ -17,7 +18,7 @@ export function BillHeader({ details, title, children }: { details: ReactNode; t
   return (
     <header className="scene scene-bleed">
       <div className="mx-auto min-h-[250px] max-w-2xl px-5 pb-6 md:min-h-[360px]">
-        <h1 className="display scene-title" style={{ "--t": titleSize(title), "--w": longestWord(title) } as CSSProperties}>
+        <h1 className="display scene-title" style={{ "--t": titleSize(title), "--w": longestWord(title) } as CSSProperties} {...langOf(title)}>
           {title.normalize("NFC")}
         </h1>
         {children}

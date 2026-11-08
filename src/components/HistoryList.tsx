@@ -23,6 +23,7 @@ import { formatMoney } from "@/lib/money";
 import { byTitle } from "@/lib/event";
 import { EventEditor } from "./EventEditor";
 import { Avatar, ICON, Money, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 export function HistoryList() {
   const [entries, setEntries] = useState<HistoryEntry[]>(() => byBillDate(getHistory()));
@@ -252,6 +253,7 @@ function EntryRow({
           <Link
             href={`/s/${h.id}`}
             className="truncate font-semibold outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+            {...langOf(h.title)}
           >
             {h.title}
           </Link>
@@ -277,7 +279,7 @@ function EntryRow({
           )}
         </div>
         {h.members && h.members.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="People in this split">
+          <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="People in this split">
             {h.members.map((m) => {
               const on = !!person && samePerson(m, person);
               return (
@@ -294,7 +296,7 @@ function EntryRow({
                   )}
                 >
                   <Avatar person={m} size={24} />
-                  <span className="truncate">{m.name}</span>
+                  <span className="truncate" {...langOf(m.name)}>{m.name}</span>
                   {on &&
                     m.amount !== undefined &&
                     (m.id === ME_ID ? (
@@ -371,7 +373,7 @@ function EventRow({
               className="inline-flex min-w-0 items-center gap-1.5 font-semibold outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
             >
               <Layers size={18} {...ICON} aria-hidden className="shrink-0 text-accent" />
-              <span className="truncate">{event.title}</span>
+              <span className="truncate" {...langOf(event.title)}>{event.title}</span>
             </Link>
             <Money value={total} currency={currency} className="shrink-0 font-semibold" />
           </div>

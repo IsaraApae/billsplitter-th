@@ -102,7 +102,7 @@ export function DateField({ value, onChange, label }: { value: string; onChange:
                 </span>
               ))}
             </div>
-            <div className="grid grid-cols-7 place-items-center gap-y-1" role="grid" aria-label="Days">
+            <div className="grid grid-cols-7 place-items-center gap-y-1" role="group" aria-label="Days">
               {cells.map((day, i) =>
                 day ? (
                   <button

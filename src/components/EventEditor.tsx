@@ -7,6 +7,7 @@ import { toDay } from "@/lib/draft";
 import { combinedTitle } from "@/lib/event";
 import { DateField } from "./DateField";
 import { Callout, ICON, Money, Sheet, cx } from "./ui";
+import { langOf } from "@/lib/lang";
 
 /**
  * Create or edit a big bill: a title, a date and which of your splits it
@@ -113,7 +114,7 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
       <div className="card rows">
         <div className="px-5 py-3">
           <input
-            className="w-full bg-transparent text-[20px] font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-3"
+            className="w-full rounded-[var(--r)] bg-transparent text-[20px] font-semibold text-ink outline-none placeholder:font-normal placeholder:text-ink-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             placeholder={pickedTitle || "Title, e.g. Saturday night out"}
             aria-label="Big bill title"
             maxLength={80}
@@ -146,7 +147,7 @@ function EventForm({ event, onSaved }: { event?: EventEntry; onSaved: (e: EventE
                   )}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold">{h.title}</span>
+                    <span className="block truncate font-semibold" {...langOf(h.title)}>{h.title}</span>
                     <span className="block text-[13px] text-ink-2">
                       {new Date(h.createdAt).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
                       {" · "}

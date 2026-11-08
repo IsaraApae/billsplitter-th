@@ -6,6 +6,7 @@ import { parseTransferKey } from "@/lib/settle";
 import type { Person, SplitDoc } from "@/lib/types";
 import type { SlipInfo } from "./Payments";
 import { Avatar, ICON, Money, Section } from "./ui";
+import { langOf } from "@/lib/lang";
 
 /** " · Slip" after a person's status: they uploaded a slip (organiser only). */
 export function SlipTag() {
@@ -57,7 +58,7 @@ export function SlipsUploaded({ rows: unsorted, currency }: { rows: SlipRow[]; c
             >
               <Avatar person={person} size={40} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">{person.name}</span>
+                <span className="block truncate font-semibold" {...langOf(person.name)}>{person.name}</span>
                 <span className="block text-[15px]">
                   <Money value={s.amount} currency={currency} className="font-semibold" />
                   <span className="text-ink-2">
