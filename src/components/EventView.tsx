@@ -47,6 +47,8 @@ export function EventView({
   // ?v= changes when the big bill does, so chat apps show a fresh preview.
   const url = `${useBrowserValue(() => window.location.origin, "")}/e/${id}?v=${eventVersion(meta, bills.map((b) => b.doc))}`;
   const busyRef = useRef(busy);
+  /** Counts ticks saved here, so a poll that started before one can't put the old state back. */
+  const writes = useRef(0);
   useEffect(() => {
     busyRef.current = busy;
   }, [busy]);
@@ -116,6 +118,7 @@ export function EventView({
 
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible" || busyRef.current) return;
+    const writesBefore = writes.current;
     try {
       const r = await fetch(`/api/events/${id}`, { cache: "no-store" });
       if (r.status === 404) {
@@ -124,7 +127,7 @@ export function EventView({
       }
       if (!r.ok) return;
       const data: { bills: EventBill[] } = await r.json();
-      if (!busyRef.current) setBills(data.bills);
+      if (!busyRef.current && writes.current === writesBefore) setBills(data.bills);
     } catch {
       /* offline: try again next tick */
     }
@@ -132,10 +135,13 @@ export function EventView({
 
   useEffect(() => {
     const t = setInterval(refresh, POLL_MS);
+    const onVis = () => document.visibilityState === "visible" && refresh();
     window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       clearInterval(t);
       window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [refresh]);
 
@@ -143,6 +149,7 @@ export function EventView({
     if (!canEdit) return;
     setError(null);
     setBusy(person.key);
+    writes.current++;
     try {
       const r = await fetch(`/api/events/${id}/paid`, {
         method: "POST",
@@ -165,6 +172,7 @@ export function EventView({
     if (!token) return;
     setError(null);
     setBusy(person.key);
+    writes.current++;
     try {
       const r = await fetch(`/api/splits/${bill.splitId}/paid`, {
         method: "POST",

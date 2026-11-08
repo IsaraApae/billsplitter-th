@@ -40,6 +40,10 @@ import { Callout, ICON, Money, Section, Sheet, cx } from "./ui";
 
 const POLL_MS = 10_000;
 
+const sameIds = (a: Set<string>, b: string[]) => a.size === b.length && b.every((x) => a.has(x));
+const sameAmounts = (a: Record<string, number>, b: Record<string, number>) =>
+  Object.keys(a).length === Object.keys(b).length && Object.entries(b).every(([k, v]) => a[k] === v);
+
 export function SharedView({
   id,
   doc,
@@ -79,6 +83,8 @@ export function SharedView({
   useEffect(() => {
     pendingRef.current = pending;
   }, [pending]);
+  /** Counts ticks saved here, so a poll that started before one can't put the old state back. */
+  const writes = useRef(0);
 
   // Several people paid at the restaurant and friends pay each of them directly.
   const direct = settlesDirectly(doc);
@@ -196,6 +202,7 @@ export function SharedView({
   const slipsSeen = useRef({ payments: "", at: 0 });
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible" || pendingRef.current.size > 0) return;
+    const writesBefore = writes.current;
     try {
       const r = await fetch(`/api/splits/${id}/paid`, { cache: "no-store" });
       if (r.status === 404) {
@@ -204,9 +211,11 @@ export function SharedView({
       }
       if (!r.ok) return;
       const data: { paid: string[]; partial?: Record<string, number>; updatedAt: string } = await r.json();
-      if (pendingRef.current.size > 0) return; // a tick is in flight; don't clobber it
-      setPaid(new Set(data.paid));
-      setPartial(data.partial ?? {});
+      // A tick is in flight, or was saved while this was on its way: its answer is newer.
+      if (pendingRef.current.size > 0 || writes.current !== writesBefore) return;
+      // Only when something changed, so a quiet poll doesn't re-save History every 10 s.
+      setPaid((cur) => (sameIds(cur, data.paid) ? cur : new Set(data.paid)));
+      setPartial((cur) => (sameAmounts(cur, data.partial ?? {}) ? cur : (data.partial ?? {})));
       // A new slip changes the payments; a slip on a bill already ticked shows within a minute.
       const payments = JSON.stringify([data.paid, data.partial]);
       if (payments !== slipsSeen.current.payments || Date.now() - slipsSeen.current.at > 60_000) {
@@ -252,6 +261,7 @@ export function SharedView({
       return n;
     });
     setPending((s) => new Set(s).add(personId));
+    writes.current++;
     try {
       const r = await fetch(`/api/splits/${id}/paid`, {
         method: "POST",
