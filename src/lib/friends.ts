@@ -22,6 +22,16 @@ export interface FriendGroup {
 /** The device owner. Always id "me" inside a split. */
 export const ME_ID = "me";
 
+/**
+ * The letter on someone's avatar. Thai names often start with a vowel written
+ * before the consonant it follows (เบียร์, แบงค์, ไผ่), so those are skipped:
+ * บ, not เ.
+ */
+export function nameInitial(name: string): string {
+  const chars = [...(name.trim() || "?")];
+  return (chars.find((c) => !/[\u0E40-\u0E44]/.test(c)) ?? chars[0]).toUpperCase();
+}
+
 const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
 
 export function findByName(friends: Friend[], name: string): Friend | undefined {

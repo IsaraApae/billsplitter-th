@@ -198,3 +198,11 @@ describe("copying bank details", () => {
     expect(accountNumber("Table 14, 2 people")).toBeNull();
   });
 });
+
+describe("avatar initials", () => {
+  it("skip a Thai vowel written before its consonant", async () => {
+    const { nameInitial } = await import("./friends");
+    expect(["เบียร์", "แบงค์", "ไผ่", "โอ๊ต", "ใหม่"].map(nameInitial)).toEqual(["บ", "บ", "ผ", "อ", "ห"]);
+    expect(["มิ้นท์", "mint", "  ploy", "", "เ"].map(nameInitial)).toEqual(["ม", "M", "P", "?", "เ"]);
+  });
+});

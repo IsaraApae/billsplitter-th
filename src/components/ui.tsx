@@ -3,6 +3,7 @@
 import { AlertTriangle, Check, CheckCircle2, Info, Minus, Plus, X, XCircle } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { COLOR_HEX } from "@/lib/colors";
+import { nameInitial } from "@/lib/friends";
 import { currencyExponent, currencySymbol, parseMoney, toMajorString } from "@/lib/money";
 import type { Person } from "@/lib/types";
 
@@ -61,7 +62,7 @@ export function Avatar({
   className?: string;
 }) {
   const hex = COLOR_HEX[person.color ?? "slate"];
-  const initial = [...(person.name.trim() || "?")][0].toUpperCase();
+  const initial = nameInitial(person.name);
   return (
     <span
       aria-hidden
