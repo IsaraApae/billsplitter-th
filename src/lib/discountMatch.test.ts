@@ -37,6 +37,21 @@ describe("findDiscountedItems", () => {
     expect(findDiscountedItems(twins, 1000, [1000]).matches).toEqual([{ ids: ["a"], rateBp: 1000, alternatives: 1 }]);
   });
 
+  it("keeps your items ticked: a same-priced swap goes your way, your sets come first", () => {
+    const twins = [
+      { id: "a", total: 10000 },
+      { id: "b", total: 10000, mine: true },
+    ];
+    expect(findDiscountedItems(twins, 1000, [1000]).matches).toEqual([{ ids: ["b"], rateBp: 1000, alternatives: 1 }]);
+    const bill = [
+      { id: "beer", total: 30000, name: "Singha" },
+      { id: "coke", total: 10000, name: "Coke" },
+      { id: "pork", total: 25000, name: "หมูสามชั้น", mine: true },
+      { id: "egg", total: 15000, name: "Omelette" },
+    ];
+    expect(findDiscountedItems(bill, 8000, [2000]).matches.map((x) => x.ids)).toEqual([["pork", "egg"], ["beer", "coke"]]);
+  });
+
   it("puts one kind of thing first: the drinks, not a coincidental mix", () => {
     const bill = [
       { id: "beer", total: 30000, name: "Singha" },

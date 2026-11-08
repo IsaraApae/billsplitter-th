@@ -2,7 +2,7 @@
 
 import { Check, ChevronRight, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { applyBp, type CalcResult } from "@/lib/calc";
+import { applyBp, ORGANISER_ID, type CalcResult } from "@/lib/calc";
 import { COMMON_RATES_BP, findDiscountedItems, type DiscountMatch } from "@/lib/discountMatch";
 import { wholeUnitName } from "@/lib/money";
 import type { Discount, SplitDoc } from "@/lib/types";
@@ -233,11 +233,17 @@ function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult
   };
 
   function find() {
-    const lines = doc.items.map((it, i) => ({ id: it.id, total: calc.lines[i].lineTotal, name: it.name }));
+    const lines = doc.items.map((it, i) => ({
+      id: it.id,
+      total: calc.lines[i].lineTotal,
+      name: it.name,
+      mine: it.assigned.includes(ORGANISER_ID),
+    }));
     const r = findDiscountedItems(lines, amount, d.type === "percent" ? [d.value] : COMMON_RATES_BP);
     setResult(r);
-    // Tick it straight away only when nothing else could fit.
-    if (r.matches.length === 1 && r.matches[0].alternatives === 0 && !r.truncated) onPick(r.matches[0].ids);
+    // Tick it straight away only when one set of prices fits (a same-priced
+    // swap goes your way).
+    if (r.matches.length === 1 && !r.truncated) onPick(r.matches[0].ids);
   }
 
   return (
@@ -276,16 +282,17 @@ function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult
           {d.type === "percent" ? ` at ${pct(d.value)}` : " at a common percentage"}. Check the amount, or tick the items yourself.
         </Callout>
       )}
-      {result && result.matches.length === 1 && result.matches[0].alternatives === 0 && !result.truncated && (
+      {result && result.matches.length === 1 && !result.truncated && (
         <Callout tone="success">
           Selected {result.matches[0].ids.map(name).join(", ")}: {pct(result.matches[0].rateBp)} of {result.matches[0].ids.length === 1 ? "it" : "them"} is
           exactly <Money value={amount} currency={currency} />.
+          {result.matches[0].alternatives > 0 && " Other items have the same prices; it picked yours where it could."}
         </Callout>
       )}
-      {result && (result.matches.length > 1 || (result.matches.length === 1 && (result.truncated || result.matches[0].alternatives > 0))) && (
+      {result && (result.matches.length > 1 || (result.matches.length === 1 && result.truncated)) && (
         <div className="space-y-2">
           <p className="px-1 text-[15px] text-ink-2">
-            {result.truncated ? "Several sets of items fit, including these." : "These sets of items all fit."} Most likely first; tap the one on your receipt:
+            {result.truncated ? "Several sets of items fit, including these." : "These sets of items all fit."} Yours and the most likely first; tap the one on your receipt:
           </p>
           <ul className="card rows overflow-hidden">
             {result.matches.map((m) => {

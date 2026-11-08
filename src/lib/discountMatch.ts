@@ -12,6 +12,8 @@ export interface Line {
   /** line total, minor units */
   total: number;
   name?: string;
+  /** the organiser (you) shares this item */
+  mine?: boolean;
 }
 
 export interface DiscountMatch {
@@ -37,9 +39,10 @@ export const isDrink = (name: string) => DRINK.test(name);
 
 /**
  * Sets of items whose total, at one of `ratesBp`, gives exactly `discount`.
- * Sets that only swap same-priced items are folded into one. The most likely
- * come first: one kind of thing (all drinks, or all food), then the whole of a
- * kind, then fewer items. `truncated` means there may be more than were found.
+ * Sets that only swap same-priced items are folded into one, keeping the swap
+ * that covers more of your (the organiser's) items. When it can't be told,
+ * your items get the discount: sets covering more of them come first, then one
+ * kind of thing (all drinks, or all food), the whole of a kind, fewer items. `truncated` means there may be more than were found.
  */
 export function findDiscountedItems(
   lines: Line[],
@@ -78,12 +81,16 @@ export function findDiscountedItems(
 
   // Fold sets that differ only by same-priced items.
   const byId = new Map(lines.map((l) => [l.id, l]));
+  const mine = (ids: string[]) => ids.reduce((s, id) => s + (byId.get(id)!.mine ? byId.get(id)!.total : 0), 0);
   const groups = new Map<string, DiscountMatch>();
   for (const m of raw) {
     const key = `${m.rateBp}:${m.ids.map((id) => byId.get(id)!.total).sort((a, b) => a - b).join(",")}`;
     const g = groups.get(key);
-    if (g) g.alternatives++;
-    else groups.set(key, { ...m, alternatives: 0 });
+    if (!g) groups.set(key, { ...m, alternatives: 0 });
+    else {
+      g.alternatives++;
+      if (mine(m.ids) > mine(g.ids)) g.ids = m.ids;
+    }
   }
 
   const positive = lines.filter((l) => l.total > 0);
@@ -94,7 +101,9 @@ export function findDiscountedItems(
     const wholeKind = oneKind && (n === drinks.size || m.ids.length === positive.length - drinks.size);
     return (oneKind ? 2 : 0) + (wholeKind ? 1 : 0);
   };
-  const matches = [...groups.values()].sort((a, b) => score(b) - score(a) || a.ids.length - b.ids.length);
+  const matches = [...groups.values()].sort(
+    (a, b) => mine(b.ids) - mine(a.ids) || score(b) - score(a) || a.ids.length - b.ids.length,
+  );
   return { matches: matches.slice(0, limit), truncated: truncated || matches.length > limit };
 }
 
