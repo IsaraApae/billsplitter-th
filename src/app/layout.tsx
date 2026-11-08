@@ -44,12 +44,18 @@ const kanit = localFont({
   declarations: [{ prop: "unicode-range", value: "U+0E01-0E5B, U+200C-200D, U+25CC" }],
 });
 
+const description = "Scan a receipt, split it with friends, share one link and track who has paid.";
+// Links to the app itself get the plain Bill Splitter card; bills set their own.
+const preview = { url: "/api/og/home", width: 1200, height: 630, alt: "Bill Splitter" };
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: { default: "Bill Splitter", template: "%s · Bill Splitter" },
-  description: "Scan a receipt, split it with friends, share one link and track who has paid.",
+  description,
   applicationName: "Bill Splitter",
   appleWebApp: { capable: true, title: "Bill Split", statusBarStyle: "default" },
+  openGraph: { type: "website", siteName: "Bill Splitter", title: "Bill Splitter", description, images: [preview] },
+  twitter: { card: "summary_large_image", title: "Bill Splitter", description, images: [preview.url] },
 };
 
 export const viewport: Viewport = {
