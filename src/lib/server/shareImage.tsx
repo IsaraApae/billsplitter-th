@@ -37,6 +37,10 @@ interface Card {
   detail: string;
   /** the receipt's heading (default "TOTAL") */
   label?: string;
+  /** words on the receipt in place of the total */
+  headline?: string;
+  /** a podium of the top five (fastest first) in place of the receipt */
+  podium?: { name: string; color?: PersonColor; time: string }[];
   /** the button (default "See what you owe →") */
   cta?: string;
   /** the line at the bottom left (default "Tap to see what you owe and mark it paid") */
@@ -73,11 +77,13 @@ export async function shareImage(card: Card | null) {
   // An iPhone can type "é" as e + a separate accent: join them, so the font's own É is used.
   const raw = card?.title.normalize("NFC");
   const title = (raw ? (raw.length > 40 ? `${raw.slice(0, 38)}…` : raw) : "Bill Splitter").toUpperCase();
-  // Poster letters are about 1em wide: the longest word has to fit the 568 px column whole.
+  // Poster letters are about 1em wide: the longest word has to fit the column whole
+  // (narrower beside the wide podium paper).
+  const column = card?.podium ? 1200 - 128 - 48 - PODIUM_W : 568;
   const longestWord = Math.max(1, ...(title.match(/[^\s฀-๿]+/g) ?? []).map((w) => [...w].length));
-  const titleSize = Math.min(title.length <= 12 ? 58 : title.length <= 24 ? 46 : 36, Math.floor(568 / (longestWord * 1.1)));
+  const titleSize = Math.min(title.length <= 12 ? 58 : title.length <= 24 ? 46 : 36, Math.floor(column / (longestWord * 1.1)));
   // How many lines the title wraps to, word by word (poster letters are about 1em wide).
-  const titleLines = wrappedLines(title, (n) => n * titleSize * 1.03, 568);
+  const titleLines = wrappedLines(title, (n) => n * titleSize * 1.03, column);
   // Poster digits are wide: the longer the amount, the smaller, so it stays on the receipt.
   const moneySize = whole.length <= 5 ? 56 : whole.length <= 7 ? 44 : 36;
   const cta = (card ? (card.cta ?? "See what you owe →") : "Split a bill →").replace(/\s*→$/, "");
@@ -120,7 +126,9 @@ export async function shareImage(card: Card | null) {
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ fontFamily: DISPLAY, fontSize: titleSize, fontWeight: 900, lineHeight: 1.04 }}>{title}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, marginTop: 12 }}>{card?.kicker ?? "Split the bill with friends"}</div>
+            {(card ? card.kicker : "Split the bill with friends") && (
+              <div style={{ fontSize: 28, fontWeight: 700, marginTop: 12 }}>{card ? card.kicker : "Split the bill with friends"}</div>
+            )}
             {/* A title on three lines would push this line into the chess queen. */}
             {titleLines < 3 && (
               <div style={{ fontSize: 24, fontWeight: 700, marginTop: 14 }}>
@@ -130,6 +138,9 @@ export async function shareImage(card: Card | null) {
           </div>
         </div>
 
+        {card?.podium ? (
+          <Podium places={card.podium} cta={cta} />
+        ) : (
         <div style={{ width: paper, display: "flex", flexDirection: "column", margin: "44px 0 40px" }}>
           <div
             style={{
@@ -147,7 +158,11 @@ export async function shareImage(card: Card | null) {
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: INK_2 }}>{card?.label ?? "TOTAL"}</div>
               {dashes}
-              {card ? (
+              {card?.headline ? (
+                <div style={{ display: "flex", maxWidth: 380, fontSize: card.headline.length > 14 ? 40 : 52, fontWeight: 700, lineHeight: 1.1, textAlign: "center", color: ACCENT }}>
+                  {card.headline}
+                </div>
+              ) : card ? (
                 <div style={{ display: "flex", alignItems: "baseline", fontFamily: DISPLAY, fontWeight: 900, color: ACCENT }}>
                   {baht && <BahtSign size={moneySize * 0.62} color={ACCENT} />}
                   <div style={{ fontSize: moneySize, lineHeight: 1 }}>{whole}</div>
@@ -195,6 +210,7 @@ export async function shareImage(card: Card | null) {
             ))}
           </div>
         </div>
+        )}
       </div>
     ),
     {
@@ -294,6 +310,126 @@ function BahtSign({ size, color }: { size: number; color: string }) {
           background: color,
         }}
       />
+    </div>
+  );
+}
+
+/** Step heights by place, and the order they stand in: 4th, 2nd, 1st, 3rd, 5th. */
+const STEP = [156, 120, 94, 70, 50];
+const STAND = [3, 1, 0, 2, 4];
+const STEP_W = 100;
+/** The podium's paper: wider than a receipt, so five steps have room. */
+const PODIUM_W = 576;
+
+/**
+ * The top five on a podium, on the same paper as a bill's receipt: each friend's initial,
+ * name and average time stand on their step, #1 crowned on the green one. A place nobody
+ * has reached yet is an empty step.
+ */
+function Podium({ places, cta }: { places: { name: string; color?: PersonColor; time: string }[]; cta: string }) {
+  const width = PODIUM_W;
+  const bump = 24;
+  const short = (n: string) => ([...n].length > 10 ? `${[...n].slice(0, 9).join("")}…` : n);
+  return (
+    <div style={{ width, display: "flex", flexDirection: "column", margin: "44px 0 40px" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "34px 20px 28px",
+          borderRadius: "12px 12px 0 0",
+          background: "#ffffff",
+          boxShadow: "0 24px 50px -16px rgba(3,20,30,0.55)",
+        }}
+      >
+        <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: INK_2 }}>TOP 5</div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+          {STAND.map((i) => {
+            const p = places[i];
+            const first = i === 0;
+            return (
+              <div key={i} style={{ width: STEP_W, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                {p && first && (
+                  <svg width="44" height="32" viewBox="0 0 54 40" style={{ marginBottom: 4 }}>
+                    <path d="M3 36 L7 8 L19 22 L27 2 L35 22 L47 8 L51 36 Z" fill="#F5C518" stroke="#B8860B" strokeWidth="3" strokeLinejoin="round" />
+                  </svg>
+                )}
+                {p && (
+                  <div
+                    style={{
+                      width: first ? 72 : 58,
+                      height: first ? 72 : 58,
+                      borderRadius: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: COLOR_HEX[p.color ?? "slate"],
+                      color: INK,
+                      fontSize: first ? 34 : 27,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {nameInitial(p.name)}
+                  </div>
+                )}
+                {p && <div style={{ marginTop: 8, fontSize: first ? 24 : 20, fontWeight: 700, color: INK }}>{short(p.name)}</div>}
+                {p && (
+                  <div style={{ marginBottom: 8, fontSize: p.time.length > 10 ? 15 : 17, fontWeight: 700, whiteSpace: "nowrap", color: first ? ACCENT : INK_2 }}>
+                    {p.time}
+                  </div>
+                )}
+                <div
+                  style={{
+                    width: STEP_W,
+                    height: STEP[i],
+                    display: "flex",
+                    justifyContent: "center",
+                    paddingTop: 8,
+                    borderRadius: "10px 10px 0 0",
+                    background: first ? GREEN : p ? "#E3F4EA" : "#F2F2F7",
+                    color: first ? ON_GREEN : p ? ACCENT : "#C7C7CC",
+                    fontFamily: DISPLAY,
+                    fontSize: first ? 46 : 34,
+                    fontWeight: 900,
+                  }}
+                >
+                  {String(i + 1)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            alignSelf: "stretch",
+            height: 64,
+            marginTop: 22,
+            borderRadius: 12,
+            background: GREEN,
+            color: ON_GREEN,
+            fontSize: 27,
+            fontWeight: 700,
+            gap: 12,
+          }}
+        >
+          {cta}
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={ON_GREEN} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
+        </div>
+      </div>
+      {/* Scalloped bottom edge, like the receipt. */}
+      <div style={{ display: "flex", marginTop: -bump / 2, height: bump }}>
+        {Array.from({ length: width / bump }, (_, i) => (
+          <div key={i} style={{ width: bump, height: bump, borderRadius: bump, background: "#ffffff" }} />
+        ))}
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getHistory, getSeen, HISTORY_EVENT } from "@/lib/client/storage";
 import { owedToYou } from "@/lib/owed";
+import { FastestLink } from "./FastestLink";
 import { ICON, Money } from "./ui";
 
 function owedSummary() {
@@ -13,7 +14,7 @@ function owedSummary() {
   return { thb, people: new Set(friends.map((f) => f.key)).size };
 }
 
-/** At the top of History: "Owed to you" (when friends owe you) and "What I owe" (always, so friends can find it). */
+/** At the top of History: "Owed to you" (when friends owe you), "What I owe" (always, so friends can find it) and "Who pays fastest". */
 export function OwedLinks() {
   const [owed, setOwed] = useState(owedSummary);
   // History refreshes its payments when it opens: follow along.
@@ -23,6 +24,7 @@ export function OwedLinks() {
     return () => window.removeEventListener(HISTORY_EVENT, update);
   }, []);
   const [seen] = useState(() => getSeen().length);
+  const [made] = useState(() => getHistory().length > 0);
   return (
     <ul className="card rows overflow-hidden">
       {owed.people > 0 && (
@@ -54,6 +56,11 @@ export function OwedLinks() {
           <ChevronRight size={20} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
         </Link>
       </li>
+      {made && (
+        <li>
+          <FastestLink />
+        </li>
+      )}
     </ul>
   );
 }

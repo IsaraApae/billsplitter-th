@@ -72,12 +72,3 @@ export function paidToMe(paidAt: Record<string, number> = {}, paidIds: string[] 
   for (const id of paidIds) if (!parseTransferKey(id)) out[id] ??= 0;
   return out;
 }
-
-/**
- * Someone's tick has no payment time in History yet. Ticking on the bill page records
- * the tick but not its time, and without the time "Who pays fastest" on "Owed to you"
- * would leave that bill out while the shared list (from the server) counts it.
- */
-export function needsPayTimes(h: Pick<HistoryEntry, "paidIds" | "paidAt">): boolean {
-  return !!h.paidIds?.some((id) => !parseTransferKey(id) && h.paidAt?.[id] === undefined);
-}

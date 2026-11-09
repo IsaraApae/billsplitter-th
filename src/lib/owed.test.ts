@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { boardSpeed, daysBetween, namesIn, owedToYou, paySpeed, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type HistoryLike, type LoadedBill } from "./owed";
+import { daysBetween, duration, namesIn, owedToYou, payFrom, payTimes, withoutHidden, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -68,36 +68,70 @@ describe("owed to you", () => {
   });
 });
 
-describe("pay speed (who pays fastest)", () => {
-  const now = Date.parse("2026-10-20T12:00:00Z");
-  const at = (d: string) => Date.parse(d);
-  const m = (id: string, name: string, amount = 10000) => ({ id, name, amount });
-  const bills: HistoryLike[] = [
-    { id: "a", title: "Dinner", createdAt: "2026-10-01T12:00:00Z", currency: "THB",
-      members: [m("me", "Isara"), m("mint01", "Mint"), m("ploy01", "Ploy"), m("bank1", "Bank")],
-      paidIds: ["mint01", "ploy01", "bank1"],
-      paidAt: { mint01: at("2026-10-01T20:00:00Z"), ploy01: at("2026-10-05T12:00:00Z") } }, // Bank's tick is too old to have a time
-    { id: "b", title: "Karaoke", createdAt: "2026-10-10T12:00:00Z", currency: "THB",
-      members: [m("me", "Isara"), m("x9", "mint"), m("ploy01", "Ploy", 30000)],
-      paidIds: ["x9"], paidAt: { x9: at("2026-10-12T12:00:00Z") }, partialPaid: { ploy01: 5000 } },
-  ];
-  it("ranks by average days to pay, an unpaid bill counting the days so far", () => {
-    expect(paySpeed(bills, now).map((p) => [p.look.name, p.days, p.paid, p.unpaid, p.owed, p.waiting])).toEqual([
-      ["Mint", 1, 2, 0, 0, 0], // same day and 2 days
-      ["Ploy", 7, 1, 1, 25000, 10], // 4 days, and 10 days and counting
-    ]);
+describe("who pays fastest", () => {
+  const now = Date.parse("2026-10-20T12:00:00+07:00");
+  const at = (d: string) => Date.parse(`${d}+07:00`);
+  // Made at 8 pm on its own day: friends can pay from then.
+  const made = (id: string, title: string, day: string, people: SplitDoc["people"], price: number, extra: Partial<LoadedBill> = {}, paidAt: Record<string, number> = {}) => ({
+    ...bill(id, title, people, price, extra, { createdAt: new Date(at(`${day}T20:00:00`)).toISOString(), date: day }),
+    paidAt,
   });
-  it("works from the stored bills for the shared list", () => {
-    const created = { createdAt: "2026-10-01T12:00:00Z" };
-    const dinner = { ...bill("b1", "Dinner", [isara, mint, ploy], 90000, { paid: ["mint01"] }, created), paidAt: { mint01: at("2026-10-03T12:00:00Z") } };
-    expect(boardSpeed([dinner], now).map((p) => [p.look.name, p.days, p.unpaid, p.owed])).toEqual([
-      ["Mint", 2, 0, 0],
-      ["Ploy", 19, 1, 30000],
+  const dinner = made("a", "Dinner", "2026-10-01", [isara, mint, ploy, { id: "bank1", name: "Bank" }], 120000,
+    { paid: ["mint01", "ploy01", "bank1"] },
+    { mint01: at("2026-10-01T23:30:00"), ploy01: at("2026-10-05T20:00:00") }); // Bank's tick is too old to have a time
+  const karaoke = made("b", "Karaoke", "2026-10-10", [isara, { id: "x9", name: "mint " }, ploy], 60000,
+    { paid: ["x9"], partial: { ploy01: 5000 } },
+    { x9: at("2026-10-12T02:00:00") });
+
+  it("ranks by the average time to pay, from when the bill was made, an unpaid bill counting the time so far", () => {
+    const t = payTimes([dinner, karaoke], now);
+    expect(t.map((p) => [p.look.name, duration(p.avgMs), p.paid, p.unpaid, p.owed])).toEqual([
+      ["Mint", "16 hr", 2, 0, 0], // 3 hr 30 min and 1 day 6 hr: 16.75 hr
+      ["Ploy", "6 days 20 hr", 1, 1, 15000], // 4 days, and 9 days 16 hr and counting
+    ]);
+    const mint = t[0];
+    expect([duration(mint.fastestMs!), duration(mint.slowestMs!)]).toEqual(["3 hr 30 min", "1 day 6 hr"]);
+    expect(mint.bills.map((b) => [b.title, duration(b.ms), !!b.paidAt])).toEqual([
+      ["Karaoke", "1 day 6 hr", true],
+      ["Dinner", "3 hr 30 min", true],
+    ]);
+    expect(duration(t[1].waitingMs)).toBe("9 days 16 hr");
+  });
+
+  it("gives the same ranking whatever order the bills come in, ties A–Z", () => {
+    const a = made("a", "A", "2026-10-01", [isara, ploy], 20000, { paid: ["ploy01"] }, { ploy01: at("2026-10-02T20:00:00") });
+    const b = made("b", "B", "2026-10-05", [isara, mint], 20000, { paid: ["mint01"] }, { mint01: at("2026-10-06T20:00:00") });
+    expect(payTimes([a, b], now).map((p) => p.look.name)).toEqual(["Mint", "Ploy"]);
+    expect(payTimes([b, a], now).map((p) => p.look.name)).toEqual(["Mint", "Ploy"]);
+    expect(payTimes([karaoke, dinner], now)).toEqual(payTimes([dinner, karaoke], now));
+  });
+
+  it("starts the clock when the bill was made, or at its day if that's later", () => {
+    expect(payFrom({ date: "2026-10-01", createdAt: "2026-10-03T05:00:00Z" })).toBe(Date.parse("2026-10-03T05:00:00Z"));
+    expect(payFrom({ date: "2026-10-05", createdAt: "2026-10-03T05:00:00Z" })).toBe(Date.parse("2026-10-05T00:00:00+07:00"));
+  });
+
+  it("leaves out the people the organiser hid, by key or by name", () => {
+    const t = payTimes([dinner, karaoke], now);
+    expect(withoutHidden(t, [{ key: "ploy01", name: "Ploy" }]).map((p) => p.look.name)).toEqual(["Mint"]);
+    expect(withoutHidden(t, [{ key: "gone", name: " mint" }]).map((p) => p.look.name)).toEqual(["Ploy"]);
+    expect(withoutHidden(t, [])).toBe(t);
+  });
+
+  it("writes durations people can read", () => {
+    expect([0, 30_000, 35 * 60_000, 5 * 3_600_000 + 20 * 60_000, 7 * 3_600_000 + 5 * 60_000, 86_400_000, 2 * 86_400_000 + 4 * 3_600_000].map(duration)).toEqual([
+      "under a minute",
+      "under a minute",
+      "35 min",
+      "5 hr 20 min",
+      "7 hr",
+      "1 day",
+      "2 days 4 hr",
     ]);
   });
 
   it("counts whole days", () => {
-    expect(daysBetween("2026-10-01T12:00:00Z", now)).toBe(19);
+    expect(daysBetween("2026-10-01T12:00:00Z", Date.parse("2026-10-20T12:00:00Z"))).toBe(19);
     expect(daysBetween(now, "2026-10-01")).toBe(0);
   });
 });

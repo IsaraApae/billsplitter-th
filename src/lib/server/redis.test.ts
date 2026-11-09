@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
 
 // No Redis settings in tests, so this runs on the in-memory store.
-const { addCheckedPayment, addSlip, claimSplits, createSplit, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
+const { addCheckedPayment, addSlip, boardFor, boardHidden, claimSplits, createSplit, ownsBoard, setBoardHidden, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
 
 const doc = (extra: Partial<SplitDoc> = {}): SplitDoc => ({
   ...newDoc(),
@@ -82,5 +82,19 @@ describe("photos shared by two splits", () => {
     expect(await photoInUse(photo)).toBe(true);
     await updateSplit(first.id, first.token, doc());
     expect(await photoInUse(photo)).toBe(false);
+  });
+});
+
+describe("hiding people from who pays fastest", () => {
+  it("only the phone the list belongs to owns it, and what it hides is kept", async () => {
+    const owner = "phone-owner-key-0001";
+    const id = await boardFor(owner);
+    expect(await ownsBoard(id, owner)).toBe(true);
+    expect(await ownsBoard(id, "someone-else-key-01")).toBe(false);
+    expect(await ownsBoard("AAAAAAAAAAAAAAAA", owner)).toBe(false);
+    await setBoardHidden(id, [{ key: "boss01", name: "บอส" }]);
+    expect(await boardHidden(id)).toEqual([{ key: "boss01", name: "บอส" }]);
+    await setBoardHidden(id, []);
+    expect(await boardHidden(id)).toEqual([]);
   });
 });

@@ -51,20 +51,24 @@ The link preview friends see in chat:
 **History and the phone**
 - **History**, newest bill date first, with big bills holding their bills; tap a person to see their splits and what they owe you (or you owe them). Tap yourself to see what you spent.
 - **Owed to you:** every friend who still owes you, with their total, their unpaid bills and how long they've waited ("for 16 days", amber after a week). Tick a bill paid (in full or part) right there, or **Mark all paid** for a friend.
-- **Who pays fastest:** friends ranked by the average days from the split to their payment; a bill they haven't paid counts the days so far, so not paying moves them down. Friends with the same average go A–Z, and the shared list below ranks everyone the same way.
+- **Who pays fastest:** its own page (History → Who pays fastest, or from "Owed to you" and the shared list), with the top five on a podium, on the page and on its link preview. Friends are ranked by how long they take to pay, in days, hours and minutes from when the bill was made; a bill they haven't paid counts the time so far, so not paying moves them down. Tap a friend for their average, fastest and slowest payment and every bill: when it was paid and how long it took, or how long it has waited. Ties go A–Z, and it's the same page for you and for anyone with the list. **Hide people** (only on your phone) leaves chosen friends out of the ranking, the podium and the preview, for everyone.
 - **What I owe:** on a friend's phone, everything they still owe, grouped by who they pay (to the organiser, or to each payer): the bills they've opened, plus the same organisers' other bills they still owe on, also ones whose link they never got. **Pay** lets them tick which bills to pay (or all), with one QR for that total, and one slip pays the ticked bills, oldest first ("Already paid?" at the top uploads a slip straight away). They pick their name once from everyone who still owes in those friends' bills; picking themselves to pay or upload a slip also tells the app.
-- **Who still owes (shareable list):** one link (`/o/…`, with its own preview card) showing everyone who still owes you, A–Z, with all their unpaid bills, how long each has gone unpaid ("Unpaid for 16 days", "9 days ago") and **Who pays fastest**; each person can **Pay** (one QR for their total) or upload a slip there. Copy or share it from "Owed to you".
+- **Who still owes (shareable list):** one link (`/o/…`, with its own preview card) showing everyone who still owes you, A–Z, with all their unpaid bills, how long each has gone unpaid ("Unpaid for 16 days", "9 days ago") and a link to **Who pays fastest**; each person can **Pay** (one QR for their total) or upload a slip there. Copy or share it from "Owed to you".
 - **Friends** page: tap a friend to see their splits. Renaming a friend (or yourself) updates every bill you've shared, old ones too (friends typed into older bills are found by name).
 - **Backup and restore** (Me page) to move splits, friends and edit rights to a new phone.
 - **Screen readers:** Thai names, titles and items are read with a Thai voice, progress is announced once per step, and Delete or Discard questions start on Cancel.
 
 <p>
-  <img src="docs/screenshots/history.jpg" alt="History, light and dark" width="380">
+  <img src="docs/screenshots/history.jpg" alt="History, with Owed to you, What I owe and Who pays fastest at the top, light and dark" width="380">
   <img src="docs/screenshots/owed.jpg" alt="Owed to you, with a link to share the list, light and dark" width="380">
-  <img src="docs/screenshots/pays-fastest.jpg" alt="How long each friend hasn't paid, and who pays fastest, light and dark" width="380">
+  <img src="docs/screenshots/pays-fastest.jpg" alt="Who pays fastest: the top five on a podium, Hide people, and each friend's bills with how long they took to pay, light and dark" width="380">
   <img src="docs/screenshots/owe.jpg" alt="What I owe on a friend's phone, light and dark" width="380">
   <img src="docs/screenshots/list.jpg" alt="The shareable who still owes list, with how long each person hasn't paid, light and dark" width="380">
 </p>
+
+The Who pays fastest link preview, with the top five on a podium:
+
+<img src="docs/screenshots/fastest-preview.jpg" alt="Who pays fastest link preview: the top five on a podium" width="600">
 
 ## Tech
 
@@ -112,7 +116,7 @@ All of them are listed in [`.env.example`](.env.example).
 - **Maths** — `src/lib/calc.ts`, pure and integer-only (satang). Items → discount → service charge on the discounted subtotal → VAT on (subtotal + service). Shares use largest-remainder allocation, so everyone's amounts always add up exactly (in new splits the leftover units go to the friends, never the organiser); uneven shares are weights on the same allocation. Rounding, paid-upfront and the organiser's share are applied on top, never letting the organiser lose money.
 - **Scanning** — the phone fixes the photo's rotation and sends a ~2048 px JPEG to `POST /api/scan`. `src/lib/server/gemini.ts` races a chain of Gemini models (best first: 3.8 Flash, 3.7 Flash, 3.6 Flash, 3.5 Flash, 3.5 Flash-Lite, 3.1 Flash-Lite): the best one and Flash-Lite start together, others join when one fails or is slow. Flash-Lite's answer is only taken straight away if its numbers add up. A garbled answer or a refused photo counts as that model failing; if a model finds no items, a second one is asked, and two agreeing settles it. Busy, out-of-quota or timed-out models cool down (shared via Redis). Strict JSON schema, temperature 0, lowest thinking level. Results go through `src/lib/scanFilter.ts` and `applyScan`. See [`docs/scan-reliability.md`](docs/scan-reliability.md).
 - **Discount items** — `src/lib/discountMatch.ts`: a percentage leaves a fingerprint (10% of ฿599 is exactly ฿59.90), so it searches for the sets of items whose total gives exactly the printed discount, folds sets that only swap same-priced items, and ranks one kind of thing (all drinks or all food) and the organiser's items first.
-- **Pay speed** — each paid tick stores its time in Redis; History keeps it ("Owed to you" looks up any tick it has no time for), and `paySpeed` in `src/lib/owed.ts` averages the days from each split to each friend's payment, reading bills oldest first so "Owed to you" and the shared list rank alike (`src/lib/paySpeedAgree.test.ts`).
+- **Pay speed** — each paid tick stores its time in Redis, and `payTimes` in `src/lib/owed.ts` measures each bill from `payFrom` (when it was made, or its day in Thailand if later) to the tick, on the server from the organiser's bills (`/o/{id}/fastest`, preview `/api/og/f/{id}`); `/fastest` opens this phone's list there.
 - **Sharing** — `POST /api/splits` → `{ id, token }`; only a SHA-256 of the edit token is stored. Splits live 90 days after the last activity. `/api/splits/{id}/paid` records payments (full, part or none; organiser only). Shared links carry `?v=` so chat apps refresh their preview after an edit; preview images come from `/api/og/s|e/{id}`.
 - **Slips** — `POST /api/splits/{id}/slip` (and `/api/events/{id}/slip`): read with Gemini, checked by `src/lib/slip.ts`, each slip reference can be used once.
 - **What I owe** — the organiser's phone tells the server which splits it made (`POST /api/organiser/claim`, each proven with its edit token, under a random phone id); `GET /api/splits/{id}/others` returns that organiser's other splits where the same person still owes (only for someone in split `{id}`, matched by id or by the name that split gives them).
