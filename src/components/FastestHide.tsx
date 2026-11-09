@@ -12,7 +12,7 @@ import { Avatar, Callout, ICON, Sheet, cx } from "./ui";
 type Person5 = Pick<Person, "name" | "emoji" | "color"> & { key: string };
 type Hidden = { key: string; name: string };
 /** `from`: when it counts from on its own (ms); `start`: the organiser's own start, if set. */
-type Bill = { id: string; title: string; day: string; from: number; start: string | null };
+type Bill = { id: string; title: string; day: string; from: number; start: string | null; shared: boolean };
 
 /** A moment as the value of a datetime-local field, in Thailand time ("2026-10-29T11:34"). */
 const toField = (ms: number) => new Date(ms + 7 * 3_600_000).toISOString().slice(0, 16);
@@ -34,6 +34,8 @@ export function FastestHide({ id }: { id: string }) {
   const [bills, setBills] = useState<Bill[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [starts, setStarts] = useState<Record<string, string>>({});
+  const [reading, setReading] = useState(false);
+  const [readNote, setReadNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +80,32 @@ export function FastestHide({ id }: { id: string }) {
       else next[b.id] = new Date(t).toISOString();
       return next;
     });
+
+  /** Older bills (no share time kept): fill "Counts from" with the time printed on their receipt photo. */
+  async function useReceiptTimes() {
+    setReading(true);
+    setReadNote(null);
+    try {
+      const r = await fetch(`/api/boards/${id}/receipt-times`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner: getDeviceKey() }),
+      });
+      if (!r.ok) throw new Error();
+      const d = (await r.json()) as { times: Record<string, string>; unread: string[] };
+      setStarts((all) => ({ ...all, ...d.times }));
+      const n = Object.keys(d.times).length;
+      const left = d.unread.map((x) => bills.find((b) => b.id === x)?.title).filter(Boolean);
+      setReadNote(
+        `${n === 0 ? "No times found" : `Filled ${n} ${n === 1 ? "bill" : "bills"} from the receipt`}. Check them, then save.` +
+          (left.length ? ` No receipt time for ${left.join(", ")}: set ${left.length === 1 ? "it" : "them"} by hand.` : ""),
+      );
+    } catch {
+      setReadNote(navigator.onLine ? "Couldn't read the receipts. Try again." : "You're offline. Try again when connected.");
+    } finally {
+      setReading(false);
+    }
+  }
 
   async function save() {
     setBusy(true);
@@ -151,6 +179,18 @@ export function FastestHide({ id }: { id: string }) {
         {people && bills.length > 0 && (
           <>
             <h3 className="section-label mt-5 mb-2 px-1">Bills</h3>
+            {bills.some((b) => !b.shared) && (
+              <div className="mb-3 space-y-2 px-1">
+                <button type="button" className="btn-secondary min-h-11 w-full" disabled={reading} onClick={useReceiptTimes}>
+                  {reading ? "Reading receipts…" : "Use receipt times for older bills"}
+                </button>
+                {readNote && (
+                  <p className="text-[13px] text-ink-2" role="status">
+                    {readNote}
+                  </p>
+                )}
+              </div>
+            )}
             <ul className="card rows overflow-hidden" aria-label="Bills">
               {bills.map((b) => {
                 const off = skipped.includes(b.id);
@@ -199,8 +239,8 @@ export function FastestHide({ id }: { id: string }) {
               })}
             </ul>
             <p className="mt-2 px-1 text-[13px] text-ink-2">
-              Counts from: when the bill was shared, in Thailand time. Bills shared before 10 Nov 2026 never had that saved, so set the
-              real time if you know it (say, from a slip).
+              Counts from: when the bill was shared, in Thailand time. Bills shared before 10 Nov 2026 never had that saved: use the time on
+              their receipt, or set the real time if you know it (say, from a slip).
             </p>
           </>
         )}

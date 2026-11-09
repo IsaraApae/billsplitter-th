@@ -41,7 +41,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/boards/[id]/hid
     // Newest first, as in History.
     const list = bills
       // `from`: when it counts from without a start of the organiser's own; `start`: theirs, if set.
-      .map((b) => ({ id: b.id, title: b.doc.title, day: billDay(b.doc), from: payFrom(b.doc, b.sharedAt), start: starts[b.id] ?? null }))
+      .map((b) => ({ id: b.id, title: b.doc.title, day: billDay(b.doc), from: payFrom(b.doc, b.sharedAt), start: starts[b.id] ?? null, shared: !!b.sharedAt }))
       .sort((a, b) => b.day.localeCompare(a.day) || a.title.localeCompare(b.title));
     return Response.json({ people, hidden, bills: list, skipped }, { headers: { "Cache-Control": "no-store" } });
   });
