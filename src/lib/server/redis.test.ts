@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { newDoc } from "../draft";
 import type { SplitDoc } from "../types";
 
@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
 
 // No Redis settings in tests, so this runs on the in-memory store.
-const { addCheckedPayment, addSlip, boardFor, boardHidden, claimSplits, createSplit, ownsBoard, setBoardHidden, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
+const { addCheckedPayment, addSlip, boardFor, boardHidden, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setEventPayment, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
 
 const doc = (extra: Partial<SplitDoc> = {}): SplitDoc => ({
   ...newDoc(),
@@ -96,5 +96,46 @@ describe("hiding people from who pays fastest", () => {
     expect(await boardHidden(id)).toEqual([{ key: "boss01", name: "บอส" }]);
     await setBoardHidden(id, []);
     expect(await boardHidden(id)).toEqual([]);
+  });
+});
+
+describe("paid times keep the first tick", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const at = (t: number) => vi.spyOn(Date, "now").mockReturnValue(t);
+  const T1 = Date.parse("2026-11-01T10:00:00Z");
+  const T2 = Date.parse("2026-11-05T10:00:00Z");
+  const T3 = Date.parse("2026-11-07T10:00:00Z");
+
+  it("ticking someone paid again doesn't move their time later", async () => {
+    const { id, token } = await createSplit(doc());
+    at(T1);
+    await setPayment(id, "mint", { kind: "full" }, token);
+    at(T2);
+    await setPayment(id, "mint", { kind: "full" }, token);
+    expect((await getPayments(id)).paidAt).toEqual({ mint: T1 });
+  });
+
+  it("unticked and ticked again, the new tick's time counts", async () => {
+    const { id, token } = await createSplit(doc());
+    at(T1);
+    await setPayment(id, "mint", { kind: "full" }, token);
+    await setPayment(id, "mint", { kind: "none" }, token);
+    at(T2);
+    await setPayment(id, "mint", { kind: "full" }, token);
+    expect((await getPayments(id)).paidAt).toEqual({ mint: T2 });
+  });
+
+  it("a big bill's later payment keeps the time of the bill it already paid", async () => {
+    const a = await createSplit(doc({ title: "Food" }));
+    const b = await createSplit(doc({ title: "Karaoke" }));
+    const ev = await createEvent({ title: "Night out", date: "2026-11-01" }, [a, b]);
+    if (ev === "forbidden" || ev === "mixed_currency") throw new Error(ev);
+    at(T1);
+    // Mint's share is 500.00 on each bill: 500.00 pays the first in full.
+    await setEventPayment(ev.id, ev.token, "mint", { kind: "part", amount: 50000 });
+    at(T3);
+    await setEventPayment(ev.id, ev.token, "mint", { kind: "full" });
+    const [pa, pb] = await Promise.all([getPayments(a.id), getPayments(b.id)]);
+    expect([pa.paidAt?.mint, pb.paidAt?.mint]).toEqual([T1, T3]);
   });
 });
