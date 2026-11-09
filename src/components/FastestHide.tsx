@@ -140,10 +140,6 @@ export function FastestHide({ id }: { id: string }) {
         confirmLabel={busy ? "Saving…" : "Save"}
         confirmDisabled={busy || people === null}
       >
-        <p className="mb-3 px-1 text-[15px] text-ink-2">
-          Tick friends to hide them, or bills to stop counting them (say, one you ticked long after it was paid), or set when a bill really started. It changes the ranking, the podium and
-          its link preview, for everyone who opens it.
-        </p>
         {people && people.length > 0 && <h3 className="section-label mb-2 px-1">Friends</h3>}
         {error && <Callout tone="error">{error}</Callout>}
         {people === null && !error && <p className="px-1 text-ink-2">Loading…</p>}
@@ -238,10 +234,6 @@ export function FastestHide({ id }: { id: string }) {
                 );
               })}
             </ul>
-            <p className="mt-2 px-1 text-[13px] text-ink-2">
-              Counts from: when the bill was shared, in Thailand time. Bills shared before 10 Nov 2026 never had that saved: use the time on
-              their receipt, or set the real time if you know it (say, from a slip).
-            </p>
           </>
         )}
       </Sheet>

@@ -89,11 +89,6 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
           ))}
         </ol>
       )}
-
-      <p className="px-5 text-[13px] text-ink-2">
-        Time from when a bill was shared to the tick (for bills shared before 10 Nov 2026, from when it was started, or the start of its date if later). A bill not paid yet counts the time so far, so it moves them down.
-        Times are in Thailand time.
-      </p>
     </main>
   );
 }
