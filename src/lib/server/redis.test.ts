@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
 
 // No Redis settings in tests, so this runs on the in-memory store.
-const { addCheckedPayment, addSlip, boardFor, boardHidden, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setEventPayment, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
+const { addCheckedPayment, addSlip, boardFor, boardHidden, boardSkipped, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setEventPayment, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
 
 const doc = (extra: Partial<SplitDoc> = {}): SplitDoc => ({
   ...newDoc(),
@@ -96,6 +96,10 @@ describe("hiding people from who pays fastest", () => {
     expect(await boardHidden(id)).toEqual([{ key: "boss01", name: "บอส" }]);
     await setBoardHidden(id, []);
     expect(await boardHidden(id)).toEqual([]);
+    await setBoardSkipped(id, ["AbCdEfGhIjKlMnOp"]);
+    expect(await boardSkipped(id)).toEqual(["AbCdEfGhIjKlMnOp"]);
+    await setBoardSkipped(id, []);
+    expect(await boardSkipped(id)).toEqual([]);
   });
 });
 
