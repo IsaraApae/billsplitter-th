@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
 
 // No Redis settings in tests, so this runs on the in-memory store.
-const { addCheckedPayment, addSlip, boardFor, boardHidden, boardSkipped, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setEventPayment, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
+const { addCheckedPayment, addSlip, boardBills, boardFor, boardHidden, boardSkipped, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setEventPayment, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
 
 const doc = (extra: Partial<SplitDoc> = {}): SplitDoc => ({
   ...newDoc(),
@@ -141,5 +141,22 @@ describe("paid times keep the first tick", () => {
     await setEventPayment(ev.id, ev.token, "mint", { kind: "full" });
     const [pa, pb] = await Promise.all([getPayments(a.id), getPayments(b.id)]);
     expect([pa.paidAt?.mint, pb.paidAt?.mint]).toEqual([T1, T3]);
+  });
+});
+
+describe("when a bill was shared", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("is kept when the bill is made, carried to the organiser's bills, and kept through edits", async () => {
+    const shared = Date.parse("2026-10-29T04:34:00Z");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(shared);
+    const { id, token } = await createSplit(doc({ date: "2026-10-29", createdAt: "2026-10-27T14:48:00.000Z" }));
+    vi.setSystemTime(shared + 86_400_000);
+    await updateSplit(id, token, doc({ title: "Edited", date: "2026-10-29" }));
+    await claimSplits("phone-share-key-00001", [{ id, token }]);
+    const board = await boardFor("phone-share-key-00001");
+    const bills = await boardBills(board);
+    expect(bills?.find((b) => b.id === id)?.sharedAt).toBe(new Date(shared).toISOString());
   });
 });

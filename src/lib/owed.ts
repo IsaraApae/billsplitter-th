@@ -247,14 +247,16 @@ export interface PayerTimes {
   bills: PayBill[];
 }
 
-type StoredBill = { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> };
+type StoredBill = { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number>; sharedAt?: string };
 
 /**
- * When friends could start paying a bill: when it was made (people get the link then), or
- * the start of its day in Thailand if that's later. Measured from here, not from midnight,
- * "paid 14 hr after" means 14 hours after they were asked.
+ * When friends could start paying a bill: when it was shared, as the server recorded it, so
+ * "paid 14 hr after" means 14 hours after they got the link. Bills shared before that was
+ * kept fall back to when their draft was started, or the start of the bill's day in
+ * Thailand if that's later.
  */
-export function payFrom(doc: Pick<SplitDoc, "date" | "createdAt">): number {
+export function payFrom(doc: Pick<SplitDoc, "date" | "createdAt">, sharedAt?: string): number {
+  if (sharedAt) return Date.parse(sharedAt);
   return Math.max(Date.parse(doc.createdAt), Date.parse(`${billDay(doc)}T00:00:00+07:00`));
 }
 
@@ -266,9 +268,9 @@ export function payFrom(doc: Pick<SplitDoc, "date" | "createdAt">): number {
  */
 export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
   const all: (PayerTimes & { sum: number })[] = [];
-  const ordered = [...bills].sort((a, b) => payFrom(a.doc) - payFrom(b.doc) || byText(a.id, b.id));
+  const ordered = [...bills].sort((a, b) => payFrom(a.doc, a.sharedAt) - payFrom(b.doc, b.sharedAt) || byText(a.id, b.id));
   for (const b of ordered) {
-    const from = payFrom(b.doc);
+    const from = payFrom(b.doc, b.sharedAt);
     for (const l of organiserLines(b.doc, { paid: b.paid, partial: b.partial })) {
       const m = b.doc.people.find((p) => p.id === l.personId);
       if (!m || m.id === ORGANISER_ID || l.amount <= 0) continue;
