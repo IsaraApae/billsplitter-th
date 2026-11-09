@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, ChevronRight, Copy, PartyPopper, Pencil, QrCode, BanknoteArrowUp, ZoomIn } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, PartyPopper, Pencil, QrCode, BanknoteArrowUp, Trophy, ZoomIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -52,6 +52,7 @@ export function SharedView({
   initialPaid,
   initialPartial = {},
   qr,
+  fastestHref = null,
 }: {
   id: string;
   doc: SplitDoc;
@@ -60,6 +61,8 @@ export function SharedView({
   /** part-payments so far: personId → amount */
   initialPartial?: Record<string, number>;
   qr: PayQrSource | null;
+  /** the organiser's Who pays fastest page, if they've made a list */
+  fastestHref?: string | null;
 }) {
   const router = useRouter();
   const calc = useMemo(() => calculate(doc), [doc]);
@@ -383,20 +386,28 @@ export function SharedView({
         }}
       />
       {!canEdit && (
-        // Stands out: friends often owe on more than this one bill.
-        <Link
-          href="/owe"
-          className="press flex min-h-[68px] items-center gap-3 rounded-[8px] border border-[var(--accent)] bg-accent-soft py-3 pr-4 pl-5"
-        >
-          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-fill text-accent-ink">
-            <BanknoteArrowUp size={22} {...ICON} aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-semibold text-ink">What I owe</span>
-            <span className="block text-[13px] text-ink-2">Everything you owe, across all your bills</span>
-          </span>
-          <ChevronRight size={22} {...ICON} className="shrink-0 text-accent" aria-hidden />
-        </Link>
+        // Stands out: friends often owe on more than this one bill. Who pays fastest sits with it, in the same card.
+        <nav aria-label="Your bills" className="overflow-hidden rounded-[8px] border border-[var(--accent)] bg-accent-soft">
+          <Link href="/owe" className="flex min-h-[68px] items-center gap-3 py-3 pr-4 pl-5 transition-colors active:bg-accent-soft">
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-fill text-accent-ink">
+              <BanknoteArrowUp size={22} {...ICON} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-ink">What I owe</span>
+              <span className="block text-[13px] text-ink-2">Everything you owe, across all your bills</span>
+            </span>
+            <ChevronRight size={22} {...ICON} className="shrink-0 text-accent" aria-hidden />
+          </Link>
+          {fastestHref && (
+            <Link href={fastestHref} className="relative flex min-h-[68px] items-center gap-3 py-3 pr-4 pl-5 transition-colors active:bg-accent-soft before:absolute before:top-0 before:right-4 before:left-[76px] before:h-px before:bg-[var(--accent)] before:opacity-30">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-fill text-accent-ink">
+                <Trophy size={22} {...ICON} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1 font-semibold text-ink">Who pays fastest</span>
+              <ChevronRight size={22} {...ICON} className="shrink-0 text-accent" aria-hidden />
+            </Link>
+          )}
+        </nav>
       )}
 
       {direct ? (

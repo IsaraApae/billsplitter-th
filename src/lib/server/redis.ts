@@ -724,6 +724,14 @@ export async function otherSplitsWith(
 const boardKey = (id: string) => `board:${id}`;
 const organiserBoardKey = (owner: string) => `organiser:${owner}:board`;
 
+/** The list link id of the organiser of split `id`, if they've made one (never makes one). */
+export async function boardOfSplit(id: string): Promise<string | null> {
+  const owner = await db().get<string>(splitOwnerKey(id));
+  if (!owner) return null;
+  const board = await db().get<string>(organiserBoardKey(owner));
+  return board && (await db().get<string>(boardKey(board))) === owner ? board : null;
+}
+
 /** This organiser's list link id (made once, then the same one). */
 export async function boardFor(owner: string): Promise<string> {
   const existing = await db().get<string>(organiserBoardKey(owner));

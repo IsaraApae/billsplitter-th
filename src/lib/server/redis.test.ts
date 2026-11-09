@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
 
 // No Redis settings in tests, so this runs on the in-memory store.
-const { addCheckedPayment, addSlip, boardBills, boardFor, boardHidden, boardSkipped, boardStarts, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setBoardStarts, setEventPayment, setPaidTimes, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
+const { addCheckedPayment, addSlip, boardBills, boardFor, boardOfSplit, boardHidden, boardSkipped, boardStarts, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setBoardStarts, setEventPayment, setPaidTimes, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
 
 const doc = (extra: Partial<SplitDoc> = {}): SplitDoc => ({
   ...newDoc(),
@@ -145,6 +145,18 @@ describe("paid times keep the first tick", () => {
     await setEventPayment(ev.id, ev.token, "mint", { kind: "full" });
     const [pa, pb] = await Promise.all([getPayments(a.id), getPayments(b.id)]);
     expect([pa.paidAt?.mint, pb.paidAt?.mint]).toEqual([T1, T3]);
+  });
+});
+
+describe("a bill's link to its organiser's list", () => {
+  it("is their list once they've made one, and nothing before that", async () => {
+    const owner = "phone-bill-board-0001";
+    const bill = await createSplit(doc());
+    expect(await boardOfSplit(bill.id)).toBeNull(); // nobody owns it yet
+    await claimSplits(owner, [bill]);
+    expect(await boardOfSplit(bill.id)).toBeNull(); // no list made yet
+    const list = await boardFor(owner);
+    expect(await boardOfSplit(bill.id)).toBe(list);
   });
 });
 
