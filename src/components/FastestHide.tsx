@@ -21,6 +21,10 @@ const fromField = (v: string) => Date.parse(`${v}:00+07:00`);
 
 const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
 
+/** "9 Nov 2026, 13:25" in Thailand time. */
+const when = (ms: number) =>
+  new Date(ms).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+
 /**
  * "Hide" on Who pays fastest: only on the phone this list belongs to. The organiser picks
  * friends to hide and bills not to count, for the ranking, the podium and its link preview.
@@ -229,6 +233,12 @@ export function FastestHide({ id }: { id: string }) {
                           </button>
                         ) : null}
                       </div>
+                    )}
+                    {!off && starts[b.id] && (
+                      // Changed: the bill's own time stays in view, without having to Reset to see it.
+                      <p className="mt-1 text-[13px] text-ink-2">
+                        Original: <span className="tnum">{when(b.from)}</span>
+                      </p>
                     )}
                   </li>
                 );
