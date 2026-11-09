@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { FastestHide } from "@/components/FastestHide";
+import { FastestShare } from "@/components/FastestShare";
 import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
 import { langOf } from "@/lib/lang";
@@ -75,7 +76,10 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
       {n === 0 ? (
         <p className="card p-8 text-center text-ink-2">Once friends are ticked paid, they&apos;re ranked here.</p>
       ) : (
-        <Podium top={b.times.slice(0, 5)} />
+        <>
+          <Podium top={b.times.slice(0, 5)} />
+          <FastestShare id={id} organiser={b.organiser.name} />
+        </>
       )}
 
       {n > 0 && (
