@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { daysBetween, duration, namesIn, owedToYou, payFrom, payTimes, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
+import { daysBetween, duration, namesIn, owedToYou, payFrom, payTimes, withoutHidden, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -109,6 +109,13 @@ describe("who pays fastest", () => {
   it("starts the clock when the bill was made, or at its day if that's later", () => {
     expect(payFrom({ date: "2026-10-01", createdAt: "2026-10-03T05:00:00Z" })).toBe(Date.parse("2026-10-03T05:00:00Z"));
     expect(payFrom({ date: "2026-10-05", createdAt: "2026-10-03T05:00:00Z" })).toBe(Date.parse("2026-10-05T00:00:00+07:00"));
+  });
+
+  it("leaves out the people the organiser hid, by key or by name", () => {
+    const t = payTimes([dinner, karaoke], now);
+    expect(withoutHidden(t, [{ key: "ploy01", name: "Ploy" }]).map((p) => p.look.name)).toEqual(["Mint"]);
+    expect(withoutHidden(t, [{ key: "gone", name: " mint" }]).map((p) => p.look.name)).toEqual(["Ploy"]);
+    expect(withoutHidden(t, [])).toBe(t);
   });
 
   it("writes durations people can read", () => {

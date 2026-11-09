@@ -726,6 +726,34 @@ export async function boardFor(owner: string): Promise<string> {
   return id;
 }
 
+// ---- "Who pays fastest": people the organiser leaves out --------------------
+
+const hiddenKey = (id: string) => `board:${id}:hidden`;
+
+/** Someone left out of "Who pays fastest", by their key in the ranking and their name. */
+export interface HiddenPerson {
+  key: string;
+  name: string;
+}
+
+/** Whether `owner` is the phone this list belongs to (only it may change what's hidden). */
+export async function ownsBoard(id: string, owner: string): Promise<boolean> {
+  const real = await db().get<string>(boardKey(id));
+  if (!real) return false;
+  const a = Buffer.from(real);
+  const b = Buffer.from(owner);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export async function boardHidden(id: string): Promise<HiddenPerson[]> {
+  return (await db().get<HiddenPerson[]>(hiddenKey(id))) ?? [];
+}
+
+export async function setBoardHidden(id: string, hidden: HiddenPerson[]): Promise<void> {
+  if (hidden.length === 0) await db().del(hiddenKey(id));
+  else await db().set(hiddenKey(id), hidden, { ex: ORGANISER_TTL });
+}
+
 /** The organiser's splits (with payments) behind a list link, or null if there's no such list. */
 export async function boardBills(
   id: string,

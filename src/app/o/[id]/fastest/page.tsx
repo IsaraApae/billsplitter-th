@@ -3,20 +3,21 @@ import { CheckCircle2, ChevronDown, ChevronLeft, Timer, Trophy } from "lucide-re
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
+import { FastestHide } from "@/components/FastestHide";
 import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
 import { langOf } from "@/lib/lang";
-import { DAY, duration, payTimes, whoStillOwes, type PayerTimes } from "@/lib/owed";
-import { boardBills, isValidId, storageReady } from "@/lib/server/redis";
+import { DAY, duration, payTimes, whoStillOwes, withoutHidden, type PayerTimes } from "@/lib/owed";
+import { boardBills, boardHidden, isValidId, storageReady } from "@/lib/server/redis";
 
 export const dynamic = "force-dynamic";
 
 const load = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
-  const bills = await boardBills(id); // a storage failure shows the error page, not "not found"
+  const [bills, hidden] = await Promise.all([boardBills(id), boardHidden(id)]); // a storage failure shows the error page
   if (!bills) return null;
-  const now = Date.now();
-  return { organiser: whoStillOwes(bills).organiser, times: payTimes(bills, now), billCount: bills.length };
+  // People the organiser chose to hide aren't ranked at all.
+  return { organiser: whoStillOwes(bills).organiser, times: withoutHidden(payTimes(bills, Date.now()), hidden), billCount: bills.length };
 });
 
 export async function generateMetadata({ params }: PageProps<"/o/[id]/fastest">): Promise<Metadata> {
@@ -63,9 +64,12 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
     <main className="mx-auto max-w-2xl space-y-6 px-4 pb-6 md:pb-16">
       <BillHeader title="Who pays fastest" details={n === 0 ? "No payments yet" : `Paying ${b.organiser.name} · ${n} ${n === 1 ? "person" : "people"} · ${b.billCount} ${b.billCount === 1 ? "bill" : "bills"}`} />
 
-      <Link href={`/o/${id}`} className="inline-flex min-h-10 items-center gap-1 px-1 font-semibold text-accent">
-        <ChevronLeft size={20} {...ICON} aria-hidden /> Owed to {b.organiser.name}
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link href={`/o/${id}`} className="inline-flex min-h-10 items-center gap-1 px-1 font-semibold text-accent">
+          <ChevronLeft size={20} {...ICON} aria-hidden /> Owed to {b.organiser.name}
+        </Link>
+        <FastestHide id={id} />
+      </div>
 
       {n === 0 ? (
         <p className="card p-8 text-center text-ink-2">Once friends are ticked paid, they&apos;re ranked here.</p>

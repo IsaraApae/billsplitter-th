@@ -1,5 +1,5 @@
-import { duration, payTimes, whoStillOwes } from "@/lib/owed";
-import { boardBills, isValidId, storageReady } from "@/lib/server/redis";
+import { duration, payTimes, whoStillOwes, withoutHidden } from "@/lib/owed";
+import { boardBills, boardHidden, isValidId, storageReady } from "@/lib/server/redis";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { shareImage } from "@/lib/server/shareImage";
 
@@ -8,11 +8,11 @@ export async function GET(req: Request, ctx: RouteContext<"/api/og/f/[id]">) {
   const limited = await rateLimit(req, "og");
   if (limited) return limited;
   const { id } = await ctx.params;
-  const bills = isValidId(id) && storageReady ? await boardBills(id).catch(() => null) : null;
+  const [bills, hidden] = isValidId(id) && storageReady ? await Promise.all([boardBills(id), boardHidden(id)]).catch(() => [null, []] as const) : [null, []];
   let img: Response;
   if (!bills) img = await shareImage(null);
   else {
-    const times = payTimes(bills);
+    const times = withoutHidden(payTimes(bills), hidden);
     const first = times[0];
     const n = times.length;
     img = await shareImage({

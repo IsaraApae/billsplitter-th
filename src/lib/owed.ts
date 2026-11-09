@@ -308,6 +308,12 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** The ranking without the people the organiser chose to hide (matched by key or name). */
+export function withoutHidden(times: PayerTimes[], hidden: { key: string; name: string }[]): PayerTimes[] {
+  if (hidden.length === 0) return times;
+  return times.filter((p) => !hidden.some((h) => h.key === p.key || norm(h.name) === norm(p.look.name)));
+}
+
 const HOUR = 3_600_000;
 
 /** "2 days 4 hr", "5 hr 20 min", "35 min", "under a minute" */
