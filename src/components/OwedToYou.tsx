@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { claimMySplits } from "@/lib/client/claim";
 import { askConfirm } from "@/lib/client/confirm";
-import { needsPayTimes, refreshEntries, refreshEntry } from "@/lib/client/historyRefresh";
+import { refreshEntries, refreshEntry } from "@/lib/client/historyRefresh";
 import { getEditToken, getHistory, type HistoryEntry } from "@/lib/client/storage";
-import { dayCount, daysBetween, owedToYou, paySpeed, type OwedBill, type OwedFriend } from "@/lib/owed";
+import { dayCount, daysBetween, owedToYou, type OwedBill, type OwedFriend } from "@/lib/owed";
 import { getProfile } from "@/lib/client/profile";
 import { BoardLinkCard } from "./BoardLinkCard";
 import { PaidMark, PaymentSheet, type PaymentInput } from "./Payments";
-import { PaySpeedList } from "./PaySpeedList";
+import { FastestLink } from "./FastestLink";
 import { Avatar, Callout, ICON, Money, cx } from "./ui";
 import { langOf } from "@/lib/lang";
 
@@ -77,10 +77,7 @@ export function OwedToYou() {
     const unsettled = new Set(owedToYou(getHistory()).flatMap((f) => f.bills.map((b) => b.id)));
     void refreshEntries(
       // Older entries don't say what each person owes yet: they need a look too.
-      // Ticks without a payment time are looked up (once), for "Who pays fastest".
-      getHistory().filter(
-        (h) => unsettled.has(h.id) || !h.members || h.members.some((m) => m.amount === undefined) || needsPayTimes(h),
-      ),
+      getHistory().filter((h) => unsettled.has(h.id) || !h.members || h.members.some((m) => m.amount === undefined)),
       (h, patch) => {
         if (patch !== "gone") setEntries((es) => es.map((e) => (e.id === h.id ? { ...e, ...patch } : e)));
       },
@@ -92,7 +89,6 @@ export function OwedToYou() {
   }, []);
 
   const friends = owedToYou(entries);
-  const speed = paySpeed(entries, now);
   const totals = new Map<string, number>();
   for (const f of friends) totals.set(f.currency, (totals.get(f.currency) ?? 0) + f.total);
   const people = new Set(friends.map((f) => f.key)).size;
@@ -106,7 +102,11 @@ export function OwedToYou() {
           </p>
           <p className="mt-2 text-ink-2">Friends who haven&apos;t paid you yet show up here.</p>
         </div>
-        <PaySpeedList speed={speed} />
+        <ul className="card rows overflow-hidden">
+          <li>
+            <FastestLink />
+          </li>
+        </ul>
       </div>
     );
   }
@@ -142,7 +142,11 @@ export function OwedToYou() {
         ))}
       </ul>
       <p className="px-5 text-[13px] text-ink-2">Tap a name to see their unpaid bills; tap a circle to tick a payment.</p>
-      <PaySpeedList speed={speed} />
+      <ul className="card rows overflow-hidden">
+          <li>
+            <FastestLink />
+          </li>
+        </ul>
       <PaymentSheet
         open={!!ask}
         onClose={() => setAsk(null)}

@@ -215,60 +215,92 @@ export const daysBetween = (from: string | number, to: string | number) =>
 /** "today", "1 day", "12 days" */
 export const dayCount = (d: number) => (d === 0 ? "today" : `${d} ${d === 1 ? "day" : "days"}`);
 
-export interface PayerSpeed {
+/** One bill in someone's pay record. */
+export interface PayBill {
+  id: string;
+  title: string;
+  /** the bill's day, YYYY-MM-DD */
+  day: string;
+  /** what they were asked to pay the organiser (minor units) */
+  amount: number;
+  currency: string;
+  /** when they were ticked paid, if they have been */
+  paidAt?: number;
+  /** from when they could pay to the tick, or to now while unpaid (ms) */
+  ms: number;
+}
+
+export interface PayerTimes {
   key: string;
   look: Look;
-  /** average days from the split to their payment; an unpaid bill counts the days so far */
-  days: number;
-  /** bills paid with a known time, and bills still unpaid */
+  /** average of `bills[].ms`: an unpaid bill counts the time so far */
+  avgMs: number;
   paid: number;
   unpaid: number;
-  /** what they still owe you, and how long the oldest of it has waited (days) */
+  /** quickest and slowest paid bill (ms), when any is paid */
+  fastestMs?: number;
+  slowestMs?: number;
+  /** what they still owe, and the longest an unpaid bill has waited (ms) */
   owed: number;
-  waiting: number;
+  waitingMs: number;
+  /** newest first */
+  bills: PayBill[];
+}
+
+type StoredBill = { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> };
+
+/**
+ * When friends could start paying a bill: when it was made (people get the link then), or
+ * the start of its day in Thailand if that's later. Measured from here, not from midnight,
+ * "paid 14 hr after" means 14 hours after they were asked.
+ */
+export function payFrom(doc: Pick<SplitDoc, "date" | "createdAt">): number {
+  return Math.max(Date.parse(doc.createdAt), Date.parse(`${billDay(doc)}T00:00:00+07:00`));
 }
 
 /**
- * Friends ranked by how fast they pay you, fastest first. Each bill counts the
- * days from the split to the tick; a bill they haven't paid counts the days so
- * far, so not paying drags them down. Payments ticked before times were kept
- * are left out. One currency at a time isn't needed: days don't have one.
+ * Friends ranked by how fast they pay the organiser, fastest first, from the bills as stored.
+ * Each bill counts the time from payFrom to the tick; an unpaid bill counts the time so far,
+ * so not paying moves them down. Ticks made before times were kept are left out. Bills are
+ * read oldest first and ties go A–Z, so the order they arrive in never changes the ranking.
  */
-export function paySpeed(entries: HistoryLike[], now = Date.now()): PayerSpeed[] {
-  const all: (PayerSpeed & { sum: number })[] = [];
-  // Oldest bill first, so who is merged with whom (and the name and look they're shown
-  // with) doesn't depend on the order the bills came in: "Owed to you" reads them from
-  // History, the shared list from the server, and both must rank alike.
-  const ordered = [...entries].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || byText(a.id, b.id));
-  for (const h of ordered) {
-    for (const m of h.members ?? []) {
-      if (m.id === ORGANISER_ID || m.amount === undefined || m.amount <= 0) continue;
-      const paidAt = h.paidAt?.[m.id];
-      const isPaid = !!h.paidIds?.includes(m.id);
+export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
+  const all: (PayerTimes & { sum: number })[] = [];
+  const ordered = [...bills].sort((a, b) => payFrom(a.doc) - payFrom(b.doc) || byText(a.id, b.id));
+  for (const b of ordered) {
+    const from = payFrom(b.doc);
+    for (const l of organiserLines(b.doc, { paid: b.paid, partial: b.partial })) {
+      const m = b.doc.people.find((p) => p.id === l.personId);
+      if (!m || m.id === ORGANISER_ID || l.amount <= 0) continue;
+      const isPaid = l.status === "full";
+      const paidAt = b.paidAt?.[l.key];
       if (isPaid && !paidAt) continue;
       let p = all.find((x) => x.key === m.id || norm(x.look.name) === norm(m.name));
       if (!p) {
-        p = { key: m.id, look: { name: m.name, emoji: m.emoji, color: m.color }, days: 0, paid: 0, unpaid: 0, owed: 0, waiting: 0, sum: 0 };
+        p = { key: m.id, look: { name: m.name, emoji: m.emoji, color: m.color }, avgMs: 0, paid: 0, unpaid: 0, owed: 0, waitingMs: 0, bills: [], sum: 0 };
         all.push(p);
       }
-      const d = daysBetween(h.createdAt, isPaid ? paidAt! : now);
-      p.sum += d;
-      if (isPaid) p.paid++;
-      else {
+      const ms = Math.max(0, (isPaid ? paidAt! : now) - from);
+      p.sum += ms;
+      p.bills.unshift({ id: b.id, title: b.doc.title, day: billDay(b.doc), amount: l.amount, currency: b.doc.currency, paidAt: isPaid ? paidAt : undefined, ms });
+      if (isPaid) {
+        p.paid++;
+        p.fastestMs = Math.min(p.fastestMs ?? ms, ms);
+        p.slowestMs = Math.max(p.slowestMs ?? ms, ms);
+      } else {
         p.unpaid++;
-        p.owed += m.amount - (h.partialPaid?.[m.id] ?? 0);
-        p.waiting = Math.max(p.waiting, d);
+        p.owed += l.amount - l.paidSoFar;
+        p.waitingMs = Math.max(p.waitingMs, ms);
       }
     }
   }
   return all
-    .map(({ sum, ...p }) => ({ ...p, days: sum / (p.paid + p.unpaid) }))
+    .map(({ sum, ...p }) => ({ ...p, avgMs: sum / p.bills.length }))
     .sort(
       (a, b) =>
-        a.days - b.days ||
+        a.avgMs - b.avgMs ||
         a.unpaid - b.unpaid ||
         b.paid - a.paid ||
-        // A tie (same days, often: they're whole days) goes A–Z, the same on every page.
         a.look.name.localeCompare(b.look.name, ["th", "en"], { sensitivity: "base" }) ||
         byText(a.key, b.key),
     );
@@ -276,32 +308,18 @@ export function paySpeed(entries: HistoryLike[], now = Date.now()): PayerSpeed[]
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-/** Pay speed from the organiser's bills as stored (for the shareable list). */
-export function boardSpeed(
-  bills: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[],
-  now = Date.now(),
-): PayerSpeed[] {
-  return paySpeed(
-    bills.map((b) => {
-      const lines = organiserLines(b.doc, { paid: b.paid, partial: b.partial }).filter((l) => l.amount > 0);
-      const person = (id: string) => b.doc.people.find((p) => p.id === id);
-      return {
-        id: b.id,
-        title: b.doc.title,
-        // From the start of the bill's day in Thailand, so it agrees with the list's "Unpaid for 17 days".
-        createdAt: `${billDay(b.doc)}T00:00:00+07:00`,
-        currency: b.doc.currency,
-        members: lines.flatMap((l) => {
-          const p = person(l.personId);
-          return p ? [{ id: p.id, name: p.name, emoji: p.emoji, color: p.color, amount: l.amount }] : [];
-        }),
-        paidIds: lines.filter((l) => l.status === "full").map((l) => l.personId),
-        partialPaid: Object.fromEntries(lines.map((l) => [l.personId, l.paidSoFar])),
-        paidAt: Object.fromEntries(lines.flatMap((l) => (b.paidAt?.[l.key] ? [[l.personId, b.paidAt[l.key]]] : []))),
-      };
-    }),
-    now,
-  );
+const HOUR = 3_600_000;
+
+/** "2 days 4 hr", "5 hr 20 min", "35 min", "under a minute" */
+export function duration(ms: number): string {
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1) return "under a minute";
+  const d = Math.floor(ms / DAY);
+  const h = Math.floor((ms % DAY) / HOUR);
+  const m = mins % 60;
+  if (d > 0) return `${d} ${d === 1 ? "day" : "days"}${h > 0 ? ` ${h} hr` : ""}`;
+  if (h > 0) return `${h} hr${m > 0 && h < 6 ? ` ${m} min` : ""}`;
+  return `${m} min`;
 }
 
 // ---- Who still owes (the organiser's shareable list) -----------------------

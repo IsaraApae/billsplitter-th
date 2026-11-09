@@ -37,6 +37,10 @@ interface Card {
   detail: string;
   /** the receipt's heading (default "TOTAL") */
   label?: string;
+  /** words on the receipt in place of the total */
+  headline?: string;
+  /** a podium of the top five (fastest first) in place of the receipt */
+  podium?: { name: string; color?: PersonColor; time: string }[];
   /** the button (default "See what you owe →") */
   cta?: string;
   /** the line at the bottom left (default "Tap to see what you owe and mark it paid") */
@@ -120,7 +124,9 @@ export async function shareImage(card: Card | null) {
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ fontFamily: DISPLAY, fontSize: titleSize, fontWeight: 900, lineHeight: 1.04 }}>{title}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, marginTop: 12 }}>{card?.kicker ?? "Split the bill with friends"}</div>
+            {(card ? card.kicker : "Split the bill with friends") && (
+              <div style={{ fontSize: 28, fontWeight: 700, marginTop: 12 }}>{card ? card.kicker : "Split the bill with friends"}</div>
+            )}
             {/* A title on three lines would push this line into the chess queen. */}
             {titleLines < 3 && (
               <div style={{ fontSize: 24, fontWeight: 700, marginTop: 14 }}>
@@ -130,6 +136,9 @@ export async function shareImage(card: Card | null) {
           </div>
         </div>
 
+        {card?.podium ? (
+          <Podium places={card.podium} />
+        ) : (
         <div style={{ width: paper, display: "flex", flexDirection: "column", margin: "44px 0 40px" }}>
           <div
             style={{
@@ -147,7 +156,11 @@ export async function shareImage(card: Card | null) {
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: INK_2 }}>{card?.label ?? "TOTAL"}</div>
               {dashes}
-              {card ? (
+              {card?.headline ? (
+                <div style={{ display: "flex", maxWidth: 380, fontSize: card.headline.length > 14 ? 40 : 52, fontWeight: 700, lineHeight: 1.1, textAlign: "center", color: ACCENT }}>
+                  {card.headline}
+                </div>
+              ) : card ? (
                 <div style={{ display: "flex", alignItems: "baseline", fontFamily: DISPLAY, fontWeight: 900, color: ACCENT }}>
                   {baht && <BahtSign size={moneySize * 0.62} color={ACCENT} />}
                   <div style={{ fontSize: moneySize, lineHeight: 1 }}>{whole}</div>
@@ -195,6 +208,7 @@ export async function shareImage(card: Card | null) {
             ))}
           </div>
         </div>
+        )}
       </div>
     ),
     {
@@ -294,6 +308,80 @@ function BahtSign({ size, color }: { size: number; color: string }) {
           background: color,
         }}
       />
+    </div>
+  );
+}
+
+/** Step heights by place, and the order they stand in: 4th, 2nd, 1st, 3rd, 5th. */
+const STEP = [210, 160, 122, 88, 62];
+const STAND = [3, 1, 0, 2, 4];
+
+/** The top five on a podium, each with their initial, name and average time to pay. */
+function Podium({ places }: { places: { name: string; color?: PersonColor; time: string }[] }) {
+  // Five places always; one nobody has reached yet is an empty step.
+  const short = (n: string) => ([...n].length > 9 ? `${[...n].slice(0, 8).join("")}…` : n);
+  return (
+    <div style={{ width: 600, display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 10, margin: "40px 0 56px" }}>
+      {STAND.map((i) => {
+        const p = places[i];
+        const first = i === 0;
+        if (!p)
+          return (
+            <div key={i} style={{ width: 112, display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ width: 112, height: STEP[i], display: "flex", justifyContent: "center", paddingTop: 10, borderRadius: "10px 10px 0 0", background: "rgba(255,255,255,0.55)", color: INK_2, fontFamily: DISPLAY, fontSize: 40, fontWeight: 900 }}>
+                {String(i + 1)}
+              </div>
+            </div>
+          );
+        return (
+          <div key={i} style={{ width: 112, display: "flex", flexDirection: "column", alignItems: "center" }}>
+            {first && (
+              <svg width="54" height="40" viewBox="0 0 54 40" style={{ marginBottom: 2 }}>
+                <path d="M3 36 L7 8 L19 22 L27 2 L35 22 L47 8 L51 36 Z" fill="#F5C518" stroke="#04261A" strokeWidth="3" strokeLinejoin="round" />
+              </svg>
+            )}
+            <div
+              style={{
+                width: first ? 84 : 68,
+                height: first ? 84 : 68,
+                borderRadius: 50,
+                border: "4px solid #ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: COLOR_HEX[p.color ?? "slate"],
+                color: INK,
+                fontSize: first ? 38 : 30,
+                fontWeight: 700,
+              }}
+            >
+              {nameInitial(p.name)}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "8px 0 10px", padding: "6px 4px", borderRadius: 12, background: "rgba(255,255,255,0.92)", width: 112 }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: INK }}>{short(p.name)}</div>
+              <div style={{ fontSize: p.time.length > 9 ? 14 : 17, fontWeight: 700, whiteSpace: "nowrap", color: first ? ACCENT : INK_2 }}>{p.time}</div>
+            </div>
+            <div
+              style={{
+                width: 112,
+                height: STEP[i],
+                display: "flex",
+                justifyContent: "center",
+                paddingTop: 10,
+                borderRadius: "10px 10px 0 0",
+                background: first ? GREEN : "#ffffff",
+                color: first ? ON_GREEN : INK_2,
+                fontFamily: DISPLAY,
+                fontSize: first ? 56 : 40,
+                fontWeight: 900,
+                boxShadow: "0 16px 30px -12px rgba(3,20,30,0.5)",
+              }}
+            >
+              {String(i + 1)}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
