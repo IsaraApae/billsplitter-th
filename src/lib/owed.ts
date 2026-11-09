@@ -310,6 +310,11 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** The bills with the organiser's own start times (billId → ISO) in place of when they were shared. */
+export function withStarts<T extends { id: string; sharedAt?: string }>(bills: T[], starts: Record<string, string>): T[] {
+  return bills.map((b) => (starts[b.id] ? { ...b, sharedAt: starts[b.id] } : b));
+}
+
 /** The ranking without the people the organiser chose to hide (matched by key or name). */
 export function withoutHidden(times: PayerTimes[], hidden: { key: string; name: string }[]): PayerTimes[] {
   if (hidden.length === 0) return times;

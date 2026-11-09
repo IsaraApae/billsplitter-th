@@ -11,7 +11,13 @@ import { Avatar, Callout, ICON, Sheet, cx } from "./ui";
 
 type Person5 = Pick<Person, "name" | "emoji" | "color"> & { key: string };
 type Hidden = { key: string; name: string };
-type Bill = { id: string; title: string; day: string };
+/** `from`: when it counts from on its own (ms); `start`: the organiser's own start, if set. */
+type Bill = { id: string; title: string; day: string; from: number; start: string | null };
+
+/** A moment as the value of a datetime-local field, in Thailand time ("2026-10-29T11:34"). */
+const toField = (ms: number) => new Date(ms + 7 * 3_600_000).toISOString().slice(0, 16);
+/** A datetime-local value (Thailand time) as a moment, or NaN. */
+const fromField = (v: string) => Date.parse(`${v}:00+07:00`);
 
 const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
 
@@ -27,6 +33,7 @@ export function FastestHide({ id }: { id: string }) {
   const [hidden, setHidden] = useState<Hidden[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
+  const [starts, setStarts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +56,7 @@ export function FastestHide({ id }: { id: string }) {
       setPeople([...d.people, ...gone].sort((a, b) => a.name.localeCompare(b.name, ["th", "en"], { sensitivity: "base" })));
       setHidden(d.hidden);
       setBills(d.bills);
+      setStarts(Object.fromEntries(d.bills.flatMap((b) => (b.start ? [[b.id, b.start]] : []))));
       // A left-out bill that has since expired needn't be kept.
       setSkipped(d.skipped.filter((x) => d.bills.some((b) => b.id === x)));
     } catch {
@@ -61,6 +69,15 @@ export function FastestHide({ id }: { id: string }) {
     setHidden((list) => (isHidden(p, list) ? list.filter((h) => !(h.key === p.key || norm(h.name) === norm(p.name))) : [...list, { key: p.key, name: p.name }]));
 
   const toggleBill = (billId: string) => setSkipped((list) => (list.includes(billId) ? list.filter((x) => x !== billId) : [...list, billId]));
+  /** The organiser's own start for a bill; the bill's own start (or a cleared field) removes it. */
+  const setStart = (b: Bill, value: string) =>
+    setStarts((all) => {
+      const t = fromField(value);
+      const next = { ...all };
+      if (!Number.isFinite(t) || Math.abs(t - b.from) < 60_000) delete next[b.id];
+      else next[b.id] = new Date(t).toISOString();
+      return next;
+    });
 
   async function save() {
     setBusy(true);
@@ -69,7 +86,7 @@ export function FastestHide({ id }: { id: string }) {
       const r = await fetch(`/api/boards/${id}/hidden`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner: getDeviceKey(), hidden, skipped }),
+        body: JSON.stringify({ owner: getDeviceKey(), hidden, skipped, starts }),
       });
       if (!r.ok) throw new Error();
       setOpen(false);
@@ -89,14 +106,14 @@ export function FastestHide({ id }: { id: string }) {
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Leave out of Who pays fastest"
+        title="What counts in Who pays fastest"
         subtitle="Only you can change this"
         onConfirm={save}
         confirmLabel={busy ? "Saving…" : "Save"}
         confirmDisabled={busy || people === null}
       >
         <p className="mb-3 px-1 text-[15px] text-ink-2">
-          Tick friends to hide them, or bills to stop counting them (say, one you ticked long after it was paid). It changes the ranking, the podium and
+          Tick friends to hide them, or bills to stop counting them (say, one you ticked long after it was paid), or set when a bill really started. It changes the ranking, the podium and
           its link preview, for everyone who opens it.
         </p>
         {people && people.length > 0 && <h3 className="section-label mb-2 px-1">Friends</h3>}
@@ -138,8 +155,8 @@ export function FastestHide({ id }: { id: string }) {
               {bills.map((b) => {
                 const off = skipped.includes(b.id);
                 return (
-                  <li key={b.id}>
-                    <label className="flex min-h-[56px] cursor-pointer items-center gap-3 py-2 pr-4 pl-4">
+                  <li key={b.id} className="py-2 pr-4 pl-4">
+                    <label className="flex min-h-[44px] cursor-pointer items-center gap-3">
                       <span className="min-w-0 flex-1">
                         <span className={cx("block truncate font-semibold", off && "text-ink-3 line-through")} {...langOf(b.title)}>
                           {b.title}
@@ -160,10 +177,31 @@ export function FastestHide({ id }: { id: string }) {
                         {off && <Check size={16} {...ICON} />}
                       </span>
                     </label>
+                    {!off && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-2">
+                        <span id={`from-${b.id}`}>Counts from</span>
+                        <input
+                          type="datetime-local"
+                          className="input min-h-9 w-auto px-2 text-[15px]"
+                          aria-labelledby={`from-${b.id}`}
+                          value={toField(starts[b.id] ? Date.parse(starts[b.id]) : b.from)}
+                          onChange={(e) => setStart(b, e.target.value)}
+                        />
+                        {starts[b.id] ? (
+                          <button type="button" className="font-semibold text-accent" onClick={() => setStart(b, toField(b.from))}>
+                            Reset
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                   </li>
                 );
               })}
             </ul>
+            <p className="mt-2 px-1 text-[13px] text-ink-2">
+              Counts from: when the bill was shared, in Thailand time. Bills shared before 10 Nov 2026 never had that saved, so set the
+              real time if you know it (say, from a slip).
+            </p>
           </>
         )}
       </Sheet>

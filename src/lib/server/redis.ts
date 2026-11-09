@@ -778,6 +778,19 @@ export async function setBoardSkipped(id: string, billIds: string[]): Promise<vo
   else await db().set(skippedKey(id), billIds, { ex: ORGANISER_TTL });
 }
 
+// When the organiser says a bill was really shared (billId → ISO time), for bills from before
+// the server kept that, or whose kept time is off.
+const startsKey = (id: string) => `board:${id}:starts`;
+
+export async function boardStarts(id: string): Promise<Record<string, string>> {
+  return (await db().get<Record<string, string>>(startsKey(id))) ?? {};
+}
+
+export async function setBoardStarts(id: string, starts: Record<string, string>): Promise<void> {
+  if (Object.keys(starts).length === 0) await db().del(startsKey(id));
+  else await db().set(startsKey(id), starts, { ex: ORGANISER_TTL });
+}
+
 /** The organiser's splits (with payments) behind a list link, or null if there's no such list. */
 export async function boardBills(id: string): Promise<OwnerBill[] | null> {
   const owner = await db().get<string>(boardKey(id));
