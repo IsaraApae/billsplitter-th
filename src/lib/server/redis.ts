@@ -4,6 +4,7 @@ import type { RedisClientType } from "redis";
 import { after } from "next/server";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eventPeople, spreadPayment, type EventBill, type EventMeta } from "../event";
+import { billDay } from "../draft";
 import { oweLines } from "../owed";
 import { paymentKeys } from "../settle";
 import type { SplitDoc } from "../types";
@@ -789,6 +790,38 @@ export async function boardStarts(id: string): Promise<Record<string, string>> {
 export async function setBoardStarts(id: string, starts: Record<string, string>): Promise<void> {
   if (Object.keys(starts).length === 0) await db().del(startsKey(id));
   else await db().set(startsKey(id), starts, { ex: ORGANISER_TTL });
+}
+
+/** A correction of when someone paid a bill (ms), e.g. from the organiser's bank statement. */
+export interface PaidTimeFix {
+  bill: string;
+  person: string;
+  at: number;
+}
+
+/**
+ * Sets when people paid, on bills behind list `id`. Only for people already ticked paid in
+ * full, and only to a moment from the day before the bill's date up to now. Returns each
+ * change with the time it replaced (so it can be undone); anything else is left as it was.
+ */
+export async function setPaidTimes(id: string, fixes: PaidTimeFix[]): Promise<(PaidTimeFix & { was: number })[]> {
+  const owner = await db().get<string>(boardKey(id));
+  if (!owner) return [];
+  const mine = new Set(await db().hkeys(organiserKey(owner)));
+  const done: (PaidTimeFix & { was: number })[] = [];
+  for (const bill of new Set(fixes.map((f) => f.bill))) {
+    if (!mine.has(bill)) continue;
+    const [s, paid] = await Promise.all([db().get<StoredSplit>(docKey(bill)), getPaid(bill)]);
+    if (!s) continue;
+    const earliest = Date.parse(`${billDay(s.doc)}T00:00:00+07:00`) - 86_400_000;
+    for (const f of fixes) {
+      const was = paid[f.person];
+      if (f.bill !== bill || !was || f.at < earliest || f.at > Date.now() + 5 * 60_000) continue;
+      await db().hset(paidKey(bill), f.person, String(f.at));
+      done.push({ ...f, was });
+    }
+  }
+  return done;
 }
 
 /** The organiser's splits (with payments) behind a list link, or null if there's no such list. */

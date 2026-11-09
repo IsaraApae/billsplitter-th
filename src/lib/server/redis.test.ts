@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
 
 // No Redis settings in tests, so this runs on the in-memory store.
-const { addCheckedPayment, addSlip, boardBills, boardFor, boardHidden, boardSkipped, boardStarts, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setBoardStarts, setEventPayment, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
+const { addCheckedPayment, addSlip, boardBills, boardFor, boardHidden, boardSkipped, boardStarts, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setBoardStarts, setEventPayment, setPaidTimes, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
 
 const doc = (extra: Partial<SplitDoc> = {}): SplitDoc => ({
   ...newDoc(),
@@ -145,6 +145,32 @@ describe("paid times keep the first tick", () => {
     await setEventPayment(ev.id, ev.token, "mint", { kind: "full" });
     const [pa, pb] = await Promise.all([getPayments(a.id), getPayments(b.id)]);
     expect([pa.paidAt?.mint, pb.paidAt?.mint]).toEqual([T1, T3]);
+  });
+});
+
+describe("correcting when people paid", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("sets the time for people ticked paid on the organiser's own bills, and says what it replaced", async () => {
+    const owner = "phone-paid-times-0001";
+    const list = await boardFor(owner);
+    const mine = await createSplit(doc({ date: "2026-11-01" }));
+    const other = await createSplit(doc({ date: "2026-11-01" }));
+    await claimSplits(owner, [mine]);
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-03T10:00:00Z"));
+    await setPayment(mine.id, "mint", { kind: "full" }, mine.token);
+    await setPayment(other.id, "mint", { kind: "full" }, other.token);
+    const bank = Date.parse("2026-11-01T13:12:00+07:00");
+    const changed = await setPaidTimes(list, [
+      { bill: mine.id, person: "mint", at: bank },
+      { bill: mine.id, person: "nobody", at: bank }, // not ticked paid
+      { bill: other.id, person: "mint", at: bank }, // not on this list
+      { bill: mine.id, person: "mint", at: Date.parse("2026-10-20T12:00:00+07:00") }, // long before the bill
+    ]);
+    expect(changed).toEqual([{ bill: mine.id, person: "mint", at: bank, was: Date.parse("2026-11-03T10:00:00Z") }]);
+    expect((await getPayments(mine.id)).paidAt).toEqual({ mint: bank });
+    expect((await getPayments(other.id)).paidAt).toEqual({ mint: Date.parse("2026-11-03T10:00:00Z") });
+    expect(await setPaidTimes("AAAAAAAAAAAAAAAA", [{ bill: mine.id, person: "mint", at: bank }])).toEqual([]);
   });
 });
 
