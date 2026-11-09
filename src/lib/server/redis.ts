@@ -807,19 +807,29 @@ export async function sameOrganiserBills(
   return s ? [{ id, doc: s.doc, ...(await getPaidState(id, s.doc)) }] : [];
 }
 
-type OwnerBill = { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number>; sharedAt?: string };
+type OwnerBill = {
+  id: string;
+  doc: SplitDoc;
+  paid: string[];
+  partial: Record<string, number>;
+  paidAt?: Record<string, number>;
+  sharedAt?: string;
+  /** each payer's slips (amount, when recorded), so pay times can be checked against them */
+  slips?: Record<string, { amount: number; at: string }[]>;
+};
 
 async function ownerBills(owner: string): Promise<OwnerBill[]> {
   const ids = (await db().hkeys(organiserKey(owner))).filter(isValidId).slice(0, 300);
   const out: OwnerBill[] = [];
   await Promise.all(
     ids.map(async (sid) => {
-      const [s, payments] = await Promise.all([db().get<StoredSplit>(docKey(sid)), getPayments(sid)]);
+      const [s, payments, slips] = await Promise.all([db().get<StoredSplit>(docKey(sid)), getPayments(sid), getSlips(sid).catch(() => ({}))]);
       if (!s) {
         await db().hdel(organiserKey(owner), sid);
         return;
       }
-      out.push({ id: sid, doc: s.doc, ...paidStateOf(s.doc, payments), ...(s.sharedAt ? { sharedAt: s.sharedAt } : {}) });
+      const slipTimes = Object.fromEntries(Object.entries(slips).map(([ref, list]) => [ref, list.map((x) => ({ amount: x.amount, at: x.at }))]));
+      out.push({ id: sid, doc: s.doc, ...paidStateOf(s.doc, payments), slips: slipTimes, ...(s.sharedAt ? { sharedAt: s.sharedAt } : {}) });
     }),
   );
   return out;

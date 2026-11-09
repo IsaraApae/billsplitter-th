@@ -247,7 +247,35 @@ export interface PayerTimes {
   bills: PayBill[];
 }
 
-type StoredBill = { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number>; sharedAt?: string };
+type StoredBill = {
+  id: string;
+  doc: SplitDoc;
+  paid: string[];
+  partial: Record<string, number>;
+  paidAt?: Record<string, number>;
+  sharedAt?: string;
+  slips?: Record<string, { amount: number; at: string }[]>;
+};
+
+/**
+ * When someone really paid a bill: their tick, unless their slips show they'd already paid it
+ * earlier. A slip keeps the moment it was recorded, while a tick could be moved later (before
+ * Nov 2026 a big bill's later payment re-stamped the bills it had already paid). Slips count
+ * once they cover what was owed, give or take ฿1 (or 1%) for someone who rounded down.
+ */
+export function paidTime(tick: number | undefined, slips: { amount: number; at: string }[] | undefined, owed: number): number | undefined {
+  if (!slips?.length) return tick;
+  const enough = owed - Math.max(100, Math.round(owed / 100));
+  let sum = 0;
+  for (const s of [...slips].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
+    sum += s.amount;
+    if (sum >= enough) {
+      const t = Date.parse(s.at);
+      return tick && tick < t ? tick : t;
+    }
+  }
+  return tick;
+}
 
 /**
  * When friends could start paying a bill: when it was shared, as the server recorded it, so
@@ -275,7 +303,7 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
       const m = b.doc.people.find((p) => p.id === l.personId);
       if (!m || m.id === ORGANISER_ID || l.amount <= 0) continue;
       const isPaid = l.status === "full";
-      const paidAt = b.paidAt?.[l.key];
+      const paidAt = paidTime(b.paidAt?.[l.key], b.slips?.[l.key], l.amount);
       if (isPaid && !paidAt) continue;
       let p = all.find((x) => x.key === m.id || norm(x.look.name) === norm(m.name));
       if (!p) {

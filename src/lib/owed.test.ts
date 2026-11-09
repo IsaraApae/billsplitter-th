@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { daysBetween, duration, namesIn, owedToYou, payFrom, payTimes, withoutHidden, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
+import { daysBetween, duration, namesIn, owedToYou, paidTime, payFrom, payTimes, withoutHidden, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -133,6 +133,24 @@ describe("who pays fastest", () => {
     const set = withStarts([b], { k: new Date(at("2026-10-29T11:34:00")).toISOString() });
     expect(duration(payTimes(set, now)[0].avgMs)).toBe("1 hr 16 min");
     expect(withStarts([b], {})[0]).toBe(b);
+  });
+
+  it("takes the slip's time when the slips show the bill was paid before its tick", () => {
+    const t = (s: string) => Date.parse(`2026-10-20T${s}+07:00`);
+    const slip = (at: string, amount: number) => ({ amount, at: new Date(t(at)).toISOString() });
+    // Paid by slip at 13:12, then re-stamped to 17:46 by a later big-bill payment.
+    expect(paidTime(t("17:46:13"), [slip("13:12:41", 31185)], 31185)).toBe(t("13:12:41"));
+    // The usual case: ticked by the slip, recorded a moment later. The tick stands.
+    expect(paidTime(t("13:12:39"), [slip("13:12:41", 31185)], 31185)).toBe(t("13:12:39"));
+    // Slips that only paid part: the tick stands.
+    expect(paidTime(t("17:46:13"), [slip("13:12:41", 20000)], 31185)).toBe(t("17:46:13"));
+    // Two slips that together paid it: the second one's time.
+    expect(paidTime(t("18:00:00"), [slip("15:00:00", 11185), slip("13:00:00", 20000)], 31185)).toBe(t("15:00:00"));
+    // ฿394 for ฿394.90 counts as paid (rounded down).
+    expect(paidTime(t("13:25:53"), [slip("12:49:39", 39400)], 39490)).toBe(t("12:49:39"));
+    // No slips, or no tick time but slips that paid it.
+    expect(paidTime(t("09:00:00"), undefined, 100)).toBe(t("09:00:00"));
+    expect(paidTime(undefined, [slip("13:12:41", 31185)], 31185)).toBe(t("13:12:41"));
   });
 
   it("writes durations people can read", () => {
