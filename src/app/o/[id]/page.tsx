@@ -76,7 +76,7 @@ export default async function BoardPage({ params }: PageProps<"/o/[id]">) {
 
       <ul className="card rows overflow-hidden">
         <li>
-          <FastestLink href={`/o/${id}/fastest`} detail={`Everyone ranked by how fast they pay ${b.organiser.name}`} />
+          <FastestLink href={`/o/${id}/fastest`} />
         </li>
       </ul>
 
