@@ -184,6 +184,12 @@ interface StoredSplit {
   doc: SplitDoc;
   editHash: string;
   updatedAt: string;
+  /**
+   * When the split was first shared (saved here), so when friends could first get its link.
+   * doc.createdAt is when its draft was started on the phone, which can be days earlier.
+   * Absent on splits shared before this was kept.
+   */
+  sharedAt?: string;
 }
 
 export const newId = () => randomBytes(12).toString("base64url"); // 96 bits, 16 chars
@@ -198,7 +204,8 @@ export async function createSplit(doc: SplitDoc): Promise<{ id: string; token: s
   const token = newToken();
   for (let attempt = 0; attempt < 3; attempt++) {
     const id = newId();
-    const stored: StoredSplit = { doc, editHash: hash(token), updatedAt: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const stored: StoredSplit = { doc, editHash: hash(token), updatedAt: now, sharedAt: now };
     if (await db().set(docKey(id), stored, { ex: TTL_SECONDS, nx: true })) {
       await linkPhoto(id, doc);
       return { id, token };
@@ -234,11 +241,12 @@ export async function updateSplit(id: string, token: string, doc: SplitDoc): Pro
   const s = await db().get<StoredSplit>(docKey(id));
   if (!s) return "not_found";
   if (!tokenMatches(token, s.editHash)) return "forbidden";
-  // Keep the original creation date.
+  // Keep the original creation date and share time.
   const next: StoredSplit = {
     doc: { ...doc, createdAt: s.doc.createdAt },
     editHash: s.editHash,
     updatedAt: new Date().toISOString(),
+    ...(s.sharedAt ? { sharedAt: s.sharedAt } : {}),
   };
   const removed = s.doc.people.map((p) => p.id).filter((pid) => !doc.people.some((p) => p.id === pid));
   await Promise.all([
@@ -770,10 +778,21 @@ export async function setBoardSkipped(id: string, billIds: string[]): Promise<vo
   else await db().set(skippedKey(id), billIds, { ex: ORGANISER_TTL });
 }
 
+// When the organiser says a bill was really shared (billId → ISO time), for bills from before
+// the server kept that, or whose kept time is off.
+const startsKey = (id: string) => `board:${id}:starts`;
+
+export async function boardStarts(id: string): Promise<Record<string, string>> {
+  return (await db().get<Record<string, string>>(startsKey(id))) ?? {};
+}
+
+export async function setBoardStarts(id: string, starts: Record<string, string>): Promise<void> {
+  if (Object.keys(starts).length === 0) await db().del(startsKey(id));
+  else await db().set(startsKey(id), starts, { ex: ORGANISER_TTL });
+}
+
 /** The organiser's splits (with payments) behind a list link, or null if there's no such list. */
-export async function boardBills(
-  id: string,
-): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[] | null> {
+export async function boardBills(id: string): Promise<OwnerBill[] | null> {
   const owner = await db().get<string>(boardKey(id));
   return owner ? ownerBills(owner) : null;
 }
@@ -788,9 +807,11 @@ export async function sameOrganiserBills(
   return s ? [{ id, doc: s.doc, ...(await getPaidState(id, s.doc)) }] : [];
 }
 
-async function ownerBills(owner: string): Promise<{ id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[]> {
+type OwnerBill = { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number>; sharedAt?: string };
+
+async function ownerBills(owner: string): Promise<OwnerBill[]> {
   const ids = (await db().hkeys(organiserKey(owner))).filter(isValidId).slice(0, 300);
-  const out: { id: string; doc: SplitDoc; paid: string[]; partial: Record<string, number>; paidAt?: Record<string, number> }[] = [];
+  const out: OwnerBill[] = [];
   await Promise.all(
     ids.map(async (sid) => {
       const [s, payments] = await Promise.all([db().get<StoredSplit>(docKey(sid)), getPayments(sid)]);
@@ -798,7 +819,7 @@ async function ownerBills(owner: string): Promise<{ id: string; doc: SplitDoc; p
         await db().hdel(organiserKey(owner), sid);
         return;
       }
-      out.push({ id: sid, doc: s.doc, ...paidStateOf(s.doc, payments) });
+      out.push({ id: sid, doc: s.doc, ...paidStateOf(s.doc, payments), ...(s.sharedAt ? { sharedAt: s.sharedAt } : {}) });
     }),
   );
   return out;

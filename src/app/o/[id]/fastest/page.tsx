@@ -8,17 +8,17 @@ import { FastestShare } from "@/components/FastestShare";
 import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
 import { langOf } from "@/lib/lang";
-import { DAY, duration, payTimes, whoStillOwes, withoutHidden, type PayerTimes } from "@/lib/owed";
-import { boardBills, boardHidden, boardSkipped, isValidId, storageReady } from "@/lib/server/redis";
+import { DAY, duration, payTimes, whoStillOwes, withoutHidden, withStarts, type PayerTimes } from "@/lib/owed";
+import { boardBills, boardHidden, boardSkipped, boardStarts, isValidId, storageReady } from "@/lib/server/redis";
 
 export const dynamic = "force-dynamic";
 
 const load = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
-  const [bills, hidden, skipped] = await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id)]); // a storage failure shows the error page
+  const [bills, hidden, skipped, starts] = await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id), boardStarts(id)]); // a storage failure shows the error page
   if (!bills) return null;
-  // Bills the organiser left out don't count, and people they chose to hide aren't ranked.
-  const counted = bills.filter((b) => !skipped.includes(b.id));
+  // Bills the organiser left out don't count, their own start times count, and people they chose to hide aren't ranked.
+  const counted = withStarts(bills.filter((b) => !skipped.includes(b.id)), starts);
   return { organiser: whoStillOwes(bills).organiser, times: withoutHidden(payTimes(counted, Date.now()), hidden), billCount: counted.length };
 });
 
@@ -91,7 +91,7 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
       )}
 
       <p className="px-5 text-[13px] text-ink-2">
-        Time from when a bill was made (or its date, if later) to the tick. A bill not paid yet counts the time so far, so it moves them down.
+        Time from when a bill was shared to the tick (for bills shared before 10 Nov 2026, from when it was started, or the start of its date if later). A bill not paid yet counts the time so far, so it moves them down.
         Times are in Thailand time.
       </p>
     </main>

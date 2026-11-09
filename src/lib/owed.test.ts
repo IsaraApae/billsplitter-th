@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { daysBetween, duration, namesIn, owedToYou, payFrom, payTimes, withoutHidden, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
+import { daysBetween, duration, namesIn, owedToYou, payFrom, payTimes, withoutHidden, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -116,6 +116,23 @@ describe("who pays fastest", () => {
     expect(withoutHidden(t, [{ key: "ploy01", name: "Ploy" }]).map((p) => p.look.name)).toEqual(["Mint"]);
     expect(withoutHidden(t, [{ key: "gone", name: " mint" }]).map((p) => p.look.name)).toEqual(["Ploy"]);
     expect(withoutHidden(t, [])).toBe(t);
+  });
+
+  it("counts from when the bill was shared, when the server recorded it", () => {
+    // Started on the phone two days before its date (the midnight case), shared at 11:34 that day.
+    const late = { ...made("k", "果子", "2026-10-29", [isara, mint], 20000, { paid: ["mint01"] }, { mint01: at("2026-10-29T12:50:00") }), sharedAt: new Date(at("2026-10-29T11:34:00")).toISOString() };
+    late.doc.createdAt = new Date(at("2026-10-27T21:48:00")).toISOString();
+    expect(payFrom(late.doc, late.sharedAt)).toBe(at("2026-10-29T11:34:00"));
+    expect(duration(payTimes([late], now)[0].avgMs)).toBe("1 hr 16 min");
+    // Without a share time (bills from before it was kept), the old rule: midnight of its day.
+    expect(duration(payTimes([{ ...late, sharedAt: undefined }], now)[0].avgMs)).toBe("12 hr");
+  });
+
+  it("uses the organiser's own start time for a bill, over the one kept", () => {
+    const b = made("k", "果子", "2026-10-29", [isara, mint], 20000, { paid: ["mint01"] }, { mint01: at("2026-10-29T12:50:00") });
+    const set = withStarts([b], { k: new Date(at("2026-10-29T11:34:00")).toISOString() });
+    expect(duration(payTimes(set, now)[0].avgMs)).toBe("1 hr 16 min");
+    expect(withStarts([b], {})[0]).toBe(b);
   });
 
   it("writes durations people can read", () => {
