@@ -351,7 +351,11 @@ export function paidStateOf(doc: SplitDoc, { paid, partial, paidAt = {} }: PaidS
 /** Writes one person's payment; no token check (callers check ownership). */
 async function writePayment(id: string, doc: SplitDoc, personId: string, payment: Payment): Promise<void> {
   if (payment.kind === "full") {
-    await Promise.all([db().hset(paidKey(id), personId, String(Date.now())), db().hdel(partKey(id), personId)]);
+    // Keep the time they were first ticked paid. Saving them as paid again (ticking twice,
+    // or a big bill's payment re-saving the bills it already covered) mustn't move it later,
+    // or "Who pays fastest" makes them look slower than they were.
+    const already = (await getPaid(id))[personId];
+    await Promise.all([already ? null : db().hset(paidKey(id), personId, String(Date.now())), db().hdel(partKey(id), personId)]);
   } else if (payment.kind === "part") {
     await Promise.all([db().hdel(paidKey(id), personId), db().hset(partKey(id), personId, String(payment.amount))]);
   } else {
