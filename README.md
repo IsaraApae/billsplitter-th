@@ -59,12 +59,16 @@ The link preview friends see in chat:
 - **Screen readers:** Thai names, titles and items are read with a Thai voice, progress is announced once per step, and Delete or Discard questions start on Cancel.
 
 <p>
-  <img src="docs/screenshots/history.jpg" alt="History, light and dark" width="380">
+  <img src="docs/screenshots/history.jpg" alt="History, with Owed to you, What I owe and Who pays fastest at the top, light and dark" width="380">
   <img src="docs/screenshots/owed.jpg" alt="Owed to you, with a link to share the list, light and dark" width="380">
-  <img src="docs/screenshots/pays-fastest.jpg" alt="Who pays fastest: the top five on a podium, and each friend's bills with how long they took to pay, light and dark" width="380">
+  <img src="docs/screenshots/pays-fastest.jpg" alt="Who pays fastest: the top five on a podium, Hide people, and each friend's bills with how long they took to pay, light and dark" width="380">
   <img src="docs/screenshots/owe.jpg" alt="What I owe on a friend's phone, light and dark" width="380">
   <img src="docs/screenshots/list.jpg" alt="The shareable who still owes list, with how long each person hasn't paid, light and dark" width="380">
 </p>
+
+The Who pays fastest link preview, with the top five on a podium:
+
+<img src="docs/screenshots/fastest-preview.jpg" alt="Who pays fastest link preview: the top five on a podium" width="600">
 
 ## Tech
 
