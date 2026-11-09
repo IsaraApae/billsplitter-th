@@ -1,5 +1,5 @@
 import { duration, payTimes, whoStillOwes, withoutHidden } from "@/lib/owed";
-import { boardBills, boardHidden, isValidId, storageReady } from "@/lib/server/redis";
+import { boardBills, boardHidden, boardSkipped, isValidId, storageReady } from "@/lib/server/redis";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { shareImage } from "@/lib/server/shareImage";
 
@@ -8,11 +8,14 @@ export async function GET(req: Request, ctx: RouteContext<"/api/og/f/[id]">) {
   const limited = await rateLimit(req, "og");
   if (limited) return limited;
   const { id } = await ctx.params;
-  const [bills, hidden] = isValidId(id) && storageReady ? await Promise.all([boardBills(id), boardHidden(id)]).catch(() => [null, []] as const) : [null, []];
+  const [bills, hidden, skipped] =
+    isValidId(id) && storageReady
+      ? await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id)]).catch(() => [null, [], []] as const)
+      : [null, [], []];
   let img: Response;
   if (!bills) img = await shareImage(null);
   else {
-    const times = withoutHidden(payTimes(bills), hidden);
+    const times = withoutHidden(payTimes(bills.filter((b) => !skipped.includes(b.id))), hidden);
     const first = times[0];
     const n = times.length;
     img = await shareImage({

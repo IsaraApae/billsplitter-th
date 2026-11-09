@@ -758,6 +758,18 @@ export async function setBoardHidden(id: string, hidden: HiddenPerson[]): Promis
   else await db().set(hiddenKey(id), hidden, { ex: ORGANISER_TTL });
 }
 
+// Bills the organiser leaves out of the count (e.g. one ticked long after it was paid).
+const skippedKey = (id: string) => `board:${id}:skipped`;
+
+export async function boardSkipped(id: string): Promise<string[]> {
+  return (await db().get<string[]>(skippedKey(id))) ?? [];
+}
+
+export async function setBoardSkipped(id: string, billIds: string[]): Promise<void> {
+  if (billIds.length === 0) await db().del(skippedKey(id));
+  else await db().set(skippedKey(id), billIds, { ex: ORGANISER_TTL });
+}
+
 /** The organiser's splits (with payments) behind a list link, or null if there's no such list. */
 export async function boardBills(
   id: string,

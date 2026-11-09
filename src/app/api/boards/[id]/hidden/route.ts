@@ -1,9 +1,20 @@
+import { billDay } from "@/lib/draft";
 import { payTimes } from "@/lib/owed";
 import { jsonError, readJson, safely } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
-import { boardBills, boardHidden, isOrganiserKey, isValidId, ownsBoard, setBoardHidden, type HiddenPerson } from "@/lib/server/redis";
+import {
+  boardBills,
+  boardHidden,
+  boardSkipped,
+  isOrganiserKey,
+  isValidId,
+  ownsBoard,
+  setBoardHidden,
+  setBoardSkipped,
+  type HiddenPerson,
+} from "@/lib/server/redis";
 
-type Body = { owner?: unknown; hidden?: unknown };
+type Body = { owner?: unknown; hidden?: unknown; skipped?: unknown };
 
 /** Checks the caller is the phone this list belongs to (its key goes in the body, never the URL). */
 async function owner(req: Request, id: string): Promise<{ ok: true; body: Body } | { ok: false; res: Response }> {
@@ -14,7 +25,7 @@ async function owner(req: Request, id: string): Promise<{ ok: true; body: Body }
   return { ok: true, body };
 }
 
-/** For the organiser: everyone in "Who pays fastest" (hidden or not), and who is hidden. */
+/** For the organiser: everyone and every bill in "Who pays fastest", and which are left out. */
 export async function POST(req: Request, ctx: RouteContext<"/api/boards/[id]/hidden">) {
   const limited = await rateLimit(req, "write");
   if (limited) return limited;
@@ -22,13 +33,18 @@ export async function POST(req: Request, ctx: RouteContext<"/api/boards/[id]/hid
   return safely(async () => {
     const o = await owner(req, id);
     if (!o.ok) return o.res;
-    const [bills, hidden] = await Promise.all([boardBills(id), boardHidden(id)]);
-    const people = payTimes(bills ?? []).map((p) => ({ key: p.key, ...p.look }));
-    return Response.json({ people, hidden }, { headers: { "Cache-Control": "no-store" } });
+    const [all, hidden, skipped] = await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id)]);
+    const bills = all ?? [];
+    const people = payTimes(bills).map((p) => ({ key: p.key, ...p.look }));
+    // Newest first, as in History.
+    const list = bills
+      .map((b) => ({ id: b.id, title: b.doc.title, day: billDay(b.doc) }))
+      .sort((a, b) => b.day.localeCompare(a.day) || a.title.localeCompare(b.title));
+    return Response.json({ people, hidden, bills: list, skipped }, { headers: { "Cache-Control": "no-store" } });
   });
 }
 
-/** For the organiser: { owner, hidden: [{ key, name }] } replaces who is hidden. */
+/** For the organiser: { owner, hidden: [{ key, name }], skipped: [billId] } replaces what's left out. */
 export async function PUT(req: Request, ctx: RouteContext<"/api/boards/[id]/hidden">) {
   const limited = await rateLimit(req, "write");
   if (limited) return limited;
@@ -45,7 +61,12 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/boards/[id]/hidd
       }
       hidden.push({ key: h.key, name: h.name });
     }
-    await setBoardHidden(id, hidden);
-    return Response.json({ hidden });
+    const rawSkipped = o.body.skipped ?? [];
+    if (!Array.isArray(rawSkipped) || rawSkipped.length > 300 || !rawSkipped.every((x) => typeof x === "string" && isValidId(x))) {
+      return jsonError(400, "bad_request", "Invalid list.");
+    }
+    const skipped = [...new Set(rawSkipped as string[])];
+    await Promise.all([setBoardHidden(id, hidden), setBoardSkipped(id, skipped)]);
+    return Response.json({ hidden, skipped });
   });
 }

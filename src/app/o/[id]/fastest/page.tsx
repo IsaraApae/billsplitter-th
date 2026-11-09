@@ -8,16 +8,17 @@ import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
 import { langOf } from "@/lib/lang";
 import { DAY, duration, payTimes, whoStillOwes, withoutHidden, type PayerTimes } from "@/lib/owed";
-import { boardBills, boardHidden, isValidId, storageReady } from "@/lib/server/redis";
+import { boardBills, boardHidden, boardSkipped, isValidId, storageReady } from "@/lib/server/redis";
 
 export const dynamic = "force-dynamic";
 
 const load = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
-  const [bills, hidden] = await Promise.all([boardBills(id), boardHidden(id)]); // a storage failure shows the error page
+  const [bills, hidden, skipped] = await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id)]); // a storage failure shows the error page
   if (!bills) return null;
-  // People the organiser chose to hide aren't ranked at all.
-  return { organiser: whoStillOwes(bills).organiser, times: withoutHidden(payTimes(bills, Date.now()), hidden), billCount: bills.length };
+  // Bills the organiser left out don't count, and people they chose to hide aren't ranked.
+  const counted = bills.filter((b) => !skipped.includes(b.id));
+  return { organiser: whoStillOwes(bills).organiser, times: withoutHidden(payTimes(counted, Date.now()), hidden), billCount: counted.length };
 });
 
 export async function generateMetadata({ params }: PageProps<"/o/[id]/fastest">): Promise<Metadata> {
