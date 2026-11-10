@@ -659,7 +659,11 @@ export async function setModelCooldown(model: string, seconds: number): Promise<
 // ---- Organisers: which phone made which splits ("What I owe" finds a
 // friend's other bills from the same organiser) ------------------------------
 
-/** An organiser's phone id: random, public (not a secret). */
+/**
+ * An organiser's phone id: random, made on the phone and only ever sent in a request body.
+ * It's what shows a phone owns its list (who's hidden, start times, paid times), so it's
+ * never put in a link and no response gives it out.
+ */
 export const isOrganiserKey = (k: string) => /^[\w-]{16,32}$/.test(k);
 const organiserKey = (owner: string) => `organiser:${owner}`;
 const splitOwnerKey = (id: string) => `split:${id}:owner`;
@@ -736,7 +740,12 @@ export async function boardOfSplit(id: string): Promise<string | null> {
 export async function boardFor(owner: string): Promise<string> {
   const existing = await db().get<string>(organiserBoardKey(owner));
   if (existing && (await db().get<string>(boardKey(existing))) === owner) {
-    await Promise.all([db().expire(boardKey(existing), ORGANISER_TTL), db().expire(organiserBoardKey(owner), ORGANISER_TTL)]);
+    // The list's own settings live as long as the list: otherwise someone hidden long ago would reappear.
+    await Promise.all(
+      [boardKey(existing), organiserBoardKey(owner), hiddenKey(existing), skippedKey(existing), startsKey(existing), offBillsKey(existing)].map((k) =>
+        db().expire(k, ORGANISER_TTL),
+      ),
+    );
     return existing;
   }
   const id = newId();
@@ -800,6 +809,49 @@ export async function setBoardStarts(id: string, starts: Record<string, string>)
   else await db().set(startsKey(id), starts, { ex: ORGANISER_TTL });
 }
 
+// Whether the organiser's bills link to their "Who pays fastest" (they do unless switched off).
+const offBillsKey = (id: string) => `board:${id}:offbills`;
+
+export async function boardOnBills(id: string): Promise<boolean> {
+  return (await db().get<string>(offBillsKey(id))) === null;
+}
+
+export async function setBoardOnBills(id: string, on: boolean): Promise<void> {
+  if (on) await db().del(offBillsKey(id));
+  else await db().set(offBillsKey(id), "1", { ex: ORGANISER_TTL });
+}
+
+/** The list whose "Who pays fastest" a bill links to: its organiser's, unless they've switched that off. */
+export async function fastestBoardOfSplit(id: string): Promise<string | null> {
+  const board = await boardOfSplit(id);
+  return board && (await boardOnBills(board)) ? board : null;
+}
+
+// The time printed on a bill's receipt photo, kept once read so it isn't read (and paid for) again.
+const receiptTimeKey = (id: string) => `split:${id}:receipttime`;
+
+/** The kept reading for this photo: an ISO time, null (no usable time on it), or undefined if it hasn't been read. */
+export async function receiptTimeOf(id: string, photo: string): Promise<string | null | undefined> {
+  const kept = await db().get<{ photo: string; time: string | null }>(receiptTimeKey(id));
+  return kept && kept.photo === photo ? kept.time : undefined;
+}
+
+export async function keepReceiptTime(id: string, photo: string, time: string | null): Promise<void> {
+  await db().set(receiptTimeKey(id), { photo, time }, { ex: TTL_SECONDS });
+}
+
+// One reading of a list's receipts at a time (a second press, or another tab, waits for the first).
+const readingKey = (id: string) => `board:${id}:reading`;
+
+/** Marks list `id` as having its receipts read; false if that's already under way. */
+export async function startReading(id: string): Promise<boolean> {
+  return db().set(readingKey(id), "1", { ex: 90, nx: true });
+}
+
+export async function doneReading(id: string): Promise<void> {
+  await db().del(readingKey(id));
+}
+
 /** A correction of when someone paid a bill (ms), e.g. from the organiser's bank statement. */
 export interface PaidTimeFix {
   bill: string;
@@ -823,7 +875,8 @@ export async function setPaidTimes(id: string, fixes: PaidTimeFix[]): Promise<(P
     if (!s) continue;
     const earliest = Date.parse(`${billDay(s.doc)}T00:00:00+07:00`) - 86_400_000;
     for (const f of fixes) {
-      const was = paid[f.person];
+      // Only someone in the paid list itself ("constructor" and the like are not people).
+      const was = Object.hasOwn(paid, f.person) ? paid[f.person] : 0;
       if (f.bill !== bill || !was || f.at < earliest || f.at > Date.now() + 5 * 60_000) continue;
       await db().hset(paidKey(bill), f.person, String(f.at));
       done.push({ ...f, was });
