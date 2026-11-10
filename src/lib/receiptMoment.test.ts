@@ -10,6 +10,7 @@ describe("the time printed on a receipt", () => {
     expect(receiptMoment("2026-10-29", "13.05", "2026-10-29", now)).toBe(iso("2026-10-29T13:05:00+07:00"));
     expect(receiptMoment("2026-10-29", "1:05 PM", "2026-10-29", now)).toBe(iso("2026-10-29T13:05:00+07:00"));
     expect(receiptMoment("2026-10-29", "12:10 am", "2026-10-29", now)).toBe(iso("2026-10-29T00:10:00+07:00"));
+    expect(receiptMoment("2026-10-29", "12:30 PM", "2026-10-29", now)).toBe(iso("2026-10-29T12:30:00+07:00"));
     expect(receiptMoment("2026-10-29", "11:34:52", "2026-10-29", now)).toBe(iso("2026-10-29T11:34:00+07:00"));
   });
 
