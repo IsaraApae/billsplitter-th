@@ -11,3 +11,16 @@ export const COLOR_HEX: Record<PersonColor, string> = {
   indigo: "#92C1D1",
   slate: "#A9A9B0",
 };
+
+/**
+ * "Who pays fastest" places 1–5: gold, silver, bronze, then the app's mint and a sky blue.
+ * `fill` is the step (and rank badge); `ink` is the number on it (contrast over 7:1).
+ * The same in light and dark, on the page and on the link preview.
+ */
+export const PLACE_COLORS: readonly { fill: string; ink: string }[] = [
+  { fill: "#F5C518", ink: "#4A3500" },
+  { fill: "#CFD6DD", ink: "#27313A" },
+  { fill: "#E3A272", ink: "#3D1F08" },
+  { fill: "#8ADDB5", ink: "#04261A" },
+  { fill: "#9CCBF2", ink: "#0C3557" },
+];
