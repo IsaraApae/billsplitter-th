@@ -24,3 +24,6 @@ export const PLACE_COLORS: readonly { fill: string; ink: string }[] = [
   { fill: "#8ADDB5", ink: "#04261A" },
   { fill: "#9CCBF2", ink: "#0C3557" },
 ];
+
+/** Where the places stand on the podium, left to right: 4th, 2nd, 1st, 3rd, 5th (page and link preview). */
+export const PODIUM_ORDER: readonly number[] = [3, 1, 0, 2, 4];

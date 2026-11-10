@@ -2,7 +2,7 @@ import "server-only";
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { COLOR_HEX, PLACE_COLORS } from "../colors";
+import { COLOR_HEX, PLACE_COLORS, PODIUM_ORDER } from "../colors";
 import { nameInitial } from "../friends";
 import { LogoMark } from "../icon";
 import { formatMoney } from "../money";
@@ -314,9 +314,8 @@ function BahtSign({ size, color }: { size: number; color: string }) {
   );
 }
 
-/** Step heights by place, and the order they stand in: 4th, 2nd, 1st, 3rd, 5th. */
+/** Step heights by place. */
 const STEP = [156, 120, 94, 70, 50];
-const STAND = [3, 1, 0, 2, 4];
 const STEP_W = 100;
 /** The podium's paper: wider than a receipt, so five steps have room. */
 const PODIUM_W = 576;
@@ -347,7 +346,7 @@ function Podium({ places, cta }: { places: { name: string; color?: PersonColor; 
       >
         <div style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 900, color: INK_2 }}>TOP 5</div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
-          {STAND.map((i) => {
+          {PODIUM_ORDER.map((i) => {
             const p = places[i];
             const first = i === 0;
             return (

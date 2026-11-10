@@ -7,20 +7,18 @@ import { FastestHide } from "@/components/FastestHide";
 import { FastestShare } from "@/components/FastestShare";
 import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
-import { PLACE_COLORS } from "@/lib/colors";
+import { PLACE_COLORS, PODIUM_ORDER } from "@/lib/colors";
 import { langOf } from "@/lib/lang";
-import { DAY, duration, payTimes, whoStillOwes, withoutHidden, withStarts, type PayerTimes } from "@/lib/owed";
-import { boardBills, boardHidden, boardSkipped, boardStarts, isValidId, storageReady } from "@/lib/server/redis";
+import { DAY, duration, whoStillOwes, type PayerTimes } from "@/lib/owed";
+import { fastestRanking } from "@/lib/server/board";
+import { isValidId, storageReady } from "@/lib/server/redis";
 
 export const dynamic = "force-dynamic";
 
 const load = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
-  const [bills, hidden, skipped, starts] = await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id), boardStarts(id)]); // a storage failure shows the error page
-  if (!bills) return null;
-  // Bills the organiser left out don't count, their own start times count, and people they chose to hide aren't ranked.
-  const counted = withStarts(bills.filter((b) => !skipped.includes(b.id)), starts);
-  return { organiser: whoStillOwes(bills).organiser, times: withoutHidden(payTimes(counted, Date.now()), hidden), billCount: counted.length };
+  const r = await fastestRanking(id); // a storage failure shows the error page
+  return r && { organiser: whoStillOwes(r.bills).organiser, times: r.times, billCount: r.billCount };
 });
 
 export async function generateMetadata({ params }: PageProps<"/o/[id]/fastest">): Promise<Metadata> {
@@ -170,22 +168,26 @@ function PayerCard({ p, rank }: { p: PayerTimes; rank: number }) {
   );
 }
 
-/** Step heights by place, and the order they stand in: 4th, 2nd, 1st, 3rd, 5th (as on the link preview). */
+/** Step heights by place. */
 const STEP = ["h-32", "h-24", "h-[4.5rem]", "h-14", "h-11"];
-const STAND = [3, 1, 0, 2, 4];
 
-/** The top five on a podium: initial, name and average time to pay, on their step. */
+/**
+ * The top five on a podium: initial, name and average time to pay, on their step. Listed
+ * 1st to 5th (how a screen reader reads them) and stood 4th, 2nd, 1st, 3rd, 5th, as on the
+ * link preview.
+ */
 function Podium({ top }: { top: PayerTimes[] }) {
   return (
-    <div className="card px-3 pt-5 pb-0" aria-label="Top five">
-      <ol className="flex items-end justify-center gap-1.5">
-        {STAND.map((i) => {
+    <div className="card px-3 pt-5 pb-0">
+      <ol className="flex items-end justify-center gap-1.5" aria-label="Top five">
+        {STEP.map((_, i) => {
           const p = top[i];
           const first = i === 0;
+          const stand = { order: PODIUM_ORDER.indexOf(i) };
           // Five places always; one nobody has reached yet is an empty step.
           if (!p)
             return (
-              <li key={`empty${i}`} className="flex w-1/5 max-w-24 min-w-0 flex-col items-center">
+              <li key={`empty${i}`} className="flex w-1/5 max-w-24 min-w-0 flex-col items-center" style={stand}>
                 <span className={cx("flex w-full justify-center rounded-t-[8px] pt-1.5 text-[20px] font-bold text-ink-3 tabular-nums opacity-60", STEP[i], "bg-[var(--field)]")}>
                   <span className="sr-only">Place </span>
                   {i + 1}
@@ -193,7 +195,7 @@ function Podium({ top }: { top: PayerTimes[] }) {
               </li>
             );
           return (
-            <li key={p.key} className="flex w-1/5 max-w-24 min-w-0 flex-col items-center">
+            <li key={p.key} className="flex w-1/5 max-w-24 min-w-0 flex-col items-center" style={stand}>
               {first && <Trophy size={20} {...ICON} className="mb-1" style={{ color: "#B8860B" }} fill={PLACE_COLORS[0].fill} aria-hidden />}
               <Avatar person={p.look} size={first ? 48 : 38} />
               <span className="mt-1 w-full truncate text-center text-[13px] font-semibold" {...langOf(p.look.name)}>

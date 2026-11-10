@@ -1,5 +1,6 @@
-import { duration, payTimes, whoStillOwes, withoutHidden, withStarts } from "@/lib/owed";
-import { boardBills, boardHidden, boardSkipped, boardStarts, isValidId, storageReady } from "@/lib/server/redis";
+import { duration, whoStillOwes } from "@/lib/owed";
+import { fastestRanking } from "@/lib/server/board";
+import { isValidId, storageReady } from "@/lib/server/redis";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { shareImage } from "@/lib/server/shareImage";
 
@@ -8,14 +9,12 @@ export async function GET(req: Request, ctx: RouteContext<"/api/og/f/[id]">) {
   const limited = await rateLimit(req, "og");
   if (limited) return limited;
   const { id } = await ctx.params;
-  const [bills, hidden, skipped, starts] =
-    isValidId(id) && storageReady
-      ? await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id), boardStarts(id)]).catch(() => [null, [], [], {}] as const)
-      : [null, [], [], {}];
+  // The same ranking as the page.
+  const ranking = isValidId(id) && storageReady ? await fastestRanking(id).catch(() => null) : null;
   let img: Response;
-  if (!bills) img = await shareImage(null);
+  if (!ranking) img = await shareImage(null);
   else {
-    const times = withoutHidden(payTimes(withStarts(bills.filter((b) => !skipped.includes(b.id)), starts)), hidden);
+    const { bills, times } = ranking;
     const first = times[0];
     const n = times.length;
     img = await shareImage({
@@ -32,6 +31,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/og/f/[id]">) {
       tagline: "Everyone ranked by how fast they pay, bill by bill",
     });
   }
-  img.headers.set("Cache-Control", "public, max-age=300, s-maxage=3600");
+  // Kept only briefly: someone the organiser has just hidden shouldn't stay on an older preview for an hour.
+  img.headers.set("Cache-Control", "public, max-age=300, s-maxage=300");
   return img;
 }
