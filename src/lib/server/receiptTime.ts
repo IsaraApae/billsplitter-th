@@ -24,12 +24,19 @@ const LEGACY_SCHEMA = {
   required: ["date", "time"],
 };
 
-/** The moment printed on a stored receipt photo (ISO, Thailand time), or null if it can't be read. */
-export async function readReceiptTime(photo: string, billDay: string): Promise<string | null> {
+/**
+ * The moment printed on a stored receipt photo (ISO, Thailand time). Null when the photo has
+ * gone or shows no usable time (final: asking again gives the same); undefined when it
+ * couldn't be read just now (the reader was busy or `budgetMs` ran out: worth asking again).
+ */
+export async function readReceiptTime(photo: string, billDay: string, budgetMs = 25_000): Promise<string | null | undefined> {
+  const started = Date.now();
   const img = await readQrImage(photo);
   if (!img) return null;
   const mime = img.headers.get("content-type") ?? "image/jpeg";
   const bytes = Buffer.from(await img.arrayBuffer());
+  const totalMs = Math.min(25_000, budgetMs - (Date.now() - started));
+  if (totalMs < 3_000) return undefined;
   const r = await readImageJson({
     evt: "receipt-time",
     prompt: PROMPT,
@@ -37,14 +44,14 @@ export async function readReceiptTime(photo: string, billDay: string): Promise<s
     legacySchema: LEGACY_SCHEMA,
     mime,
     data: bytes.toString("base64"),
-    totalMs: 25_000,
-    attemptMs: 12_000,
+    totalMs,
+    attemptMs: Math.min(12_000, totalMs),
   });
-  if (!r.ok) return null;
+  if (!r.ok) return undefined;
   try {
     const o = extractJson(r.text) as { date?: unknown; time?: unknown };
     return receiptMoment(o.date, o.time, billDay);
   } catch {
-    return null;
+    return undefined; // a garbled answer
   }
 }

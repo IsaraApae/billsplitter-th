@@ -85,9 +85,9 @@ describe("who pays fastest", () => {
 
   it("ranks by the average time to pay, from when the bill was made, an unpaid bill counting the time so far", () => {
     const t = payTimes([dinner, karaoke], now);
-    expect(t.map((p) => [p.look.name, duration(p.avgMs), p.paid, p.unpaid, p.owed])).toEqual([
-      ["Mint", "16 hr", 2, 0, 0], // 3 hr 30 min and 1 day 6 hr: 16.75 hr
-      ["Ploy", "6 days 20 hr", 1, 1, 15000], // 4 days, and 9 days 16 hr and counting
+    expect(t.map((p) => [p.look.name, duration(p.avgMs), p.paid, p.unpaid])).toEqual([
+      ["Mint", "16 hr", 2, 0], // 3 hr 30 min and 1 day 6 hr: 16.75 hr
+      ["Ploy", "6 days 20 hr", 1, 1], // 4 days, and 9 days 16 hr and counting
     ]);
     const mint = t[0];
     expect([duration(mint.fastestMs!), duration(mint.slowestMs!)]).toEqual(["3 hr 30 min", "1 day 6 hr"]);

@@ -66,8 +66,6 @@ export interface HistoryEntry {
   partialPaid?: Record<string, number>;
   /** friends pay each payer directly: progress counts transfers, so refresh from the whole split */
   direct?: boolean;
-  /** when each friend's payment to you was ticked: personId → ms (0: the server has no time; absent until refreshed) */
-  paidAt?: Record<string, number>;
 }
 
 /**
@@ -193,7 +191,8 @@ export function rememberMe(billId: string, personId: string, name?: string): voi
   if (name && !getIam()) setIam(name);
 }
 
-// ---- This phone's organiser id (random, public), so friends' "What I owe" finds all your bills
+// ---- This phone's organiser id (random): friends' "What I owe" finds all your bills by it, and it
+// shows the server that this phone owns its list. Only ever sent in a request body; kept in backups.
 const DEVICE = "bs:device";
 
 export function getDeviceKey(): string {

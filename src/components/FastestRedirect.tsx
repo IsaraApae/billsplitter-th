@@ -21,8 +21,10 @@ export function FastestRedirect() {
       try {
         // Bills the server doesn't know are this phone's yet are counted too.
         await claimMySplits(true);
+        // Asked each time, not just remembered: the answer keeps the list (and what's hidden on
+        // it) alive, and is a new list should the remembered one have gone.
         let id = load<string | null>(BOARD, null);
-        if (!id) {
+        try {
           const r = await fetch("/api/boards", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -31,6 +33,8 @@ export function FastestRedirect() {
           if (!r.ok) throw new Error();
           id = ((await r.json()) as { id: string }).id;
           save(BOARD, id);
+        } catch (e) {
+          if (!id) throw e;
         }
         if (!cancelled) router.replace(`/o/${id}/fastest`);
       } catch {

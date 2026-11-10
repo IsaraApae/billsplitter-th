@@ -2,12 +2,13 @@
 
 import { Check, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { getDeviceKey, load } from "@/lib/client/storage";
 import { langOf } from "@/lib/lang";
+import { isHiddenPerson } from "@/lib/owed";
 import type { Person } from "@/lib/types";
-import { Avatar, Callout, ICON, Sheet, cx } from "./ui";
+import { Avatar, Callout, ICON, Sheet, Toggle, cx } from "./ui";
 
 type Person5 = Pick<Person, "name" | "emoji" | "color"> & { key: string };
 type Hidden = { key: string; name: string };
@@ -16,10 +17,10 @@ type Bill = { id: string; title: string; day: string; from: number; start: strin
 
 /** A moment as the value of a datetime-local field, in Thailand time ("2026-10-29T11:34"). */
 const toField = (ms: number) => new Date(ms + 7 * 3_600_000).toISOString().slice(0, 16);
+/** Now, as a field value: the latest a bill can count from. */
+const nowField = () => toField(Date.now());
 /** A datetime-local value (Thailand time) as a moment, or NaN. */
 const fromField = (v: string) => Date.parse(`${v}:00+07:00`);
-
-const norm = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
 
 /** "9 Nov 2026, 13:25" in Thailand time. */
 const when = (ms: number) =>
@@ -27,7 +28,8 @@ const when = (ms: number) =>
 
 /**
  * "Hide" on Who pays fastest: only on the phone this list belongs to. The organiser picks
- * friends to hide and bills not to count, for the ranking, the podium and its link preview.
+ * friends to hide and bills not to count, for the ranking, the podium and its link preview,
+ * and whether their bills link to the page.
  */
 export function FastestHide({ id }: { id: string }) {
   const router = useRouter();
@@ -38,6 +40,11 @@ export function FastestHide({ id }: { id: string }) {
   const [bills, setBills] = useState<Bill[]>([]);
   const [skipped, setSkipped] = useState<string[]>([]);
   const [starts, setStarts] = useState<Record<string, string>>({});
+  const [onBills, setOnBills] = useState(true);
+  // The latest a bill can count from: when the sheet's lists arrived (as a field value).
+  const [latest, setLatest] = useState("");
+  // Which opening of the sheet an answer belongs to: a slow one from before mustn't undo newer edits.
+  const opened = useRef(0);
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -46,8 +53,10 @@ export function FastestHide({ id }: { id: string }) {
   if (!mine) return null;
 
   async function start() {
+    const turn = ++opened.current;
     setOpen(true);
     setError(null);
+    setReadNote(null);
     setPeople(null);
     try {
       const r = await fetch(`/api/boards/${id}/hidden`, {
@@ -56,7 +65,10 @@ export function FastestHide({ id }: { id: string }) {
         body: JSON.stringify({ owner: getDeviceKey() }),
       });
       if (!r.ok) throw new Error();
-      const d = (await r.json()) as { people: Person5[]; hidden: Hidden[]; bills: Bill[]; skipped: string[] };
+      const d = (await r.json()) as { people: Person5[]; hidden: Hidden[]; bills: Bill[]; skipped: string[]; onBills?: boolean };
+      if (turn !== opened.current) return;
+      setOnBills(d.onBills ?? true);
+      setLatest(nowField());
       // Someone hidden whose bills have all gone still shows, so they can be brought back.
       const gone = d.hidden.filter((h) => !d.people.some((p) => isHidden(p, [h]))).map((h) => ({ key: h.key, name: h.name }));
       setPeople([...d.people, ...gone].sort((a, b) => a.name.localeCompare(b.name, ["th", "en"], { sensitivity: "base" })));
@@ -66,13 +78,14 @@ export function FastestHide({ id }: { id: string }) {
       // A left-out bill that has since expired needn't be kept.
       setSkipped(d.skipped.filter((x) => d.bills.some((b) => b.id === x)));
     } catch {
+      if (turn !== opened.current) return;
       setError(navigator.onLine ? "Couldn't load your friends. Try again." : "You're offline. Try again when connected.");
     }
   }
 
-  const isHidden = (p: Person5, list: Hidden[]) => list.some((h) => h.key === p.key || norm(h.name) === norm(p.name));
+  const isHidden = (p: Person5, list: Hidden[]) => list.some((h) => isHiddenPerson(h, p.key, p.name));
   const toggle = (p: Person5) =>
-    setHidden((list) => (isHidden(p, list) ? list.filter((h) => !(h.key === p.key || norm(h.name) === norm(p.name))) : [...list, { key: p.key, name: p.name }]));
+    setHidden((list) => (isHidden(p, list) ? list.filter((h) => !isHiddenPerson(h, p.key, p.name)) : [...list, { key: p.key, name: p.name }]));
 
   const toggleBill = (billId: string) => setSkipped((list) => (list.includes(billId) ? list.filter((x) => x !== billId) : [...list, billId]));
   /** The organiser's own start for a bill; the bill's own start (or a cleared field) removes it. */
@@ -85,24 +98,36 @@ export function FastestHide({ id }: { id: string }) {
       return next;
     });
 
-  /** Older bills (no share time kept): fill "Counts from" with the time printed on their receipt photo. */
+  /**
+   * Older bills (no share time kept): fill "Counts from" with the time printed on their receipt
+   * photo. Only bills that count and have no time of your own, so nothing set by hand changes.
+   */
   async function useReceiptTimes() {
+    const ask = bills.filter((b) => !b.shared && !skipped.includes(b.id) && !starts[b.id]).map((b) => b.id);
+    if (ask.length === 0) {
+      setReadNote("Every older bill that counts already has a time of your own. Reset one to read its receipt again.");
+      return;
+    }
     setReading(true);
     setReadNote(null);
     try {
       const r = await fetch(`/api/boards/${id}/receipt-times`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner: getDeviceKey() }),
+        body: JSON.stringify({ owner: getDeviceKey(), bills: ask }),
       });
       if (!r.ok) throw new Error();
-      const d = (await r.json()) as { times: Record<string, string>; unread: string[] };
-      setStarts((all) => ({ ...all, ...d.times }));
+      const d = (await r.json()) as { times: Record<string, string>; unread: string[]; later?: string[] };
+      // A time set while the receipts were being read stays.
+      setStarts((all) => ({ ...d.times, ...all }));
       const n = Object.keys(d.times).length;
-      const left = d.unread.map((x) => bills.find((b) => b.id === x)?.title).filter(Boolean);
+      const titles = (ids: string[]) => ids.map((x) => bills.find((b) => b.id === x)?.title).filter(Boolean);
+      const left = titles(d.unread);
+      const later = titles(d.later ?? []);
       setReadNote(
         `${n === 0 ? "No times found" : `Filled ${n} ${n === 1 ? "bill" : "bills"} from the receipt`}. Check them, then save.` +
-          (left.length ? ` No receipt time for ${left.join(", ")}: set ${left.length === 1 ? "it" : "them"} by hand.` : ""),
+          (left.length ? ` No receipt time for ${left.join(", ")}: set ${left.length === 1 ? "it" : "them"} by hand.` : "") +
+          (later.length ? ` Not read yet: ${later.join(", ")}. Press again to read ${later.length === 1 ? "it" : "them"}.` : ""),
       );
     } catch {
       setReadNote(navigator.onLine ? "Couldn't read the receipts. Try again." : "You're offline. Try again when connected.");
@@ -112,13 +137,19 @@ export function FastestHide({ id }: { id: string }) {
   }
 
   async function save() {
+    // The server refuses a start that hasn't happened yet; say which bill rather than just failing.
+    const ahead = bills.find((b) => starts[b.id] && Date.parse(starts[b.id]) > Date.now());
+    if (ahead) {
+      setError(`“${ahead.title}” counts from a time that hasn't come yet. Pick an earlier one, or Reset it.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const r = await fetch(`/api/boards/${id}/hidden`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner: getDeviceKey(), hidden, skipped, starts }),
+        body: JSON.stringify({ owner: getDeviceKey(), hidden, skipped, starts, onBills }),
       });
       if (!r.ok) throw new Error();
       setOpen(false);
@@ -219,16 +250,17 @@ export function FastestHide({ id }: { id: string }) {
                     </label>
                     {!off && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-2">
-                        <span id={`from-${b.id}`}>Counts from</span>
+                        <span aria-hidden>Counts from</span>
                         <input
                           type="datetime-local"
                           className="input min-h-9 w-auto px-2 text-[15px]"
-                          aria-labelledby={`from-${b.id}`}
+                          aria-label={`${b.title} counts from (Thailand time)`}
+                          max={latest}
                           value={toField(starts[b.id] ? Date.parse(starts[b.id]) : b.from)}
                           onChange={(e) => setStart(b, e.target.value)}
                         />
                         {starts[b.id] ? (
-                          <button type="button" className="font-semibold text-accent" onClick={() => setStart(b, toField(b.from))}>
+                          <button type="button" className="font-semibold text-accent" aria-label={`Reset ${b.title}`} onClick={() => setStart(b, toField(b.from))}>
                             Reset
                           </button>
                         ) : null}
@@ -244,6 +276,19 @@ export function FastestHide({ id }: { id: string }) {
                 );
               })}
             </ul>
+          </>
+        )}
+        {people && (
+          <>
+            <h3 className="section-label mt-5 mb-2 px-1">Your bills</h3>
+            <div className="card px-5 py-3">
+              <Toggle
+                label="Show on my bills"
+                hint="Friends who open one of your bills get a link to Who pays fastest."
+                checked={onBills}
+                onChange={setOnBills}
+              />
+            </div>
           </>
         )}
       </Sheet>

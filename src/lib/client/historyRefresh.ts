@@ -1,7 +1,6 @@
 "use client";
 
-import { ORGANISER_ID } from "../calc";
-import { parseTransferKey, paymentSummary } from "../settle";
+import { paymentSummary } from "../settle";
 import type { SplitDoc } from "../types";
 import { historyFromDoc, paidProgress, patchHistory, type HistoryEntry } from "./storage";
 
@@ -38,37 +37,15 @@ export async function refreshEntry(h: HistoryEntry): Promise<Partial<HistoryEntr
     if (!r.ok) return null;
     let patch: Partial<HistoryEntry>;
     if (full) {
-      const data: { doc: SplitDoc; paid: string[]; partial?: Record<string, number>; paidAt?: Record<string, number> } = await r.json();
-      const summary = paymentSummary(data.doc, { paid: data.paid, partial: data.partial ?? {} });
-      patch = { ...historyFromDoc(data.doc), ...summary, paidAt: paidToMe(data.paidAt, summary.paidIds) };
+      const data: { doc: SplitDoc; paid: string[]; partial?: Record<string, number> } = await r.json();
+      patch = { ...historyFromDoc(data.doc), ...paymentSummary(data.doc, { paid: data.paid, partial: data.partial ?? {} }) };
     } else {
-      const data: { paid: string[]; partial?: Record<string, number>; paidAt?: Record<string, number> } = await r.json();
-      patch = {
-        ...paidProgress(h.personIds ?? [], data.paid),
-        paidIds: data.paid,
-        partialPaid: data.partial ?? {},
-        paidAt: paidToMe(data.paidAt, data.paid),
-      };
+      const data: { paid: string[]; partial?: Record<string, number> } = await r.json();
+      patch = { ...paidProgress(h.personIds ?? [], data.paid), paidIds: data.paid, partialPaid: data.partial ?? {} };
     }
     patchHistory(h.id, patch);
     return patch;
   } catch {
     return null;
   }
-}
-
-/**
- * Payment times by friend: a transfer to you ("t:mint:me") counts as Mint's. Everyone in
- * `paidIds` gets an entry, 0 when the server has no time for their tick (ticked before
- * times were kept), so History knows it has asked and needn't ask again.
- */
-export function paidToMe(paidAt: Record<string, number> = {}, paidIds: string[] = []): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const [k, t] of Object.entries(paidAt)) {
-    const tr = parseTransferKey(k);
-    if (!tr) out[k] = t;
-    else if (tr.to === ORGANISER_ID) out[tr.from] = t;
-  }
-  for (const id of paidIds) if (!parseTransferKey(id)) out[id] ??= 0;
-  return out;
 }

@@ -145,8 +145,6 @@ export interface HistoryLike {
   partialPaid?: Record<string, number>;
   /** friends pay each payer directly: payments are recorded per transfer */
   direct?: boolean;
-  /** when each friend's payment was ticked: personId → ms */
-  paidAt?: Record<string, number>;
 }
 
 export interface OwedBill {
@@ -240,8 +238,7 @@ export interface PayerTimes {
   /** quickest and slowest paid bill (ms), when any is paid */
   fastestMs?: number;
   slowestMs?: number;
-  /** what they still owe, and the longest an unpaid bill has waited (ms) */
-  owed: number;
+  /** the longest an unpaid bill has waited (ms) */
   waitingMs: number;
   /** newest first */
   bills: PayBill[];
@@ -307,7 +304,7 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
       if (isPaid && !paidAt) continue;
       let p = all.find((x) => x.key === m.id || norm(x.look.name) === norm(m.name));
       if (!p) {
-        p = { key: m.id, look: { name: m.name, emoji: m.emoji, color: m.color }, avgMs: 0, paid: 0, unpaid: 0, owed: 0, waitingMs: 0, bills: [], sum: 0 };
+        p = { key: m.id, look: { name: m.name, emoji: m.emoji, color: m.color }, avgMs: 0, paid: 0, unpaid: 0, waitingMs: 0, bills: [], sum: 0 };
         all.push(p);
       }
       const ms = Math.max(0, (isPaid ? paidAt! : now) - from);
@@ -319,7 +316,6 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
         p.slowestMs = Math.max(p.slowestMs ?? ms, ms);
       } else {
         p.unpaid++;
-        p.owed += l.amount - l.paidSoFar;
         p.waitingMs = Math.max(p.waitingMs, ms);
       }
     }
@@ -343,10 +339,13 @@ export function withStarts<T extends { id: string; sharedAt?: string }>(bills: T
   return bills.map((b) => (starts[b.id] ? { ...b, sharedAt: starts[b.id] } : b));
 }
 
+/** Whether a hidden entry is this person: the same key, or the same name however it's typed. */
+export const isHiddenPerson = (h: { key: string; name: string }, key: string, name: string) => h.key === key || norm(h.name) === norm(name);
+
 /** The ranking without the people the organiser chose to hide (matched by key or name). */
 export function withoutHidden(times: PayerTimes[], hidden: { key: string; name: string }[]): PayerTimes[] {
   if (hidden.length === 0) return times;
-  return times.filter((p) => !hidden.some((h) => h.key === p.key || norm(h.name) === norm(p.look.name)));
+  return times.filter((p) => !hidden.some((h) => isHiddenPerson(h, p.key, p.look.name)));
 }
 
 const HOUR = 3_600_000;
