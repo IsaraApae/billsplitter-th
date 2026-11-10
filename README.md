@@ -62,7 +62,7 @@ The link preview friends see in chat:
   <img src="docs/screenshots/history.jpg" alt="History, with Owed to you, What I owe and Who pays fastest at the top, light and dark" width="380">
   <img src="docs/screenshots/owed.jpg" alt="Owed to you, with a link to share the list, light and dark" width="380">
   <img src="docs/screenshots/pays-fastest.jpg" alt="Who pays fastest: the top five on a podium with Share and Copy link, Hide, and each friend's bills with how long they took to pay, light and dark" width="380">
-  <img src="docs/screenshots/fastest-hide.jpg" alt="What counts in Who pays fastest: friends to hide, bills to leave out, and when each bill counts from, with the original time under a changed one, light and dark" width="380">
+  <img src="docs/screenshots/fastest-hide.jpg" alt="What counts in Who pays fastest: bills to leave out, when each bill counts from, with the original time under a changed one, and the Show on my bills switch, light and dark" width="380">
   <img src="docs/screenshots/owe.jpg" alt="What I owe on a friend's phone, light and dark" width="380">
   <img src="docs/screenshots/list.jpg" alt="The shareable who still owes list, with how long each person hasn't paid, light and dark" width="380">
 </p>
@@ -81,13 +81,13 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · Redis (R
 npm install
 cp .env.example .env.local   # optional: fill in only what you need (see below)
 npm run dev              # http://localhost:3000  (add `-- -H 0.0.0.0` to open it from a phone on the same Wi-Fi)
-npm test                 # Vitest: money maths, rounding, scan clean-up, slips, big bills, PromptPay, backup…
+npm test                 # Vitest: money maths, rounding, scan clean-up, slips, big bills, PromptPay, backup, the list routes…
 npm run lint
 npm run typecheck        # generates Next's route types, then tsc
 npm run build
 ```
 
-Without Redis/Blob settings, `npm run dev` uses in-memory stores, so sharing and uploads work locally (lost on restart). Without `GEMINI_API_KEY`, scanning says it isn't set up and items are added by hand. GitHub Actions runs lint, typecheck, tests and the build on every push to `main` and every pull request; Dependabot opens update PRs weekly.
+Without Redis/Blob settings, `npm run dev` uses in-memory stores, so sharing and uploads work locally (lost on restart). Without `GEMINI_API_KEY`, scanning says it isn't set up and items are added by hand. GitHub Actions runs lint, typecheck, tests and the build on every push to `main` and every pull request; CodeQL scans the code; Dependabot opens update PRs weekly.
 
 Scripts:
 
