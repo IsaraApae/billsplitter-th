@@ -7,6 +7,7 @@ import { FastestHide } from "@/components/FastestHide";
 import { FastestShare } from "@/components/FastestShare";
 import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
+import { PLACE_COLORS } from "@/lib/colors";
 import { langOf } from "@/lib/lang";
 import { DAY, duration, payTimes, whoStillOwes, withoutHidden, withStarts, type PayerTimes } from "@/lib/owed";
 import { boardBills, boardHidden, boardSkipped, boardStarts, isValidId, storageReady } from "@/lib/server/redis";
@@ -100,9 +101,17 @@ function PayerCard({ p, rank }: { p: PayerTimes; rank: number }) {
     <li className="card overflow-hidden">
       <details className="group">
         <summary className="flex min-h-[76px] cursor-pointer list-none items-center gap-3 py-3 pr-4 pl-4 [&::-webkit-details-marker]:hidden">
-          <span className="flex w-7 shrink-0 justify-center text-[17px] font-bold text-ink-2 tabular-nums">
-            {rank === 1 ? <Trophy size={20} {...ICON} className="text-accent" aria-label="First" /> : rank}
-          </span>
+          {rank <= 5 ? (
+            <span
+              className="grid size-7 shrink-0 place-items-center rounded-full text-[15px] font-bold tabular-nums"
+              style={{ background: PLACE_COLORS[rank - 1].fill, color: PLACE_COLORS[rank - 1].ink }}
+            >
+              <span className="sr-only">Place </span>
+              {rank}
+            </span>
+          ) : (
+            <span className="flex w-7 shrink-0 justify-center text-[17px] font-bold text-ink-2 tabular-nums">{rank}</span>
+          )}
           <Avatar person={p.look} size={40} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[17px] font-semibold" {...langOf(p.look.name)}>
@@ -185,18 +194,15 @@ function Podium({ top }: { top: PayerTimes[] }) {
             );
           return (
             <li key={p.key} className="flex w-1/5 max-w-24 min-w-0 flex-col items-center">
-              {first && <Trophy size={20} {...ICON} className="mb-1 text-accent" aria-hidden />}
+              {first && <Trophy size={20} {...ICON} className="mb-1" style={{ color: "#B8860B" }} fill={PLACE_COLORS[0].fill} aria-hidden />}
               <Avatar person={p.look} size={first ? 48 : 38} />
               <span className="mt-1 w-full truncate text-center text-[13px] font-semibold" {...langOf(p.look.name)}>
                 {p.look.name}
               </span>
-              <span className={cx("mb-1.5 w-full truncate text-center text-[11px]", first ? "font-semibold text-accent" : "text-ink-2")}>{duration(p.avgMs)}</span>
+              <span className={cx("mb-1.5 w-full truncate text-center text-[11px]", first ? "font-semibold text-ink" : "text-ink-2")}>{duration(p.avgMs)}</span>
               <span
-                className={cx(
-                  "flex w-full justify-center rounded-t-[8px] pt-1.5 text-[20px] font-bold tabular-nums",
-                  STEP[i],
-                  first ? "bg-accent-fill text-accent-ink" : "bg-[var(--field)] text-ink-2",
-                )}
+                className={cx("flex w-full justify-center rounded-t-[8px] pt-1.5 text-[20px] font-bold tabular-nums", STEP[i])}
+                style={{ background: PLACE_COLORS[i].fill, color: PLACE_COLORS[i].ink }}
               >
                 <span className="sr-only">Place </span>
                 {i + 1}

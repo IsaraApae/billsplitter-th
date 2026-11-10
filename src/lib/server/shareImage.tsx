@@ -2,7 +2,7 @@ import "server-only";
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { COLOR_HEX } from "../colors";
+import { COLOR_HEX, PLACE_COLORS } from "../colors";
 import { nameInitial } from "../friends";
 import { LogoMark } from "../icon";
 import { formatMoney } from "../money";
@@ -323,7 +323,7 @@ const PODIUM_W = 576;
 
 /**
  * The top five on a podium, on the same paper as a bill's receipt: each friend's initial,
- * name and average time stand on their step, #1 crowned on the green one. A place nobody
+ * name and average time stand on their step, #1 crowned; each place has its colour (gold, silver, bronze, mint, sky). A place nobody
  * has reached yet is an empty step.
  */
 function Podium({ places, cta }: { places: { name: string; color?: PersonColor; time: string }[]; cta: string }) {
@@ -377,7 +377,7 @@ function Podium({ places, cta }: { places: { name: string; color?: PersonColor; 
                 )}
                 {p && <div style={{ marginTop: 8, fontSize: first ? 24 : 20, fontWeight: 700, color: INK }}>{short(p.name)}</div>}
                 {p && (
-                  <div style={{ marginBottom: 8, fontSize: p.time.length > 10 ? 15 : 17, fontWeight: 700, whiteSpace: "nowrap", color: first ? ACCENT : INK_2 }}>
+                  <div style={{ marginBottom: 8, fontSize: p.time.length > 10 ? 15 : 17, fontWeight: 700, whiteSpace: "nowrap", color: first ? INK : INK_2 }}>
                     {p.time}
                   </div>
                 )}
@@ -389,8 +389,8 @@ function Podium({ places, cta }: { places: { name: string; color?: PersonColor; 
                     justifyContent: "center",
                     paddingTop: 8,
                     borderRadius: "10px 10px 0 0",
-                    background: first ? GREEN : p ? "#E3F4EA" : "#F2F2F7",
-                    color: first ? ON_GREEN : p ? ACCENT : "#C7C7CC",
+                    background: p ? PLACE_COLORS[i].fill : "#F2F2F7",
+                    color: p ? PLACE_COLORS[i].ink : "#C7C7CC",
                     fontFamily: DISPLAY,
                     fontSize: first ? 46 : 34,
                     fontWeight: 900,
