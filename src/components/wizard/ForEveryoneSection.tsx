@@ -3,7 +3,7 @@
 import { Users } from "lucide-react";
 import type { CalcResult } from "@/lib/calc";
 import type { SplitDoc } from "@/lib/types";
-import { ICON, Money, MoneyInput, Section } from "../ui";
+import { ICON, Money, MoneyInput, Section, Segmented } from "../ui";
 import type { SetDoc } from "./Wizard";
 
 /**
@@ -31,8 +31,25 @@ export function ForEveryoneSection({ doc, setDoc, calc }: { doc: SplitDoc; setDo
           onChange={(v) => setDoc((d) => ({ ...d, forEveryone: v > 0 ? v : undefined }))}
         />
       </div>
+      {calc.forEveryone > 0 && doc.mode === "itemized" && (
+        // Splitting equally, everyone's part is the same anyway.
+        <Segmented<"share" | "same">
+          label="Split it"
+          value={doc.forEveryoneSame ? "same" : "share"}
+          onChange={(v) => setDoc((d) => ({ ...d, forEveryoneSame: v === "same" ? true : undefined }))}
+          options={[
+            { value: "share", label: "By what each had" },
+            { value: "same", label: "Same for everyone" },
+          ]}
+        />
+      )}
       <p className="px-5 text-[13px] text-ink-2">
-        {calc.forEveryone > 0 ? (
+        {calc.forEveryone > 0 && doc.forEveryoneSame && doc.mode === "itemized" ? (
+          <>
+            <Money value={calc.people[0]?.forEveryone ?? 0} currency={doc.currency} className="text-ink" /> off what each person pays, you too. The bill
+            stays <Money value={calc.total} currency={doc.currency} className="text-ink" />.
+          </>
+        ) : calc.forEveryone > 0 ? (
           <>
             Comes off what everyone pays, you too. The bill stays <Money value={calc.total} currency={doc.currency} className="text-ink" />; together you
             pay <Money value={calc.total - calc.forEveryone} currency={doc.currency} className="text-ink" />.

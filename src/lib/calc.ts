@@ -26,6 +26,8 @@ export interface CalcInput {
   receiptRounding?: ReceiptRounding;
   /** Paid for everyone (deposit, voucher): comes off what everyone pays, after their share is worked out. */
   forEveryone?: number;
+  /** The same part of it for each person, instead of by share. */
+  forEveryoneSame?: boolean;
   /**
    * When an amount doesn't divide evenly, the leftover satang go to the
    * friends, so the organiser's part is the smaller one (new splits). Off for
@@ -327,11 +329,13 @@ export function calculate(input: CalcInput): CalcResult {
     }
     results.forEach((r) => (r.total = r.discounted + r.service + r.vat + r.rounding));
     if (forEveryone > 0) {
-      // Each person's part: equal when splitting equally (what's left to pay
-      // stays equal), else in proportion to their share. The organiser gets
-      // the bigger part of uneven satang.
-      const off =
-        mode === "equal"
+      // Each person's part: the same for everyone when chosen (฿80 for 4: ฿20
+      // each), equal when splitting equally (what's left to pay stays equal),
+      // else in proportion to their share. The organiser gets the bigger part
+      // of uneven satang.
+      const off = input.forEveryoneSame
+        ? allocate(forEveryone, equalWeights(n), 0, -1, me)
+        : mode === "equal"
           ? allocate(total - forEveryone, equalWeights(n), 0, me).map((left, i) => results[i].total - left)
           : allocate(forEveryone, results.map((r) => Math.max(0, r.total)), 0, -1, me);
       results.forEach((r, i) => (r.forEveryone = off[i]));

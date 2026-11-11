@@ -68,6 +68,7 @@ export const splitDocSchema = z
       .max(50)
       .optional(),
     forEveryone: money.optional(),
+    forEveryoneSame: z.boolean().optional(),
     settle: z.enum(["organiser", "direct"]).optional(),
     leftoverToFriends: z.boolean().optional(),
     photo: z.string().max(300).regex(RECEIPT_PHOTO_RE).optional(),

@@ -584,3 +584,20 @@ describe("paid for everyone (deposit, voucher)", () => {
     expect(calculate(base({ forEveryone: 0 }))).toEqual(calculate(base()));
   });
 });
+
+describe("paid for everyone, the same for each person", () => {
+  const four = ["me", "mint", "ploy", "bank"].map((id) => ({ id, name: id }));
+  const its = [item("a", 60000, ["me"]), item("b", 30000, ["mint"]), item("c", 20000, ["ploy"]), item("d", 10000, ["bank"])];
+
+  it("฿80 for 4 people is ฿20 off each, whatever they had", () => {
+    const r = calculate(base({ people: four, items: its, forEveryone: 8000, forEveryoneSame: true }));
+    expect(r.people.map((p) => p.forEveryone)).toEqual([2000, 2000, 2000, 2000]);
+    expect(r.people.map((p) => p.payable)).toEqual([58000, 28000, 18000, 8000]);
+    expect(r.total).toBe(120000);
+  });
+
+  it("gives the organiser the bigger part of uneven satang", () => {
+    const r = calculate(base({ people: four, items: its, forEveryone: 10001, forEveryoneSame: true, leftoverToFriends: true }));
+    expect(r.people.map((p) => p.forEveryone)).toEqual([2501, 2500, 2500, 2500]);
+  });
+});
