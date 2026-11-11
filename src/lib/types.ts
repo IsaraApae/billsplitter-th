@@ -112,6 +112,8 @@ export interface SplitDoc {
    * smaller, the organiser's too. Absent = none.
    */
   forEveryone?: number;
+  /** Paid for everyone comes off the same for each person (฿80 for 4: ฿20 each), not by share. */
+  forEveryoneSame?: boolean;
   /** Leftover satang from dividing go to the friends, not the organiser (new splits). */
   leftoverToFriends?: boolean;
   /** How money moves when friends paid part of the bill too. Absent = "organiser". */

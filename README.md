@@ -25,7 +25,7 @@ The link preview friends see in chat:
 - **Which items had the discount?** When a promotion covers only some items ("Drinks 20%"), the scan reads the receipt's own marks and puts the discount on those items, if they add up to it exactly. Not sure? Enter the printed amount and **Find the items for me** works out which items it is exactly 5–50% of: the drinks before a coincidental mix, your own items before a friend's, and it ticks them only when one set fits.
 - **Discount, service charge, VAT** (off by default), and **round to whole baht**: friends pay whole amounts and together never less than their exact shares, so the organiser never loses money. With "split equally", everyone's share is the same whole amount.
 - **Leftover satang go to friends:** when an amount doesn't divide evenly (฿50 / 3), the organiser gets the smaller part (฿16.66, friends ฿16.67). New splits only; older bills keep their amounts.
-- **Paid for everyone:** a deposit, voucher or gift card paid before. Like Paid upfront, the bill stays whole (service charge and VAT on all of it) and it comes off what each person pays, you included: equally when splitting equally, else in proportion to each share.
+- **Paid for everyone:** a deposit, voucher or gift card paid before. Like Paid upfront, the bill stays whole (service charge and VAT on all of it) and it comes off what each person pays, you included: equally when splitting equally, else in proportion to each share, or **Same for everyone** (฿80 for 4 people: ฿20 off each).
 - **Several payers:** a friend who paid part of the bill (e.g. the drinks) either settles with you (pays that much less, or gets money back), or everyone pays each payer directly: the app works out the fewest transfers ("Ploy → Mint ฿150"), each with the payer's own PromptPay QR, its own tick and slip check.
 - **Bill date** with the app's own calendar: the day you make the split (scanning a receipt doesn't change it).
 - **Friends and groups** saved on the phone; "Who's eating with you?" and "Same as last time" pick them quickly.
@@ -33,7 +33,7 @@ The link preview friends see in chat:
 <p>
   <img src="docs/screenshots/items.jpg" alt="Items on a new split, light and dark" width="380">
   <img src="docs/screenshots/discount.jpg" alt="Find the items for me: the discount's items picked from the printed amount, light and dark" width="380">
-  <img src="docs/screenshots/for-everyone.jpg" alt="Paid for everyone: ฿300 off what everyone pays, you included; the bill stays whole, light and dark" width="380">
+  <img src="docs/screenshots/for-everyone.jpg" alt="Paid for everyone: ฿90 for 3 people, Same for everyone, ฿30 off each, you included; the bill stays whole, light and dark" width="380">
 </p>
 
 **Sharing and getting paid**
