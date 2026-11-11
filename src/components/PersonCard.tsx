@@ -32,8 +32,8 @@ export function PersonCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const toggle = () => setOpen((v) => !v);
-  // What they owe before rounding: their share less anything they paid upfront.
-  const exact = person.total - person.prepaid;
+  // What they owe before rounding: their share less what was paid for everyone and anything they paid upfront.
+  const exact = person.total - person.prepaid - person.forEveryone;
   return (
     // Paid people stay fully visible: the tick and "Paid" say they've paid.
     <li>
@@ -119,16 +119,14 @@ export function PersonCard({
                 v={<Money value={person.rounding} currency={currency} tone={person.rounding < 0 ? "negative" : undefined} />}
               />
             )}
+            {(person.prepaid > 0 || person.forEveryone > 0) && (
+              <Row k="Share" v={<Money value={person.total} currency={currency} />} />
+            )}
             {person.forEveryone > 0 && (
               <Row k="Paid for everyone" v={<Money value={person.forEveryone} currency={currency} tone="negative" />} />
             )}
-            {person.prepaid > 0 && (
-              <>
-                <Row k="Share" v={<Money value={person.total} currency={currency} />} />
-                <Row k="Paid upfront" v={<Money value={person.prepaid} currency={currency} tone="negative" />} />
-              </>
-            )}
-            {person.payable !== person.total - person.prepaid ? (
+            {person.prepaid > 0 && <Row k="Paid upfront" v={<Money value={person.prepaid} currency={currency} tone="negative" />} />}
+            {person.payable !== exact ? (
               <>
                 <Row k="Exact amount" v={<Money value={exact} currency={currency} />} />
                 <Row
@@ -145,7 +143,7 @@ export function PersonCard({
                 />
                 <FinalRow person={person} currency={currency} />
               </>
-            ) : person.prepaid > 0 ? (
+            ) : person.prepaid > 0 || person.forEveryone > 0 ? (
               <FinalRow person={person} currency={currency} />
             ) : (
               <Row k="Total" v={<Money value={person.total} currency={currency} />} strong />

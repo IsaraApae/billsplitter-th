@@ -54,6 +54,20 @@ describe("several payers: who pays whom", () => {
     for (const p of d.people) expect(net.get(p.id) ?? 0).toBe(25000);
   });
 
+  it("with something paid for everyone, each pays their share less their part of it", () => {
+    // ฿1,000, ฿200 paid for everyone (a voucher): ฿250 each, less ฿50 = ฿200 each.
+    // Mint paid ฿400 at the table, so I paid ฿1,000 − ฿200 − ฿400 = ฿400.
+    const d = doc(100000, 40000, { forEveryone: 20000 });
+    expect(Object.fromEntries(paidAtRestaurant(d))).toEqual({ mint: 40000, me: 40000 });
+    const ts = transfers(d);
+    const net = new Map<string, number>([...paidAtRestaurant(d)]);
+    for (const t of ts) {
+      net.set(t.from, (net.get(t.from) ?? 0) + t.amount);
+      net.set(t.to, (net.get(t.to) ?? 0) - t.amount);
+    }
+    for (const p of d.people) expect(net.get(p.id) ?? 0).toBe(20000);
+  });
+
   it("the organiser pays back a friend who paid more than the organiser is owed", () => {
     // ฿1,000; Mint paid ฿900: I owe Mint ฿250 too.
     const ts = transfers(doc(100000, 90000));

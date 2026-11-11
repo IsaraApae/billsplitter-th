@@ -10,7 +10,7 @@ import { Avatar, ICON, Money, cx } from "./ui";
  * When friends pay each payer directly, a person's row shows their share of
  * the bill (what they pay or are paid back is in "Who pays whom").
  */
-export const asShare = (p: PersonResult): PersonResult => ({ ...p, prepaid: 0, payable: p.total });
+export const asShare = (p: PersonResult): PersonResult => ({ ...p, prepaid: 0, payable: p.total - p.forEveryone });
 
 /** One "A → B ฿X" row inside a list card (wrap rows in `<ul className="card rows">`). */
 export function TransferRow({

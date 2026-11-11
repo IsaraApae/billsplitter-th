@@ -593,7 +593,7 @@ export function SharedView({
             })}
           </ul>
           <TapHint mode={doc.mode} />
-          {calc.people.some((p) => p.payable !== p.total - p.prepaid) && (
+          {calc.people.some((p) => p.payable !== p.total - p.prepaid - p.forEveryone) && (
             <p className="px-5 text-[13px] text-ink-2">
               Amounts are rounded to whole {wholeUnitName(doc.currency)}:{" "}
               {doc.mode === "equal" ? (
