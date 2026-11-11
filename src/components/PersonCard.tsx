@@ -119,6 +119,9 @@ export function PersonCard({
                 v={<Money value={person.rounding} currency={currency} tone={person.rounding < 0 ? "negative" : undefined} />}
               />
             )}
+            {person.forEveryone > 0 && (
+              <Row k="Paid for everyone" v={<Money value={person.forEveryone} currency={currency} tone="negative" />} />
+            )}
             {person.prepaid > 0 && (
               <>
                 <Row k="Share" v={<Money value={person.total} currency={currency} />} />

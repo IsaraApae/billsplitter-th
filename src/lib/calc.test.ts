@@ -523,3 +523,47 @@ describe("leftover satang go to friends (new splits)", () => {
     expect(totals(fifty({ leftoverToFriends: undefined }))).toEqual([1667, 1667, 1666]);
   });
 });
+
+describe("paid for everyone (deposit, voucher)", () => {
+  const trio = [
+    { id: "me", name: "Me" },
+    { id: "mint", name: "Mint" },
+    { id: "ploy", name: "Ploy" },
+  ];
+
+  it("takes it off everyone's share equally when splitting equally, the organiser's too", () => {
+    const r = calculate(base({ mode: "equal", people: trio, items: [item("set", 120000, [])], forEveryone: 30000 }));
+    expect([r.forEveryone, r.total]).toEqual([30000, 90000]);
+    expect(totals(r)).toEqual([30000, 30000, 30000]);
+    expect(r.people.map((p) => p.forEveryone)).toEqual([10000, 10000, 10000]);
+    expect(r.people.map((p) => p.payable)).toEqual([30000, 30000, 30000]);
+  });
+
+  it("splits it in proportion to what each person had", () => {
+    const its = [item("a", 60000, ["me"]), item("b", 40000, ["mint"]), item("c", 20000, ["ploy"])];
+    const r = calculate(base({ people: trio, items: its, forEveryone: 30000 }));
+    expect(r.people.map((p) => p.forEveryone)).toEqual([15000, 10000, 5000]);
+    expect(totals(r)).toEqual([45000, 30000, 15000]);
+    expect(sum(totals(r))).toBe(r.total);
+  });
+
+  it("comes off after service and VAT, and never more than the bill", () => {
+    const svc = { enabled: true, rateBp: 1000 };
+    const vat = { enabled: true, rateBp: 700 };
+    const one = [item("x", 100000, ["me", "mint", "ploy"])];
+    const r = calculate(base({ people: trio, items: one, service: svc, vat, forEveryone: 17700 }));
+    expect([r.service, r.vat, r.forEveryone, r.total]).toEqual([10000, 7700, 17700, 100000]);
+    const all = calculate(base({ people: trio, items: one, forEveryone: 999999 }));
+    expect([all.forEveryone, all.total, ...totals(all)]).toEqual([100000, 0, 0, 0, 0]);
+  });
+
+  it("gives the organiser the bigger part of uneven satang", () => {
+    const its = [item("x", 30000, ["me", "mint", "ploy"])];
+    const r = calculate(base({ people: trio, items: its, forEveryone: 100, leftoverToFriends: true }));
+    expect(r.people.map((p) => p.forEveryone)).toEqual([34, 33, 33]);
+  });
+
+  it("changes nothing when absent", () => {
+    expect(calculate(base({ forEveryone: 0 }))).toEqual(calculate(base()));
+  });
+});

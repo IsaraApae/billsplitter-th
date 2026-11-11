@@ -67,6 +67,7 @@ export const splitDocSchema = z
       .array(z.object({ personId: id, amount: money, promptpay: z.string().regex(/^\d{0,15}$/).optional() }))
       .max(50)
       .optional(),
+    forEveryone: money.optional(),
     settle: z.enum(["organiser", "direct"]).optional(),
     leftoverToFriends: z.boolean().optional(),
     photo: z.string().max(300).regex(RECEIPT_PHOTO_RE).optional(),

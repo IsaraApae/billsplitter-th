@@ -8,6 +8,7 @@ import { wholeUnitName } from "@/lib/money";
 import type { Discount, SplitDoc } from "@/lib/types";
 import { Breakdown } from "../Breakdown";
 import { Callout, ICON, Money, MoneyInput, PercentInput, Section, Segmented, Sheet, Toggle, cx } from "../ui";
+import { ForEveryoneSection } from "./ForEveryoneSection";
 import { PrepaidSection } from "./PrepaidSection";
 import type { SetDoc } from "./Wizard";
 
@@ -142,6 +143,8 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
           Each person&apos;s share of service charge and VAT is proportional to what they ordered after discount.
         </p>
       </Section>
+
+      <ForEveryoneSection doc={doc} setDoc={setDoc} calc={calc} />
 
       <PrepaidSection doc={doc} setDoc={setDoc} calc={calc} />
 
