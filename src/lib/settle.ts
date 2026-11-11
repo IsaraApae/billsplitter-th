@@ -35,7 +35,8 @@ export function paidAtRestaurant(doc: SplitDoc, calc: CalcResult = calculate(doc
     }
   }
   const others = [...paid.values()].reduce((a, b) => a + b, 0);
-  if (ids.has(ORGANISER_ID)) paid.set(ORGANISER_ID, Math.max(0, calc.total - others));
+  // What was paid for everyone (deposit, voucher) was already paid, before the table.
+  if (ids.has(ORGANISER_ID)) paid.set(ORGANISER_ID, Math.max(0, calc.total - calc.forEveryone - others));
   return paid;
 }
 
@@ -47,7 +48,7 @@ export function paidAtRestaurant(doc: SplitDoc, calc: CalcResult = calculate(doc
  */
 export function transfers(doc: SplitDoc, calc: CalcResult = calculate(doc)): Transfer[] {
   const paid = paidAtRestaurant(doc, calc);
-  const net = calc.people.map((r) => ({ id: r.personId, net: (paid.get(r.personId) ?? 0) - r.total }));
+  const net = calc.people.map((r) => ({ id: r.personId, net: (paid.get(r.personId) ?? 0) - (r.total - r.forEveryone) }));
   const debtors = net.filter((x) => x.net < 0).map((x) => ({ id: x.id, left: -x.net })).sort((a, b) => b.left - a.left || a.id.localeCompare(b.id));
   const creditors = net.filter((x) => x.net > 0).map((x) => ({ id: x.id, left: x.net })).sort((a, b) => b.left - a.left || a.id.localeCompare(b.id));
   const unit = doc.roundUp ? wholeUnit(doc.currency) : 1;

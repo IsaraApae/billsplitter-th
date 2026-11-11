@@ -7,8 +7,9 @@ import { ICON, Money, MoneyInput, Section } from "../ui";
 import type { SetDoc } from "./Wizard";
 
 /**
- * "Paid for everyone": a deposit, voucher or gift card paid before, taken off
- * the whole bill after service and VAT, so everyone pays less, the organiser too.
+ * "Paid for everyone": a deposit, voucher or gift card paid before. The bill
+ * (with its service and VAT) stays whole; like Paid upfront, it comes off
+ * what each person pays, the organiser's too.
  */
 export function ForEveryoneSection({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDoc; calc: CalcResult }) {
   if (doc.people.length < 2) return null;
@@ -33,10 +34,11 @@ export function ForEveryoneSection({ doc, setDoc, calc }: { doc: SplitDoc; setDo
       <p className="px-5 text-[13px] text-ink-2">
         {calc.forEveryone > 0 ? (
           <>
-            Off the whole bill, so everyone pays less. The bill is now <Money value={calc.total} currency={doc.currency} className="text-ink" />.
+            Comes off what everyone pays, you too. The bill stays <Money value={calc.total} currency={doc.currency} className="text-ink" />; together you
+            pay <Money value={calc.total - calc.forEveryone} currency={doc.currency} className="text-ink" />.
           </>
         ) : (
-          "A deposit, voucher or gift card paid before? It comes off the whole bill, so everyone pays less."
+          "A deposit, voucher or gift card paid before? It comes off what everyone pays, you too."
         )}
       </p>
     </Section>

@@ -530,31 +530,48 @@ describe("paid for everyone (deposit, voucher)", () => {
     { id: "mint", name: "Mint" },
     { id: "ploy", name: "Ploy" },
   ];
+  const pays = (r: ReturnType<typeof calculate>) => r.people.map((p) => p.payable);
 
-  it("takes it off everyone's share equally when splitting equally, the organiser's too", () => {
+  it("keeps the bill whole and takes it off what everyone pays, equally when splitting equally, the organiser too", () => {
     const r = calculate(base({ mode: "equal", people: trio, items: [item("set", 120000, [])], forEveryone: 30000 }));
-    expect([r.forEveryone, r.total]).toEqual([30000, 90000]);
-    expect(totals(r)).toEqual([30000, 30000, 30000]);
+    expect([r.total, r.forEveryone]).toEqual([120000, 30000]);
+    expect(totals(r)).toEqual([40000, 40000, 40000]);
     expect(r.people.map((p) => p.forEveryone)).toEqual([10000, 10000, 10000]);
-    expect(r.people.map((p) => p.payable)).toEqual([30000, 30000, 30000]);
+    expect(pays(r)).toEqual([30000, 30000, 30000]);
   });
 
-  it("splits it in proportion to what each person had", () => {
+  it("splits it in proportion to each person's share", () => {
     const its = [item("a", 60000, ["me"]), item("b", 40000, ["mint"]), item("c", 20000, ["ploy"])];
     const r = calculate(base({ people: trio, items: its, forEveryone: 30000 }));
+    expect(totals(r)).toEqual([60000, 40000, 20000]);
     expect(r.people.map((p) => p.forEveryone)).toEqual([15000, 10000, 5000]);
-    expect(totals(r)).toEqual([45000, 30000, 15000]);
-    expect(sum(totals(r))).toBe(r.total);
+    expect(pays(r)).toEqual([45000, 30000, 15000]);
   });
 
-  it("comes off after service and VAT, and never more than the bill", () => {
+  it("leaves service and VAT on the whole bill, and never comes to more than the bill", () => {
     const svc = { enabled: true, rateBp: 1000 };
     const vat = { enabled: true, rateBp: 700 };
     const one = [item("x", 100000, ["me", "mint", "ploy"])];
-    const r = calculate(base({ people: trio, items: one, service: svc, vat, forEveryone: 17700 }));
-    expect([r.service, r.vat, r.forEveryone, r.total]).toEqual([10000, 7700, 17700, 100000]);
+    const r = calculate(base({ people: trio, items: one, service: svc, vat, forEveryone: 30000 }));
+    expect([r.service, r.vat, r.total, r.forEveryone, sum(pays(r))]).toEqual([10000, 7700, 117700, 30000, 87700]);
     const all = calculate(base({ people: trio, items: one, forEveryone: 999999 }));
-    expect([all.forEveryone, all.total, ...totals(all)]).toEqual([100000, 0, 0, 0, 0]);
+    expect([all.forEveryone, all.total, ...pays(all)]).toEqual([100000, 100000, 0, 0, 0]);
+  });
+
+  it("works with Paid upfront: a friend's share less both", () => {
+    const r = calculate(base({ mode: "equal", people: trio, items: [item("set", 120000, [])], forEveryone: 30000, prepaid: [{ personId: "mint", amount: 5000 }] }));
+    expect(pays(r)).toEqual([30000, 25000, 30000]);
+  });
+
+  it("rounds friends to whole baht without the organiser losing money", () => {
+    const its = [item("x", 100000, ["me", "mint", "ploy"])];
+    const r = calculate(base({ people: trio, items: its, forEveryone: 10000, roundUp: true, currency: "THB" }));
+    const owes = r.people.map((p) => p.total - p.forEveryone);
+    r.people.slice(1).forEach((p, i) => {
+      expect(p.payable % 100).toBe(0);
+      expect(p.payable).toBeGreaterThanOrEqual(owes[i + 1] - 99);
+    });
+    expect(r.people[1].payable + r.people[2].payable).toBeGreaterThanOrEqual(owes[1] + owes[2]);
   });
 
   it("gives the organiser the bigger part of uneven satang", () => {
