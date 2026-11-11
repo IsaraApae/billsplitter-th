@@ -24,6 +24,8 @@ export interface CalcInput {
   prepaid?: Prepaid[];
   /** The receipt's printed rounding line, used while the subtotal still matches. */
   receiptRounding?: ReceiptRounding;
+  /** Paid for everyone (deposit, voucher): off the whole bill after service and VAT. */
+  forEveryone?: number;
   /**
    * When an amount doesn't divide evenly, the leftover satang go to the
    * friends, so the organiser's part is the smaller one (new splits). Off for
@@ -99,7 +101,9 @@ export interface PersonResult {
   vat: number;
   /** share of the receipt's own rounding line (usually 0) */
   rounding: number;
-  /** exact share of the bill */
+  /** their part of what was paid for everyone */
+  forEveryone: number;
+  /** exact share of the bill (after what was paid for everyone) */
   total: number;
   /** what they paid towards the bill themselves (friends only; needs an organiser) */
   prepaid: number;
@@ -121,6 +125,8 @@ export interface CalcResult {
   vat: number;
   /** the receipt's own rounding line, when used (usually 0) */
   rounding: number;
+  /** paid for everyone, taken off the bill (never more than the bill) */
+  forEveryone: number;
   total: number;
   people: PersonResult[];
   /** sum of everyone's `payable` (with rounding: the bill to the nearest whole unit) */
@@ -219,7 +225,10 @@ export function calculate(input: CalcInput): CalcResult {
   const vat = input.vat.enabled ? (asPrinted(input.vat) ?? applyBp(discountedSubtotal + service, input.vat.rateBp)) : 0;
   const rounding =
     input.receiptRounding && input.receiptRounding.base === discountedSubtotal ? input.receiptRounding.amount : 0;
-  const total = discountedSubtotal + service + vat + rounding;
+  const gross = discountedSubtotal + service + vat + rounding;
+  // Paid for everyone comes off last, so it doesn't change service or VAT.
+  const forEveryone = Math.max(0, Math.min(input.forEveryone ?? 0, gross));
+  const total = gross - forEveryone;
 
   const n = people.length;
   const personIndex = new Map(people.map((p, i) => [p.id, i]));
@@ -238,6 +247,7 @@ export function calculate(input: CalcInput): CalcResult {
     service: 0,
     vat: 0,
     rounding: 0,
+    forEveryone: 0,
     total: 0,
     prepaid: 0,
     payable: 0,
@@ -274,7 +284,7 @@ export function calculate(input: CalcInput): CalcResult {
       if (me >= 0) {
         // Everyone's share is an equal split of the grand total with the
         // organiser's the smaller one; the difference goes in their items.
-        const each = allocate(total, ones, 0, me);
+        const each = allocate(gross, ones, 0, me);
         results.forEach((r, i) => {
           const delta = each[i] - (r.discounted + r.service + r.vat + r.rounding);
           r.discounted += delta;
@@ -316,6 +326,19 @@ export function calculate(input: CalcInput): CalcResult {
       });
     }
     results.forEach((r) => (r.total = r.discounted + r.service + r.vat + r.rounding));
+    if (forEveryone > 0) {
+      // Everyone's share gets smaller: equally when splitting equally (shares
+      // stay equal), else in proportion to their share. The organiser gets
+      // the bigger part of the money off.
+      const off =
+        mode === "equal"
+          ? allocate(total, equalWeights(n), 0, me).map((net, i) => results[i].total - net)
+          : allocate(forEveryone, results.map((r) => Math.max(0, r.total)), 0, -1, me);
+      results.forEach((r, i) => {
+        r.forEveryone = off[i];
+        r.total -= off[i];
+      });
+    }
   }
 
   const organiser = results.find((r) => r.personId === ORGANISER_ID);
@@ -369,6 +392,7 @@ export function calculate(input: CalcInput): CalcResult {
     service,
     vat,
     rounding,
+    forEveryone,
     total,
     people: results,
     collected,
