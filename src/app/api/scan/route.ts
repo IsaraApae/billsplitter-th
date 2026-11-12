@@ -33,9 +33,11 @@ FIELDS (plain numbers: no currency symbols, no thousands separators; null when n
 - discount: a discount on the whole bill, as a positive number (e.g. "UOB 15%  225.00-", "Discount", "ส่วนลด" under the subtotal).
 - discountRate: the percentage printed on that discount line (e.g. "Member 10%" → 10, "UOB 15%/450" → 15); null if no percentage is printed.
 - items[].discounted: true only for the items that bill-wide discount covers, when the receipt shows it (items marked with *, #, D or a promo code, items listed under the promotion, or a discount line naming them, e.g. "Drinks 20%"). false for every item when the discount covers the whole bill, when there is no discount, or when the receipt doesn't say which items it covers. Never guess.
-- serviceCharge: service charge amount (Service Charge / ค่าบริการ).
-- vat: VAT amount when it is added on top (VAT / ภาษีมูลค่าเพิ่ม).
-- vatIncluded: true when the receipt says prices already include VAT (e.g. "VAT incl.", "VAT INCLUDED", "รวมภาษีมูลค่าเพิ่มแล้ว", "ราคารวม VAT"); otherwise false.
+- serviceCharge: service charge amount (Service Charge / Svc. / ค่าบริการ / เซอร์วิสชาร์จ).
+- serviceRate: the percentage printed on the service charge line (e.g. "Service Charge 10%" → 10); null if none is printed.
+- vat: the VAT amount printed (VAT / Tax / ภาษีมูลค่าเพิ่ม / ภาษี), whether it is added on top or already included in the prices.
+- vatRate: the percentage printed on the VAT line (e.g. "VAT 7%" → 7); null if none is printed.
+- vatIncluded: true when the prices already include VAT: the receipt says so ("VAT incl.", "VAT INCLUDED", "รวมภาษีมูลค่าเพิ่มแล้ว", "ราคารวม VAT"), or it splits the total into a before-VAT amount and VAT ("Vatable", "Before VAT", "มูลค่าก่อนภาษี", "มูลค่าสินค้า") that add up to the same total as the items; false when VAT is added on top of the items.
 - rounding: a rounding adjustment line if printed ("Rounding", "Round adj.", "ปัดเศษ"), signed (e.g. -0.45 or 0.55); null if none.
 - total: the final amount paid.
 - currency: ISO 4217 code from symbols or context (฿ / บาท / Thai receipt → THB). Default to THB for Thai receipts.
@@ -68,7 +70,9 @@ const JSON_SCHEMA = {
     discount: nullableNumber,
     discountRate: { type: ["number", "null"], description: "Percentage printed on the discount line" },
     serviceCharge: nullableNumber,
+    serviceRate: { type: ["number", "null"], description: "Percentage printed on the service charge line" },
     vat: nullableNumber,
+    vatRate: { type: ["number", "null"], description: "Percentage printed on the VAT line" },
     vatIncluded: { type: "boolean" },
     total: nullableNumber,
     currency: { type: ["string", "null"] },
@@ -76,7 +80,7 @@ const JSON_SCHEMA = {
     merchant: { type: ["string", "null"], description: "Shop or restaurant name" },
     rounding: { type: ["number", "null"], description: "Printed rounding adjustment, signed" },
   },
-  required: ["items", "subtotal", "discount", "discountRate", "serviceCharge", "vat", "vatIncluded", "total", "currency", "date", "merchant", "rounding"],
+  required: ["items", "subtotal", "discount", "discountRate", "serviceCharge", "serviceRate", "vat", "vatRate", "vatIncluded", "total", "currency", "date", "merchant", "rounding"],
 };
 
 // Older OpenAPI-style schema, used only if a model rejects the request above.
@@ -95,7 +99,9 @@ const LEGACY_SCHEMA = {
     discount: { type: "NUMBER", nullable: true },
     discountRate: { type: "NUMBER", nullable: true },
     serviceCharge: { type: "NUMBER", nullable: true },
+    serviceRate: { type: "NUMBER", nullable: true },
     vat: { type: "NUMBER", nullable: true },
+    vatRate: { type: "NUMBER", nullable: true },
     vatIncluded: { type: "BOOLEAN" },
     total: { type: "NUMBER", nullable: true },
     currency: { type: "STRING", nullable: true },

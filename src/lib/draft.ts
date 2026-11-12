@@ -1,6 +1,7 @@
 // Draft helpers used by the editor. Pure (ids come from crypto but no I/O).
 
-import { calculate, itemsSubtotal } from "./calc";
+import { applyBp, calculate, itemsSubtotal } from "./calc";
+import { reconcileCharges } from "./charges";
 import { currencyExponent, parseMoney } from "./money";
 import type { ScanResult } from "./scanResult";
 import { cleanScannedItems, type DroppedLine } from "./scanFilter";
@@ -116,6 +117,20 @@ function inferRateBp(amount: number, base: number): number | null {
 }
 
 /**
+ * The percentage (bp) that gives exactly `discount` on these items (`ids`, or
+ * all of them): the printed rate when there is one, else the nearest whole
+ * percent. null when only a fixed amount fits: a printed rate that doesn't
+ * (a capped "15% up to ฿450") never becomes some other percentage.
+ */
+function percentOf(items: Item[], ids: string[] | null, discount: number, printedBp: number | null): number | null {
+  const eligible = items.filter((it) => !ids || ids.includes(it.id)).reduce((s, it) => s + it.qty * it.price, 0);
+  if (eligible <= 0) return null;
+  const whole = Math.round((discount / eligible) * 100) * 100;
+  const bp = printedBp ?? whole;
+  return bp > 0 && bp < 10000 && applyBp(eligible, bp) === discount ? bp : null;
+}
+
+/**
  * Merge a scan into the draft. Returns the new doc plus human-readable notes
  * about anything we inferred (so nothing changes silently).
  */
@@ -167,32 +182,52 @@ export function applyScan(
       const lines = items.map((it, i) => ({ id: it.id, total: it.qty * it.price, name: it.name, marked: scannedItems[i].discounted }));
       const rate = scan.discountRate ? Math.round(scan.discountRate * 100) : null;
       const some = scanDiscountItems(lines, discount, rate);
+      const ids = some?.ids ?? null;
+      // A discount that's exactly a percentage of what it covers is kept as that percentage.
+      const bp = percentOf(items, ids, discount, some?.rateBp ?? rate);
+      next.discount = {
+        enabled: true,
+        type: bp ? "percent" : "fixed",
+        value: bp ?? discount,
+        scope: ids ? "selected" : "all",
+        itemIds: ids ?? [],
+      };
+      const what = bp ? `a ${bp / 100}% discount` : "a fixed discount";
       if (some) {
-        next.discount = { enabled: true, type: "fixed", value: discount, scope: "selected", itemIds: some.ids };
         const names = items.filter((it) => some.ids.includes(it.id)).map((it) => it.name);
         notes.push(
-          `Receipt's ${some.rateBp / 100}% discount is on ${names.join(", ")}${some.from === "receipt" ? " (as marked on the receipt)" : ""} — check it in Extras.`,
+          `Receipt's ${some.rateBp / 100}% discount is on ${names.join(", ")}${some.from === "receipt" ? " (as marked on the receipt)" : ""}: added it as ${what} — check it in Extras.`,
         );
       } else {
-        next.discount = { enabled: true, type: "fixed", value: discount, scope: "all", itemIds: [] };
-        notes.push("Receipt shows a discount — added it as a fixed discount on all items.");
+        notes.push(`Receipt shows a discount — added it as ${what} on all items.`);
       }
     }
-    if (service !== null && service > 0) {
-      const bp = inferRateBp(service, base);
-      next.service = { enabled: true, rateBp: bp ?? doc.service.rateBp, amount: service };
+    // Service and VAT as read, unless the printed total says otherwise.
+    const printedRounding = scan.rounding ? (m(Math.abs(scan.rounding)) ?? 0) * Math.sign(scan.rounding) : 0;
+    const bpOf = (r: number | null | undefined) => (r ? Math.round(r * 100) : null);
+    const { charges, note } = reconcileCharges(
+      itemsSubtotal(items) - (discount ?? 0),
+      { service, vat, vatIncluded: scan.vatIncluded },
+      printedRounding,
+      m(scan.total),
+      { serviceBp: bpOf(scan.serviceRate), vatBp: bpOf(scan.vatRate) },
+    );
+    if (note) notes.push(note);
+    if (charges.service !== null && charges.service > 0) {
+      const bp = charges.serviceBp ?? bpOf(scan.serviceRate) ?? inferRateBp(charges.service, base);
+      next.service = { enabled: true, rateBp: bp ?? doc.service.rateBp, amount: charges.service };
       notes.push(`Service charge found on receipt (${(next.service.rateBp / 100).toString()}%) — using the printed amount.`);
     } else if (doc.service.enabled && (subtotal !== null || scan.total !== null)) {
       next.service = { ...doc.service, enabled: false };
       notes.push("No service charge on the receipt — turned it off (you can change this in Extras).");
     }
-    if (scan.vatIncluded) {
+    if (charges.vatIncluded) {
       if (doc.vat.enabled) notes.push("Receipt says prices include VAT — VAT turned off so it isn't added twice.");
       next.vat = { ...doc.vat, enabled: false };
-    } else if (vat !== null && vat > 0) {
-      const svc = next.service.enabled ? (service ?? 0) : 0;
-      const bp = inferRateBp(vat, base + svc);
-      next.vat = { enabled: true, rateBp: bp ?? doc.vat.rateBp, amount: vat };
+    } else if (charges.vat !== null && charges.vat > 0) {
+      const svc = next.service.enabled ? (charges.service ?? 0) : 0;
+      const bp = charges.vatBp ?? bpOf(scan.vatRate) ?? inferRateBp(charges.vat, base + svc);
+      next.vat = { enabled: true, rateBp: bp ?? doc.vat.rateBp, amount: charges.vat };
       notes.push(`VAT found on receipt (${(next.vat.rateBp / 100).toString()}%) — using the printed amount.`);
     } else if (doc.vat.enabled && (subtotal !== null || scan.total !== null)) {
       notes.push("No VAT line found — check the VAT setting in Extras.");
