@@ -232,6 +232,28 @@ describe("applyScan + totalMismatch", () => {
     expect(calculate(r.doc).total).toBe(72000);
   });
 
+  it("keeps a discount that's exactly a percentage as that percentage", () => {
+    const scan = (discount: number, discountRate: number | null = null) =>
+      applyScan(doc(), {
+        items: [{ name: "Set", qty: 1, price: 599 }, { name: "Tea", qty: 1, price: 401 }],
+        subtotal: 1000, serviceCharge: null, vat: null, vatIncluded: true, discount, discountRate, total: 1000 - discount, currency: "THB",
+      }).doc.discount;
+    expect(scan(100)).toMatchObject({ type: "percent", value: 1000, scope: "all" });
+    expect(scan(150, 15)).toMatchObject({ type: "percent", value: 1500 });
+    // "UOB 15% up to ฿100": not 15% of ฿1,000, so it stays an amount (not "10%").
+    expect(scan(100, 15)).toMatchObject({ type: "fixed", value: 10000 });
+    expect(scan(123.45)).toMatchObject({ type: "fixed", value: 12345 });
+  });
+
+  it("turns VAT off when the receipt's VAT is already in the prices", () => {
+    const r = applyScan(doc(), {
+      items: [{ name: "Pad Thai", qty: 1, price: 600 }, { name: "Tea", qty: 2, price: 400 }],
+      subtotal: 934.58, serviceCharge: null, vat: 65.42, vatIncluded: false, discount: null, total: 1000, currency: "THB",
+    });
+    expect(r.doc.vat.enabled).toBe(false);
+    expect(calculate(r.doc).total).toBe(100000);
+  });
+
   it("keeps the discount on everything when it can't tell which items", () => {
     const r = applyScan(doc(), {
       items: [{ name: "A", qty: 1, price: 300 }, { name: "B", qty: 1, price: 100 }],

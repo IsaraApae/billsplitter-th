@@ -19,6 +19,9 @@ export interface ScanResult {
   discount: number | null;
   /** the percentage printed on the discount line, e.g. 10 for "Member 10%" */
   discountRate?: number | null;
+  /** percentages printed on the service charge and VAT lines, e.g. 10 and 7 */
+  serviceRate?: number | null;
+  vatRate?: number | null;
   total: number | null;
   currency: string | null;
   /** date printed on the receipt, YYYY-MM-DD (Gregorian); null if none or implausible */
@@ -107,6 +110,12 @@ export function brandName(name: string): string {
   return words.join(" ").trim() || name;
 }
 
+/** A printed percentage between 0 and 100 (exclusive), or null. */
+function rate(v: unknown): number | null {
+  const r = num(v);
+  return r !== null && r > 0 && r < 100 ? r : null;
+}
+
 export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const rawItems = Array.isArray(o.items) ? o.items : [];
@@ -130,10 +139,9 @@ export function sanitizeScan(raw: unknown, now = new Date()): ScanResult {
     vat: num(o.vat),
     vatIncluded: (o.vatIncluded ?? o.vat_included) === true,
     discount: discount === null ? null : Math.abs(discount),
-    discountRate: (() => {
-      const r = num(o.discountRate);
-      return r !== null && r > 0 && r < 100 ? r : null;
-    })(),
+    discountRate: rate(o.discountRate),
+    serviceRate: rate(o.serviceRate),
+    vatRate: rate(o.vatRate),
     total: num(o.total),
     currency,
     date: receiptDate(o.date, now),

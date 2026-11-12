@@ -180,7 +180,11 @@ export function ExtrasStep({ doc, setDoc, calc }: { doc: SplitDoc; setDoc: SetDo
       </Section>
 
       <Sheet open={pickOpen} onClose={() => setPickOpen(false)} title="Discounted items" onConfirm={() => setPickOpen(false)}>
-        <DiscountFinder doc={doc} calc={calc} onPick={(ids) => setDiscount({ itemIds: ids })} />
+        <DiscountFinder
+          doc={doc}
+          calc={calc}
+          onPick={(ids, bp) => setDiscount(bp ? { itemIds: ids, type: "percent", value: bp } : { itemIds: ids })}
+        />
         <ul className="card rows overflow-hidden">
           {doc.items.map((it, i) => {
             const on = d.itemIds.includes(it.id);
@@ -224,7 +228,19 @@ const pct = (bp: number) => `${bp / 100}%`;
  * "Not sure which items?": works out which items the receipt's discount covers.
  * A percentage needs the printed discount amount; a fixed amount tries the common rates.
  */
-function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult; onPick: (ids: string[]) => void }) {
+/**
+ * Finds the items a printed discount covers. `onPick` gets the percentage too
+ * when a fixed discount is exactly that percentage of them, so it can be kept as one.
+ */
+function DiscountFinder({
+  doc,
+  calc,
+  onPick,
+}: {
+  doc: SplitDoc;
+  calc: CalcResult;
+  onPick: (ids: string[], percentBp?: number) => void;
+}) {
   const d = doc.discount;
   const currency = doc.currency;
   const [printed, setPrinted] = useState(0);
@@ -234,6 +250,14 @@ function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult
     const i = doc.items.findIndex((it) => it.id === id);
     return doc.items[i]?.name || `Item ${i + 1}`;
   };
+
+  /** A fixed discount that's exactly this set's percentage becomes that percentage (the amount stays in view). */
+  function pick(m: DiscountMatch) {
+    const sum = m.ids.reduce((s, id) => s + calc.lines[doc.items.findIndex((it) => it.id === id)].lineTotal, 0);
+    const exact = d.type === "fixed" && applyBp(sum, m.rateBp) === d.value;
+    if (exact) setPrinted(d.value);
+    onPick(m.ids, exact ? m.rateBp : undefined);
+  }
 
   function find() {
     const lines = doc.items.map((it, i) => ({
@@ -246,7 +270,7 @@ function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult
     setResult(r);
     // Tick it straight away only when one set of prices fits (a same-priced
     // swap goes your way).
-    if (r.matches.length === 1 && !r.truncated) onPick(r.matches[0].ids);
+    if (r.matches.length === 1 && !r.truncated) pick(r.matches[0]);
   }
 
   return (
@@ -302,7 +326,7 @@ function DiscountFinder({ doc, calc, onPick }: { doc: SplitDoc; calc: CalcResult
               const sum = m.ids.reduce((s, id) => s + calc.lines[doc.items.findIndex((it) => it.id === id)].lineTotal, 0);
               return (
                 <li key={`${m.rateBp}:${m.ids.join(",")}`}>
-                  <button type="button" className="flex min-h-[52px] w-full items-center gap-3 px-5 py-2 text-left" onClick={() => onPick(m.ids)}>
+                  <button type="button" className="flex min-h-[52px] w-full items-center gap-3 px-5 py-2 text-left" onClick={() => pick(m)}>
                     <span className="min-w-0 flex-1">
                       {m.ids.map(name).join(", ")}
                       {m.alternatives > 0 && (
