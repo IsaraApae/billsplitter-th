@@ -7,15 +7,17 @@ import { getModelCooldowns, setModelCooldown } from "./redis";
 // quota or overloaded. Used by receipt scanning and slip checking.
 
 /**
- * Models tried in order. Each has its own free-tier quota, so when one is out
- * of quota or overloaded the next one can still answer.
+ * Models tried in order, best first; all on the free tier, each with its own
+ * quota, so when one is out of quota or overloaded the next one can still
+ * answer. Gemini 4 Hydrogen (Nov 2026) is the newest free model; 3.7 Flash and
+ * 3.5 Flash are retired (Google routes them to 3.8 and 3.6 Flash), so they're
+ * not listed. 3.1 Flash-Lite shuts down in May 2027.
  * Override with GEMINI_MODELS="model-a,model-b,…".
  */
 const DEFAULT_MODELS = [
+  "gemini-4-hydrogen",
   "gemini-3.8-flash",
-  "gemini-3.7-flash",
   "gemini-3.6-flash",
-  "gemini-3.5-flash",
   "gemini-3.5-flash-lite",
   "gemini-3.1-flash-lite",
 ];
@@ -58,7 +60,7 @@ export type ImageJsonResult =
 
 const log = (evt: string, entry: Record<string, unknown>) => console.info(JSON.stringify({ evt, ...entry }));
 
-/** Lowest thinking level each model accepts (Flash-Lite allows "minimal"). */
+/** Lowest thinking level each model accepts (Flash-Lite allows "minimal"; Gemini 4 and Flash start at "low"). */
 function lowestThinking(model: string): "minimal" | "low" {
   return /flash-lite/.test(model) ? "minimal" : "low";
 }
