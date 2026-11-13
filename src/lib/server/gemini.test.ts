@@ -46,47 +46,47 @@ describe("readImageJson with fastFirst", () => {
 
   it("starts Flash-Lite with the best model and takes its quicker answer", async () => {
     const started = fakeGemini({
-      "gemini-3.8-flash": { ms: 200, text: "best" },
+      "gemini-4-hydrogen": { ms: 200, text: "best" },
       "gemini-3.5-flash-lite": { ms: 20, text: "lite" },
     });
     const r = await readImageJson(req());
-    expect(started.slice(0, 2)).toEqual(["gemini-3.8-flash", "gemini-3.5-flash-lite"]);
+    expect(started.slice(0, 2)).toEqual(["gemini-4-hydrogen", "gemini-3.5-flash-lite"]);
     expect(r).toMatchObject({ ok: true, text: "lite", model: "gemini-3.5-flash-lite" });
   });
 
   it("waits for the best model when the quick answer fails the check", async () => {
     const started = fakeGemini({
-      "gemini-3.8-flash": { ms: 80, text: "good" },
+      "gemini-4-hydrogen": { ms: 80, text: "good" },
       "gemini-3.5-flash-lite": { ms: 20, text: "bad" },
     });
     const r = await readImageJson(req((t) => t === "good"));
-    expect(r).toMatchObject({ ok: true, text: "good", model: "gemini-3.8-flash" });
+    expect(r).toMatchObject({ ok: true, text: "good", model: "gemini-4-hydrogen" });
     expect(started).toHaveLength(2); // no extra model started for the rejected answer
   });
 
   it("takes a bigger model's answer even when it fails the check (e.g. a part payment)", async () => {
     fakeGemini({
-      "gemini-3.8-flash": { ms: 80, text: "part" },
+      "gemini-4-hydrogen": { ms: 80, text: "part" },
       "gemini-3.5-flash-lite": { ms: 20, text: "lite-part" },
     });
     const r = await readImageJson(req((t) => t === "good"));
-    expect(r).toMatchObject({ ok: true, text: "part", model: "gemini-3.8-flash" });
+    expect(r).toMatchObject({ ok: true, text: "part", model: "gemini-4-hydrogen" });
   });
 
   it("after a rejected quick answer, still replaces a busy model with the next one", async () => {
     const started = fakeGemini({
-      "gemini-3.8-flash": { ms: 40, status: 503 },
+      "gemini-4-hydrogen": { ms: 40, status: 503 },
       "gemini-3.5-flash-lite": { ms: 20, text: "bad" },
-      "gemini-3.7-flash": { ms: 40, text: "good" },
+      "gemini-3.8-flash": { ms: 40, text: "good" },
     });
     const r = await readImageJson(req((t) => t === "good"));
-    expect(started.slice(0, 3)).toEqual(["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash"]);
-    expect(r).toMatchObject({ ok: true, text: "good", model: "gemini-3.7-flash" });
+    expect(started.slice(0, 3)).toEqual(["gemini-4-hydrogen", "gemini-3.5-flash-lite", "gemini-3.8-flash"]);
+    expect(r).toMatchObject({ ok: true, text: "good", model: "gemini-3.8-flash" });
   });
 
   it("falls back to the rejected answer when nothing better comes", async () => {
     fakeGemini({
-      "gemini-3.8-flash": { ms: 80, status: 503 },
+      "gemini-4-hydrogen": { ms: 80, status: 503 },
       "gemini-3.5-flash-lite": { ms: 20, text: "bad" },
     });
     const r = await readImageJson(req((t) => t === "good"));
@@ -106,8 +106,8 @@ describe("readImageJson with judge", () => {
 
   it("asks the next model when one's answer is garbled", async () => {
     fakeGemini({
+      "gemini-4-hydrogen": { ms: 5, text: "{garbled" },
       "gemini-3.8-flash": { ms: 5, text: "{garbled" },
-      "gemini-3.7-flash": { ms: 5, text: "{garbled" },
       "gemini-3.6-flash": { ms: 20, text: "good" },
     });
     expect(await judged()).toMatchObject({ ok: true, text: "good", model: "gemini-3.6-flash" });
@@ -115,31 +115,31 @@ describe("readImageJson with judge", () => {
 
   it("asks the next model when one refuses the photo", async () => {
     fakeGemini({
-      "gemini-3.8-flash": { ms: 5, status: 403 },
-      "gemini-3.7-flash": { ms: 20, text: "good" },
+      "gemini-4-hydrogen": { ms: 5, status: 403 },
+      "gemini-3.8-flash": { ms: 20, text: "good" },
     });
-    expect(await judged()).toMatchObject({ ok: true, text: "good", model: "gemini-3.7-flash" });
+    expect(await judged()).toMatchObject({ ok: true, text: "good", model: "gemini-3.8-flash" });
   });
 
   it("gets a second opinion when a model finds nothing", async () => {
     fakeGemini({
-      "gemini-3.8-flash": { ms: 5, text: "none" },
-      "gemini-3.7-flash": { ms: 20, text: "good" },
+      "gemini-4-hydrogen": { ms: 5, text: "none" },
+      "gemini-3.8-flash": { ms: 20, text: "good" },
     });
     expect(await judged()).toMatchObject({ ok: true, text: "good" });
   });
 
   it("accepts nothing found once two models agree", async () => {
     const started = fakeGemini({
+      "gemini-4-hydrogen": { ms: 5, text: "none" },
       "gemini-3.8-flash": { ms: 5, text: "none" },
-      "gemini-3.7-flash": { ms: 5, text: "none" },
     });
     expect(await judged()).toMatchObject({ ok: true, text: "none" });
     expect(started.length).toBeLessThan(6);
   });
 
   it("says why when every model fails", async () => {
-    const all = ["3.8-flash", "3.7-flash", "3.6-flash", "3.5-flash", "3.5-flash-lite", "3.1-flash-lite"];
+    const all = ["4-hydrogen", "3.8-flash", "3.6-flash", "3.5-flash-lite", "3.1-flash-lite"];
     fakeGemini(Object.fromEntries(all.map((m) => [`gemini-${m}`, { ms: 1, text: "{garbled" }])));
     expect(await judged()).toMatchObject({ ok: false, reason: "bad_output" });
   });
