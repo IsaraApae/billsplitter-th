@@ -2,6 +2,7 @@
 // decide whether it can tick someone as paid. Pure.
 
 import { parseMoney } from "./money";
+import { clockTime, thaiMoment } from "./receiptMoment";
 import { receiptDate } from "./scanResult";
 
 export interface SlipRead {
@@ -10,6 +11,8 @@ export interface SlipRead {
   amount: number | null;
   /** YYYY-MM-DD (Gregorian) */
   date: string | null;
+  /** the transfer's time as printed, "HH:MM" (24-hour, Thailand) */
+  time: string | null;
   reference: string | null;
   senderName: string | null;
   receiverName: string | null;
@@ -28,6 +31,7 @@ export function sanitizeSlip(raw: unknown, now = new Date()): SlipRead {
     isSlip: o.isSlip === true,
     amount: Number.isFinite(n) && n > 0 && n < 1e9 ? n : null,
     date: receiptDate(o.date, now),
+    time: clockTime(o.time),
     reference: str(o.reference, 60),
     senderName: str(o.senderName),
     receiverName: str(o.receiverName),
@@ -35,6 +39,25 @@ export function sanitizeSlip(raw: unknown, now = new Date()): SlipRead {
     bank: str(o.bank, 40),
   };
 }
+
+/**
+ * When the money was sent, from the date and time printed on the slip (ISO), or null when it
+ * shows no time or the moment is in the future (a misread).
+ */
+export function slipMoment(date: string | null, time: string | null, now = Date.now()): string | null {
+  if (!date || !time) return null;
+  const t = thaiMoment(date, time);
+  return Number.isFinite(t) && t <= now + 5 * 60_000 ? new Date(t).toISOString() : null;
+}
+
+/** How far short of what was owed a payment can be and still count as paid: ฿1, or 1% (minor units). */
+export const slack = (owed: number) => Math.max(100, Math.round(owed / 100));
+
+/**
+ * A slip for someone already ticked paid is kept only for its time, so it has to be this
+ * payment: what was left to show by slip (`left`), give or take the slack, up to their share.
+ */
+export const fitsShare = (amount: number, left: number, owed: number) => amount >= left - slack(owed) && amount <= owed + slack(owed);
 
 /** Same reference however it was spaced or dashed (for "already used"). */
 export const normaliseReference = (ref: string) => ref.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
