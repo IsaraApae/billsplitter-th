@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: (fn: () => unknown) => void fn() }));
 
 // No Redis settings in tests, so this runs on the in-memory store.
-const { addCheckedPayment, addSlip, boardBills, boardFor, boardOfSplit, boardHidden, boardSkipped, boardStarts, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setBoardStarts, setEventPayment, setPaidTimes, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
+const { addCheckedPayment, addSlip, boardBills, boardFor, boardPaidAt, setSlipTime, slipRefs, slipsWithoutTime, boardOfSplit, boardHidden, boardSkipped, boardStarts, claimSplits, createEvent, createSplit, getPayments, ownsBoard, setBoardHidden, setBoardSkipped, setBoardStarts, setEventPayment, setPaidTimes, setPayment, getPaidState, getSlips, otherSplitsWith, photoInUse, updateSplit } = await import("./redis");
 
 const doc = (extra: Partial<SplitDoc> = {}): SplitDoc => ({
   ...newDoc(),
@@ -163,7 +163,7 @@ describe("a bill's link to its organiser's list", () => {
 describe("correcting when people paid", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("sets the time for people ticked paid on the organiser's own bills, and says what it replaced", async () => {
+  it("keeps the organiser's time with the list for people ticked paid on their own bills, and leaves the tick as it was", async () => {
     const owner = "phone-paid-times-0001";
     const list = await boardFor(owner);
     const mine = await createSplit(doc({ date: "2026-11-01" }));
@@ -179,10 +179,43 @@ describe("correcting when people paid", () => {
       { bill: other.id, person: "mint", at: bank }, // not on this list
       { bill: mine.id, person: "mint", at: Date.parse("2026-10-20T12:00:00+07:00") }, // long before the bill
     ]);
-    expect(changed).toEqual([{ bill: mine.id, person: "mint", at: bank, was: Date.parse("2026-11-03T10:00:00Z") }]);
-    expect((await getPayments(mine.id)).paidAt).toEqual({ mint: bank });
+    expect(changed).toEqual([{ bill: mine.id, person: "mint", at: bank, was: null }]);
+    expect(await boardPaidAt(list)).toEqual({ [mine.id]: { mint: bank } });
+    // The tick is untouched: Reset goes back to it (or to a slip).
+    expect((await getPayments(mine.id)).paidAt).toEqual({ mint: Date.parse("2026-11-03T10:00:00Z") });
     expect((await getPayments(other.id)).paidAt).toEqual({ mint: Date.parse("2026-11-03T10:00:00Z") });
     expect(await setPaidTimes("AAAAAAAAAAAAAAAA", [{ bill: mine.id, person: "mint", at: bank }])).toEqual([]);
+
+    // Changed again, then reset.
+    const later = bank + 3_600_000;
+    expect(await setPaidTimes(list, [{ bill: mine.id, person: "mint", at: later }])).toEqual([{ bill: mine.id, person: "mint", at: later, was: bank }]);
+    expect(await setPaidTimes(list, [{ bill: mine.id, person: "mint", at: null }])).toEqual([{ bill: mine.id, person: "mint", at: null, was: later }]);
+    expect(await boardPaidAt(list)).toEqual({});
+    expect(await setPaidTimes(list, [{ bill: mine.id, person: "mint", at: null }])).toEqual([]); // nothing to reset
+  });
+});
+
+describe("slip times", () => {
+  it("keeps when each slip's money was sent, finds the ones kept before that was read, and says who has a slip", async () => {
+    const owner = "phone-slip-times-0001";
+    const list = await boardFor(owner);
+    const bill = await createSplit(doc({ date: "2026-11-08" }));
+    await claimSplits(owner, [bill]);
+    const old = { ...slip("REF00000001", 50000, "2026-11-08T14:00:00.000Z"), reference: "REF00000001" };
+    await addSlip(bill.id, "mint", old); // kept before slip times were read: no paidAt
+    await addSlip(bill.id, "mint", { ...slip("REF00000002", 100, "2026-11-08T15:00:00.000Z"), reference: "REF00000002", paidAt: null });
+    expect(await slipRefs(bill.id)).toEqual(["mint"]);
+    expect(await slipsWithoutTime(list)).toEqual([{ bill: bill.id, reference: "REF00000001", photo: old.photo, date: "2026-11-08" }]);
+
+    await setSlipTime(bill.id, "REF00000001", "2026-11-08T06:05:00.000Z");
+    expect(await slipsWithoutTime(list)).toEqual([]);
+    expect((await getSlips(bill.id)).mint.map((s) => [s.reference, s.paidAt])).toEqual([
+      ["REF00000001", "2026-11-08T06:05:00.000Z"],
+      ["REF00000002", null],
+    ]);
+    // On the list's bills for the ranking, with the time sent.
+    const [b] = (await boardBills(list))!;
+    expect(b.slips?.mint.map((s) => s.paidAt)).toEqual(["2026-11-08T06:05:00.000Z", null]);
   });
 });
 

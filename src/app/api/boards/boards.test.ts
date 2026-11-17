@@ -11,7 +11,7 @@ const { readReceiptTime } = vi.hoisted(() => ({
 vi.mock("@/lib/server/receiptTime", () => ({ readReceiptTime }));
 
 // No Redis settings in tests, so the routes run on the in-memory store.
-const { boardFor, boardOfSplit, boardStarts, claimSplits, createSplit, fastestBoardOfSplit, getPayments, setPayment, startReading, doneReading } = await import(
+const { boardFor, boardPaidAt, boardOfSplit, boardStarts, claimSplits, createSplit, fastestBoardOfSplit, getPayments, setPayment, startReading, doneReading } = await import(
   "@/lib/server/redis"
 );
 const hidden = await import("./[id]/hidden/route");
@@ -165,6 +165,15 @@ describe("correcting when friends paid", () => {
     expect((await paidTimes.PUT(send("PUT", { owner: STRANGER, times }), at(list))).status).toBe(403);
     const r = await (await paidTimes.PUT(send("PUT", { owner: PAYEE, times }), at(list))).json();
     expect(r.changed.map((c: { person: string }) => c.person)).toEqual(["mint"]);
-    expect((await getPayments(bill.id)).paidAt).toEqual({ mint: when });
+    expect(await boardPaidAt(list)).toEqual({ [bill.id]: { mint: when } });
+    // Kept with the list: the tick itself stays.
+    expect((await getPayments(bill.id)).paidAt?.mint).not.toBe(when);
+
+    // null takes it away again; a time that hasn't come yet changes nothing.
+    const reset = await (await paidTimes.PUT(send("PUT", { owner: PAYEE, times: [{ bill: bill.id, person: "mint", at: null }] }), at(list))).json();
+    expect(reset.changed).toEqual([{ bill: bill.id, person: "mint", at: null, was: when }]);
+    const ahead = await (await paidTimes.PUT(send("PUT", { owner: PAYEE, times: [{ bill: bill.id, person: "mint", at: Date.now() + 3_600_000 }] }), at(list))).json();
+    expect(ahead.changed).toEqual([]);
+    expect(await boardPaidAt(list)).toEqual({});
   });
 });

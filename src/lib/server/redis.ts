@@ -410,7 +410,13 @@ export interface SlipRecord {
   /** whether the receiver could be matched to the organiser */
   receiver: "match" | "unknown";
   senderName: string | null;
+  /** when it was recorded here */
   at: string;
+  /**
+   * When the money was sent, from the date and time printed on it (ISO): null when it shows no
+   * time; absent on slips kept before their time was read.
+   */
+  paidAt?: string | null;
 }
 
 /**
@@ -447,6 +453,11 @@ export async function getSlips(id: string): Promise<Record<string, SlipRecord[]>
   }
   for (const pid of Object.keys(out)) out[pid] = out[pid].sort((a, b) => a.at.localeCompare(b.at)).slice(-10);
   return out;
+}
+
+/** Who has a slip on this split (person ids or transfer keys): only that, none of what the slips show. */
+export async function slipRefs(id: string): Promise<string[]> {
+  return Object.keys(await getSlips(id));
 }
 
 /** True if `token` is this split's edit token. */
@@ -742,7 +753,7 @@ export async function boardFor(owner: string): Promise<string> {
   if (existing && (await db().get<string>(boardKey(existing))) === owner) {
     // The list's own settings live as long as the list: otherwise someone hidden long ago would reappear.
     await Promise.all(
-      [boardKey(existing), organiserBoardKey(owner), hiddenKey(existing), skippedKey(existing), startsKey(existing), offBillsKey(existing)].map((k) =>
+      [boardKey(existing), organiserBoardKey(owner), hiddenKey(existing), skippedKey(existing), startsKey(existing), offBillsKey(existing), paidAtKey(existing)].map((k) =>
         db().expire(k, ORGANISER_TTL),
       ),
     );
@@ -841,48 +852,116 @@ export async function keepReceiptTime(id: string, photo: string, time: string | 
 }
 
 // One reading of a list's receipts at a time (a second press, or another tab, waits for the first).
-const readingKey = (id: string) => `board:${id}:reading`;
+const readingKey = (id: string, what: Reading) => (what === "receipts" ? `board:${id}:reading` : `board:${id}:reading:${what}`);
+type Reading = "receipts" | "slips";
 
-/** Marks list `id` as having its receipts read; false if that's already under way. */
-export async function startReading(id: string): Promise<boolean> {
-  return db().set(readingKey(id), "1", { ex: 90, nx: true });
+/** Marks list `id` as having its receipts (or older slips) read; false if that's already under way. */
+export async function startReading(id: string, what: Reading = "receipts"): Promise<boolean> {
+  return db().set(readingKey(id, what), "1", { ex: 90, nx: true });
 }
 
-export async function doneReading(id: string): Promise<void> {
-  await db().del(readingKey(id));
+export async function doneReading(id: string, what: Reading = "receipts"): Promise<void> {
+  await db().del(readingKey(id, what));
 }
 
-/** A correction of when someone paid a bill (ms), e.g. from the organiser's bank statement. */
+/** When someone paid a bill (ms), as the organiser says (e.g. from their bank statement); `at: null` removes it. */
 export interface PaidTimeFix {
   bill: string;
   person: string;
-  at: number;
+  at: number | null;
+}
+
+// The organiser's own paid times on a list ("billId|person" → ms): they count over ticks and slips.
+const paidAtKey = (id: string) => `board:${id}:paidat`;
+
+/** The organiser's own paid times on list `id`: billId → person (as the bill records their payment) → ms. */
+export async function boardPaidAt(id: string): Promise<Record<string, Record<string, number>>> {
+  const flat = (await db().get<Record<string, number>>(paidAtKey(id))) ?? {};
+  const out: Record<string, Record<string, number>> = {};
+  for (const [k, at] of Object.entries(flat)) {
+    const i = k.indexOf("|");
+    if (i > 0 && typeof at === "number" && Number.isFinite(at)) (out[k.slice(0, i)] ??= {})[k.slice(i + 1)] = at;
+  }
+  return out;
 }
 
 /**
- * Sets when people paid, on bills behind list `id`. Only for people already ticked paid in
- * full, and only to a moment from the day before the bill's date up to now. Returns each
- * change with the time it replaced (so it can be undone); anything else is left as it was.
+ * Sets (or, with `at: null`, removes) when people paid, on bills behind list `id`. Kept with the
+ * list, so the tick and any slips stay as they were and the organiser's time counts over them.
+ * Only for people ticked paid in full on the organiser's own bills, and only to a moment from
+ * the day before the bill's date up to now. Returns each change with the organiser's time it
+ * replaced (null: there was none); anything else is left as it was.
  */
-export async function setPaidTimes(id: string, fixes: PaidTimeFix[]): Promise<(PaidTimeFix & { was: number })[]> {
+export async function setPaidTimes(id: string, fixes: PaidTimeFix[]): Promise<(PaidTimeFix & { was: number | null })[]> {
   const owner = await db().get<string>(boardKey(id));
   if (!owner) return [];
-  const mine = new Set(await db().hkeys(organiserKey(owner)));
-  const done: (PaidTimeFix & { was: number })[] = [];
+  const [mine, stored] = await Promise.all([db().hkeys(organiserKey(owner)), db().get<Record<string, number>>(paidAtKey(id))]);
+  const all = { ...(stored ?? {}) };
+  const done: (PaidTimeFix & { was: number | null })[] = [];
   for (const bill of new Set(fixes.map((f) => f.bill))) {
-    if (!mine.has(bill)) continue;
+    if (!mine.includes(bill)) continue;
     const [s, paid] = await Promise.all([db().get<StoredSplit>(docKey(bill)), getPaid(bill)]);
     if (!s) continue;
+    const people = paymentKeys(s.doc);
     const earliest = Date.parse(`${billDay(s.doc)}T00:00:00+07:00`) - 86_400_000;
     for (const f of fixes) {
       // Only someone in the paid list itself ("constructor" and the like are not people).
-      const was = Object.hasOwn(paid, f.person) ? paid[f.person] : 0;
-      if (f.bill !== bill || !was || f.at < earliest || f.at > Date.now() + 5 * 60_000) continue;
-      await db().hset(paidKey(bill), f.person, String(f.at));
+      if (f.bill !== bill || !people.has(f.person) || !Object.hasOwn(paid, f.person)) continue;
+      const k = `${bill}|${f.person}`;
+      const was = Object.hasOwn(all, k) ? all[k] : null;
+      if (f.at === null) {
+        if (was === null) continue;
+        delete all[k];
+      } else {
+        if (f.at < earliest || f.at > Date.now() + 5 * 60_000) continue;
+        all[k] = f.at;
+      }
       done.push({ ...f, was });
     }
   }
+  if (done.length > 0) {
+    if (Object.keys(all).length === 0) await db().del(paidAtKey(id));
+    else await db().set(paidAtKey(id), all, { ex: ORGANISER_TTL });
+  }
   return done;
+}
+
+/** Slips on the organiser's bills behind list `id` that were kept before their time was read. */
+export async function slipsWithoutTime(id: string): Promise<{ bill: string; reference: string; photo: string; date: string | null }[]> {
+  const owner = await db().get<string>(boardKey(id));
+  if (!owner) return [];
+  const ids = (await db().hkeys(organiserKey(owner))).filter(isValidId).slice(0, 300);
+  const lists = await Promise.all(ids.map((sid) => getSlips(sid).catch(() => ({}) as Record<string, SlipRecord[]>)));
+  return ids.flatMap((bill, i) =>
+    Object.values(lists[i])
+      .flat()
+      .filter((x) => x.paidAt === undefined && x.reference)
+      .map((x) => ({ bill, reference: x.reference, photo: x.photo, date: x.date || null })),
+  );
+}
+
+/** Keeps when a slip's money was sent (ISO), or null once its picture showed no time. */
+export async function setSlipTime(splitId: string, reference: string, paidAt: string | null): Promise<void> {
+  const raw = await db().hgetall(slipsKey(splitId));
+  for (const [field, v] of Object.entries(raw)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(v);
+    } catch {
+      continue;
+    }
+    if (field.startsWith("slip|")) {
+      if ((parsed as SlipRecord | null)?.reference !== reference) continue;
+      await db().hset(slipsKey(splitId), field, JSON.stringify({ ...(parsed as SlipRecord), paidAt }));
+      return;
+    }
+    // Older bills: one field per person holding their list.
+    if (Array.isArray(parsed) && parsed.some((x: SlipRecord | null) => x?.reference === reference)) {
+      const next = parsed.map((x: SlipRecord | null) => (x?.reference === reference ? { ...x, paidAt } : x));
+      await db().hset(slipsKey(splitId), field, JSON.stringify(next));
+      return;
+    }
+  }
 }
 
 /** The organiser's splits (with payments) behind a list link, or null if there's no such list. */
@@ -908,8 +987,8 @@ type OwnerBill = {
   partial: Record<string, number>;
   paidAt?: Record<string, number>;
   sharedAt?: string;
-  /** each payer's slips (amount, when recorded), so pay times can be checked against them */
-  slips?: Record<string, { amount: number; at: string }[]>;
+  /** each payer's slips (amount, when recorded, when sent), so pay times can be checked against them */
+  slips?: Record<string, { amount: number; at: string; paidAt?: string | null }[]>;
 };
 
 async function ownerBills(owner: string): Promise<OwnerBill[]> {
@@ -922,7 +1001,7 @@ async function ownerBills(owner: string): Promise<OwnerBill[]> {
         await db().hdel(organiserKey(owner), sid);
         return;
       }
-      const slipTimes = Object.fromEntries(Object.entries(slips).map(([ref, list]) => [ref, list.map((x) => ({ amount: x.amount, at: x.at }))]));
+      const slipTimes = Object.fromEntries(Object.entries(slips).map(([ref, list]) => [ref, list.map((x) => ({ amount: x.amount, at: x.at, paidAt: x.paidAt }))]));
       out.push({ id: sid, doc: s.doc, ...paidStateOf(s.doc, payments), slips: slipTimes, ...(s.sharedAt ? { sharedAt: s.sharedAt } : {}) });
     }),
   );

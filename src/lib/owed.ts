@@ -4,6 +4,7 @@
 import { calculate, ORGANISER_ID } from "./calc";
 import { billDate, billDay } from "./draft";
 import { organiserLines, settlesDirectly, transferKey, transfers } from "./settle";
+import { slack } from "./slip";
 import type { PaymentInfo, Person, SplitDoc } from "./types";
 
 type Look = Pick<Person, "name" | "emoji" | "color">;
@@ -222,10 +223,18 @@ export interface PayBill {
   /** what they were asked to pay the organiser (minor units) */
   amount: number;
   currency: string;
-  /** when they were ticked paid, if they have been */
+  /** when they paid, if they have (see `source`) */
   paidAt?: number;
-  /** from when they could pay to the tick, or to now while unpaid (ms) */
+  /** from when they could pay to when they paid, or to now while unpaid (ms) */
   ms: number;
+  /** what the bill records their payment under (their id, or a transfer key) */
+  ref: string;
+  /** when they could start paying (ms) */
+  from: number;
+  /** where `paidAt` comes from: the organiser's own time, the time printed on their slip, or the tick */
+  source?: PaidSource;
+  /** with the organiser's own time: what it would be without it (the slip or the tick) */
+  auto?: { at: number; source: Exclude<PaidSource, "organiser"> };
 }
 
 export interface PayerTimes {
@@ -244,6 +253,8 @@ export interface PayerTimes {
   bills: PayBill[];
 }
 
+type Slip = { amount: number; at: string; paidAt?: string | null };
+
 type StoredBill = {
   id: string;
   doc: SplitDoc;
@@ -251,28 +262,42 @@ type StoredBill = {
   partial: Record<string, number>;
   paidAt?: Record<string, number>;
   sharedAt?: string;
-  slips?: Record<string, { amount: number; at: string }[]>;
+  slips?: Record<string, Slip[]>;
+  /** the organiser's own paid times: payment ref → ms */
+  paidFix?: Record<string, number>;
 };
 
+export type PaidSource = "organiser" | "slip" | "tick";
+
+/** When a slip's money moved: the time printed on it, or when it was recorded for slips read before times were. */
+const slipTime = (s: Slip) => (s.paidAt ? Date.parse(s.paidAt) : Date.parse(s.at));
+
 /**
- * When someone really paid a bill: their tick, unless their slips show they'd already paid it
- * earlier. A slip keeps the moment it was recorded, while a tick could be moved later (before
- * Nov 2026 a big bill's later payment re-stamped the bills it had already paid). Slips count
- * once they cover what was owed, give or take ฿1 (or 1%) for someone who rounded down.
+ * When someone really paid a bill, and how that's known. Once their slips cover what was owed
+ * (give or take ฿1, or 1%, for someone who rounded down), the time printed on the slip that
+ * covered it counts, before or after their tick: it's when the money moved, even when the
+ * slip came in after they were ticked. Slips from before the time was read only kept when
+ * they were recorded, so those count only when earlier than the tick (before Nov 2026 a big
+ * bill's later payment re-stamped the bills it had already paid). Otherwise, the tick.
  */
-export function paidTime(tick: number | undefined, slips: { amount: number; at: string }[] | undefined, owed: number): number | undefined {
-  if (!slips?.length) return tick;
-  const enough = owed - Math.max(100, Math.round(owed / 100));
+export function whenPaid(tick: number | undefined, slips: Slip[] | undefined, owed: number): { at: number; source: "slip" | "tick" } | undefined {
+  const ticked = tick ? { at: tick, source: "tick" as const } : undefined;
+  if (!slips?.length) return ticked;
+  const enough = owed - slack(owed);
   let sum = 0;
-  for (const s of [...slips].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))) {
+  for (const s of [...slips].sort((a, b) => slipTime(a) - slipTime(b))) {
     sum += s.amount;
     if (sum >= enough) {
-      const t = Date.parse(s.at);
-      return tick && tick < t ? tick : t;
+      const t = slipTime(s);
+      if (s.paidAt) return { at: t, source: "slip" };
+      return tick && tick < t ? ticked : { at: t, source: "slip" };
     }
   }
-  return tick;
+  return ticked;
 }
+
+/** When someone really paid a bill (see whenPaid). */
+export const paidTime = (tick: number | undefined, slips: Slip[] | undefined, owed: number) => whenPaid(tick, slips, owed)?.at;
 
 /**
  * When friends could start paying a bill: when it was shared, as the server recorded it, so
@@ -300,8 +325,11 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
       const m = b.doc.people.find((p) => p.id === l.personId);
       if (!m || m.id === ORGANISER_ID || l.amount <= 0) continue;
       const isPaid = l.status === "full";
-      const paidAt = paidTime(b.paidAt?.[l.key], b.slips?.[l.key], l.amount);
-      if (isPaid && !paidAt) continue;
+      const known = whenPaid(b.paidAt?.[l.key], b.slips?.[l.key], l.amount);
+      const fix = b.paidFix && Object.hasOwn(b.paidFix, l.key) ? b.paidFix[l.key] : undefined;
+      const paid = fix !== undefined ? { at: fix, source: "organiser" as const } : known;
+      if (isPaid && !paid) continue;
+      const paidAt = paid?.at;
       let p = all.find((x) => x.key === m.id || norm(x.look.name) === norm(m.name));
       if (!p) {
         p = { key: m.id, look: { name: m.name, emoji: m.emoji, color: m.color }, avgMs: 0, paid: 0, unpaid: 0, waitingMs: 0, bills: [], sum: 0 };
@@ -309,7 +337,18 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
       }
       const ms = Math.max(0, (isPaid ? paidAt! : now) - from);
       p.sum += ms;
-      p.bills.unshift({ id: b.id, title: b.doc.title, day: billDay(b.doc), amount: l.amount, currency: b.doc.currency, paidAt: isPaid ? paidAt : undefined, ms });
+      p.bills.unshift({
+        id: b.id,
+        title: b.doc.title,
+        day: billDay(b.doc),
+        amount: l.amount,
+        currency: b.doc.currency,
+        paidAt: isPaid ? paidAt : undefined,
+        ms,
+        ref: l.key,
+        from,
+        ...(isPaid ? { source: paid!.source, ...(fix !== undefined && known ? { auto: known } : {}) } : {}),
+      });
       if (isPaid) {
         p.paid++;
         p.fastestMs = Math.min(p.fastestMs ?? ms, ms);
@@ -333,6 +372,11 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
 }
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/** The bills with the organiser's own paid times (billId → payment ref → ms) on them. */
+export function withPaidTimes<T extends { id: string }>(bills: T[], fixes: Record<string, Record<string, number>>): (T & { paidFix?: Record<string, number> })[] {
+  return bills.map((b) => (fixes[b.id] ? { ...b, paidFix: fixes[b.id] } : b));
+}
 
 /** The bills with the organiser's own start times (billId → ISO) in place of when they were shared. */
 export function withStarts<T extends { id: string; sharedAt?: string }>(bills: T[], starts: Record<string, string>): T[] {
