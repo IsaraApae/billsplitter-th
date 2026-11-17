@@ -51,6 +51,7 @@ export function SharedView({
   updatedAt,
   initialPaid,
   initialPartial = {},
+  initialSlipped = [],
   qr,
   fastestHref = null,
 }: {
@@ -60,6 +61,8 @@ export function SharedView({
   initialPaid: string[];
   /** part-payments so far: personId → amount */
   initialPartial?: Record<string, number>;
+  /** who has a slip on this bill (person ids or transfer keys) */
+  initialSlipped?: string[];
   qr: PayQrSource | null;
   /** the organiser's Who pays fastest page, if they've made a list */
   fastestHref?: string | null;
@@ -68,6 +71,7 @@ export function SharedView({
   const calc = useMemo(() => calculate(doc), [doc]);
   const [paid, setPaid] = useState<Set<string>>(() => new Set(initialPaid));
   const [partial, setPartial] = useState<Record<string, number>>(initialPartial);
+  const [slipped, setSlipped] = useState<Set<string>>(() => new Set(initialSlipped));
   // Person whose payment the organiser is recording.
   const [askFor, setAskFor] = useState<string | null>(null);
   // Slips friends uploaded (organiser only: they show bank names).
@@ -137,24 +141,29 @@ export function SharedView({
   const askPerson = direct ? undefined : calc.people.find((p) => p.personId === askFor);
   const payMove = moves.find((t) => t.key === payFor);
   const askMove = moves.find((t) => t.key === askFor);
-  // "I've paid — upload slip" on the page: whoever still owes something.
+  // "I've paid — upload slip" on the page: whoever still owes something, then whoever was ticked
+  // paid without a slip (theirs shows when they paid, in Who pays fastest).
   const slipChoices: SlipChoice[] = direct
     ? moves
-        .filter((t) => !paid.has(t.key) && t.amount > (partial[t.key] ?? 0))
+        .filter((t) => (paid.has(t.key) ? !slipped.has(t.key) : t.amount > (partial[t.key] ?? 0)))
         .map((t) => ({
           ref: t.key,
           person: t.fromP,
           label: `${t.fromP.name} → ${t.toP.name}`,
-          detail: <Money value={t.amount - (partial[t.key] ?? 0)} currency={doc.currency} />,
+          paid: paid.has(t.key),
+          detail: paid.has(t.key) ? "Paid" : <Money value={t.amount - (partial[t.key] ?? 0)} currency={doc.currency} />,
         }))
+        .sort((a, b) => Number(a.paid) - Number(b.paid))
     : calc.people
-        .filter((r) => r.personId !== ME_ID && !paid.has(r.personId) && r.payable > (partial[r.personId] ?? 0))
+        .filter((r) => r.personId !== ME_ID && r.payable > 0 && (paid.has(r.personId) ? !slipped.has(r.personId) : r.payable > (partial[r.personId] ?? 0)))
         .map((r) => ({
           ref: r.personId,
           person: doc.people.find((p) => p.id === r.personId) ?? { name: r.name },
           label: r.name,
-          detail: <Money value={r.payable - (partial[r.personId] ?? 0)} currency={doc.currency} />,
-        }));
+          paid: paid.has(r.personId),
+          detail: paid.has(r.personId) ? "Paid" : <Money value={r.payable - (partial[r.personId] ?? 0)} currency={doc.currency} />,
+        }))
+        .sort((a, b) => Number(a.paid) - Number(b.paid));
   // Paying someone who isn't the organiser: their own PromptPay, if they gave one.
   const moveQr = (t: { to: string }): PayQrSource | null => {
     if (t.to === ME_ID) return qr;
@@ -214,12 +223,13 @@ export function SharedView({
         return;
       }
       if (!r.ok) return;
-      const data: { paid: string[]; partial?: Record<string, number>; updatedAt: string } = await r.json();
+      const data: { paid: string[]; partial?: Record<string, number>; slipped?: string[]; updatedAt: string } = await r.json();
       // A tick is in flight, or was saved while this was on its way: its answer is newer.
       if (pendingRef.current.size > 0 || writes.current !== writesBefore) return;
       // Only when something changed, so a quiet poll doesn't re-save History every 10 s.
       setPaid((cur) => (sameIds(cur, data.paid) ? cur : new Set(data.paid)));
       setPartial((cur) => (sameAmounts(cur, data.partial ?? {}) ? cur : (data.partial ?? {})));
+      if (data.slipped) setSlipped((cur) => (sameIds(cur, data.slipped!) ? cur : new Set(data.slipped)));
       // A new slip changes the payments; a slip on a bill already ticked shows within a minute.
       const payments = JSON.stringify([data.paid, data.partial]);
       if (payments !== slipsSeen.current.payments || Date.now() - slipsSeen.current.at > 60_000) {
@@ -373,7 +383,7 @@ export function SharedView({
         </Section>
       )}
 
-      <SlipCard<SlipResult & { paid: string[]; partial: Record<string, number> }>
+      <SlipCard<SlipResult & { paid: string[]; partial: Record<string, number>; slipped?: string[] }>
         choices={slipChoices}
         endpoint={`/api/splits/${id}/slip`}
         field="personId"
@@ -382,6 +392,7 @@ export function SharedView({
         onAccepted={(r) => {
           setPaid(new Set(r.paid));
           setPartial(r.partial ?? {});
+          if (r.slipped) setSlipped(new Set(r.slipped));
           loadSlips();
         }}
       />
@@ -718,7 +729,7 @@ export function SharedView({
                   </Callout>
                 );
               })()}
-              <SlipUpload<SlipResult & { paid: string[]; partial: Record<string, number> }>
+              <SlipUpload<SlipResult & { paid: string[]; partial: Record<string, number>; slipped?: string[] }>
                 endpoint={`/api/splits/${id}/slip`}
                 field="personId"
                 personRef={payMove.key}
@@ -726,6 +737,7 @@ export function SharedView({
                 onAccepted={(r) => {
                   setPaid(new Set(r.paid));
                   setPartial(r.partial ?? {});
+                  if (r.slipped) setSlipped(new Set(r.slipped));
                   loadSlips();
                 }}
               />
@@ -759,7 +771,7 @@ export function SharedView({
                 name={payPerson.name}
               />
             )}
-            <SlipUpload<SlipResult & { paid: string[]; partial: Record<string, number> }>
+            <SlipUpload<SlipResult & { paid: string[]; partial: Record<string, number>; slipped?: string[] }>
               endpoint={`/api/splits/${id}/slip`}
               field="personId"
               personRef={payPerson.personId}
@@ -767,6 +779,7 @@ export function SharedView({
               onAccepted={(r) => {
                 setPaid(new Set(r.paid));
                 setPartial(r.partial ?? {});
+                if (r.slipped) setSlipped(new Set(r.slipped));
                 loadSlips();
               }}
             />

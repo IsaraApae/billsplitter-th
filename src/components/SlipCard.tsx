@@ -14,6 +14,8 @@ export interface SlipChoice {
   label: ReactNode;
   /** e.g. the amount left to pay */
   detail?: ReactNode;
+  /** already ticked paid: their slip only adds when they paid */
+  paid?: boolean;
 }
 
 /**
@@ -48,14 +50,18 @@ export function SlipCard<T extends SlipResult>({
   // `choices`, and the sheet must still show their result (not someone else, or nothing).
   const [chosen, setChosen] = useState<SlipChoice | null>(null);
   if (choices.length === 0 && !open) return null;
+  // Everyone left to ask has been ticked paid: their slip only adds when they paid.
+  const adding = choices.length > 0 && choices.every((c) => c.paid);
 
   return (
     <Section title="Already paid?">
       <div className="card space-y-3 p-5">
         <p className="flex items-center gap-2 font-semibold">
-          <ImageUp size={20} {...ICON} className="text-accent" aria-hidden /> Upload your transfer slip
+          <ImageUp size={20} {...ICON} className="text-accent" aria-hidden /> {adding ? "Add your transfer slip" : "Upload your transfer slip"}
         </p>
-        <p className="text-[15px] text-ink-2">It&apos;s checked and you&apos;re ticked automatically.</p>
+        <p className="text-[15px] text-ink-2">
+          {adding ? "You're marked as paid. Your slip shows when you paid." : <>It&apos;s checked and you&apos;re ticked automatically.</>}
+        </p>
         <button
           type="button"
           className="btn-primary h-12 w-full"
@@ -67,7 +73,7 @@ export function SlipCard<T extends SlipResult>({
             }
           }}
         >
-          <ImageUp size={20} {...ICON} aria-hidden /> I&apos;ve paid — upload slip
+          <ImageUp size={20} {...ICON} aria-hidden /> {adding ? "Add my slip" : <>I&apos;ve paid — upload slip</>}
         </button>
       </div>
 
@@ -78,7 +84,7 @@ export function SlipCard<T extends SlipResult>({
           setChosen(null);
           onClose?.();
         }}
-        title={chosen ? "Upload your slip" : pickTitle}
+        title={chosen ? (chosen.paid ? "Add your slip" : "Upload your slip") : pickTitle}
       >
         {chosen ? (
           <div className="space-y-4">

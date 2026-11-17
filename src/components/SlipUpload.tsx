@@ -6,9 +6,12 @@ import { compressImage } from "@/lib/client/image";
 import { formatMoney } from "@/lib/money";
 import { Callout, ICON } from "./ui";
 
-/** What the slip endpoints answer with when a slip is accepted. */
+/**
+ * What the slip endpoints answer with when a slip is accepted ("recorded": they were already
+ * ticked paid, and the slip is kept for when they paid).
+ */
 export interface SlipResult {
-  result: "full" | "part";
+  result: "full" | "part" | "recorded";
   amount: number;
   left: number;
   receiver: "match" | "unknown";
@@ -127,12 +130,14 @@ export function SlipUpload<T extends SlipResult>({
           out.push({
             tone: "success",
             text:
-              r.result === "full"
-                ? `${of ? `${of}: ` : ""}Slip checked — ${formatMoney(r.amount, currency)} received. You're marked as paid.`
-                : `${of ? `${of}: ` : ""}Slip checked — ${formatMoney(r.amount, currency)} received, ${formatMoney(r.left, currency)} still to pay.`,
+              r.result === "recorded"
+                ? `${of ? `${of}: ` : ""}Slip saved — ${formatMoney(r.amount, currency)}. It shows when you paid.`
+                : r.result === "full"
+                  ? `${of ? `${of}: ` : ""}Slip checked — ${formatMoney(r.amount, currency)} received. You're marked as paid.`
+                  : `${of ? `${of}: ` : ""}Slip checked — ${formatMoney(r.amount, currency)} received, ${formatMoney(r.left, currency)} still to pay.`,
           });
           onAccepted(r);
-          if (r.result === "full") {
+          if (r.result !== "part") {
             setDone(true);
             break;
           }
