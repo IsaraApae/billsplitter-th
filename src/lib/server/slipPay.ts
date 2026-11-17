@@ -1,7 +1,7 @@
 import "server-only";
 import { calculate, ORGANISER_ID, type CalcResult } from "../calc";
 import { findTransfer, payerPromptPay, settlesDirectly } from "../settle";
-import { slipMatches, type SlipCheck, type SlipRead } from "../slip";
+import { slipMatches, slipMoment, type SlipCheck, type SlipRead } from "../slip";
 import type { SplitDoc } from "../types";
 import { deleteImages, storeReceiptImage } from "./qrStore";
 import type { SlipRecord } from "./redis";
@@ -39,6 +39,7 @@ export async function slipRecord(
     photo: await read.photo,
     amount,
     date: read.slip.date!,
+    paidAt: slipMoment(read.slip.date, read.slip.time),
     reference: verdict.reference,
     receiver: verdict.receiver,
     senderName: read.slip.senderName,

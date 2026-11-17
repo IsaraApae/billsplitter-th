@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { daysBetween, duration, namesIn, owedToYou, paidTime, payFrom, payTimes, withoutHidden, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
+import { daysBetween, duration, namesIn, owedToYou, paidTime, payFrom, payTimes, whenPaid, withoutHidden, withPaidTimes, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -126,6 +126,44 @@ describe("who pays fastest", () => {
     expect(duration(payTimes([late], now)[0].avgMs)).toBe("1 hr 16 min");
     // Without a share time (bills from before it was kept), the old rule: midnight of its day.
     expect(duration(payTimes([{ ...late, sharedAt: undefined }], now)[0].avgMs)).toBe("12 hr");
+  });
+
+  it("takes the time printed on the slip, also when the slip came in after the tick", () => {
+    const t = (s: string) => Date.parse(`2026-11-08T${s}+07:00`);
+    const slip = (recorded: string, amount: number, sent: string | null) => ({ amount, at: new Date(t(recorded)).toISOString(), paidAt: sent && new Date(t(sent)).toISOString() });
+    // Paid 13:05, ticked by the organiser at 14:00, slip sent in at 20:00: when the money moved.
+    expect(whenPaid(t("14:00:00"), [slip("20:00:00", 30000, "13:05:00")], 30000)).toEqual({ at: t("13:05:00"), source: "slip" });
+    // Ticked before the money moved (on trust): the slip still counts.
+    expect(whenPaid(t("12:00:00"), [slip("20:00:00", 30000, "13:05:00")], 30000)).toEqual({ at: t("13:05:00"), source: "slip" });
+    // A slip that shows no time, or kept before times were read: as before, only if earlier than the tick.
+    expect(whenPaid(t("14:00:00"), [slip("20:00:00", 30000, null)], 30000)).toEqual({ at: t("14:00:00"), source: "tick" });
+    expect(whenPaid(t("14:00:00"), [{ amount: 30000, at: new Date(t("13:30:00")).toISOString() }], 30000)).toEqual({ at: t("13:30:00"), source: "slip" });
+    // Two slips: when the second was sent, by the times printed on them.
+    expect(whenPaid(t("21:00:00"), [slip("20:00:00", 10000, "12:00:00"), slip("19:00:00", 20000, "16:00:00")], 30000)).toEqual({ at: t("16:00:00"), source: "slip" });
+    // Not covered by slips: the tick.
+    expect(whenPaid(t("14:00:00"), [slip("20:00:00", 10000, "13:05:00")], 30000)).toEqual({ at: t("14:00:00"), source: "tick" });
+    expect(whenPaid(undefined, undefined, 30000)).toBeUndefined();
+  });
+
+  it("uses the organiser's own paid time over the slip and the tick, keeping those to go back to", () => {
+    const sent = at("2026-10-29T13:05:00");
+    const b = {
+      ...made("k", "果子", "2026-10-29", [isara, mint], 20000, { paid: ["mint01"] }, { mint01: at("2026-10-29T21:00:00") }),
+      slips: { mint01: [{ amount: 10000, at: new Date(at("2026-10-29T22:00:00")).toISOString(), paidAt: new Date(sent).toISOString() }] },
+    };
+    const [auto] = payTimes([b], now)[0].bills;
+    expect(auto).toMatchObject({ ref: "mint01", paidAt: sent, source: "slip", from: at("2026-10-29T20:00:00") });
+    expect(auto.auto).toBeUndefined();
+
+    const bank = at("2026-10-29T20:30:00");
+    const [fixed] = payTimes(withPaidTimes([b], { k: { mint01: bank } }), now)[0].bills;
+    expect(fixed).toMatchObject({ paidAt: bank, source: "organiser", auto: { at: sent, source: "slip" } });
+    expect(duration(fixed.ms)).toBe("30 min");
+    expect(withPaidTimes([b], {})[0]).toBe(b);
+    // A tick from before times were kept is left out, unless the organiser says when it was paid.
+    const old = made("o", "Old", "2026-10-01", [isara, mint], 20000, { paid: ["mint01"] });
+    expect(payTimes([old], now)).toEqual([]);
+    expect(payTimes(withPaidTimes([old], { o: { mint01: at("2026-10-02T09:00:00") } }), now)[0].bills[0]).toMatchObject({ source: "organiser" });
   });
 
   it("uses the organiser's own start time for a bill, over the one kept", () => {

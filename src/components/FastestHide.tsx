@@ -7,6 +7,7 @@ import { useBrowserValue } from "@/lib/client/hooks";
 import { getDeviceKey, load } from "@/lib/client/storage";
 import { langOf } from "@/lib/lang";
 import { isHiddenPerson } from "@/lib/owed";
+import { fromField, nowField, toField, when } from "@/lib/thaiTime";
 import type { Person } from "@/lib/types";
 import { Avatar, Callout, ICON, Sheet, Toggle, cx } from "./ui";
 
@@ -14,17 +15,6 @@ type Person5 = Pick<Person, "name" | "emoji" | "color"> & { key: string };
 type Hidden = { key: string; name: string };
 /** `from`: when it counts from on its own (ms); `start`: the organiser's own start, if set. */
 type Bill = { id: string; title: string; day: string; from: number; start: string | null; shared: boolean };
-
-/** A moment as the value of a datetime-local field, in Thailand time ("2026-10-29T11:34"). */
-const toField = (ms: number) => new Date(ms + 7 * 3_600_000).toISOString().slice(0, 16);
-/** Now, as a field value: the latest a bill can count from. */
-const nowField = () => toField(Date.now());
-/** A datetime-local value (Thailand time) as a moment, or NaN. */
-const fromField = (v: string) => Date.parse(`${v}:00+07:00`);
-
-/** "9 Nov 2026, 13:25" in Thailand time. */
-const when = (ms: number) =>
-  new Date(ms).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
 
 /**
  * "Hide" on Who pays fastest: only on the phone this list belongs to. The organiser picks

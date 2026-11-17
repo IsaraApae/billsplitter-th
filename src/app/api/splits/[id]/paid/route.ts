@@ -1,7 +1,7 @@
 import { jsonError, readJson, safely } from "@/lib/server/http";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { paymentFrom } from "@/lib/server/payment";
-import { getPaidState, getSplit, isValidId, setPayment } from "@/lib/server/redis";
+import { getPaidState, getSplit, isValidId, setPayment, slipRefs } from "@/lib/server/redis";
 
 const noStore = { "Cache-Control": "no-store" };
 
@@ -13,8 +13,8 @@ export async function GET(req: Request, ctx: RouteContext<"/api/splits/[id]/paid
   return safely(async () => {
     const s = await getSplit(id);
     if (!s) return jsonError(404, "not_found", "This split doesn't exist or has expired.");
-    const state = await getPaidState(id, s.doc);
-    return Response.json({ ...state, people: s.doc.people.length, updatedAt: s.updatedAt }, { headers: noStore });
+    const [state, slipped] = await Promise.all([getPaidState(id, s.doc), slipRefs(id).catch(() => [])]);
+    return Response.json({ ...state, slipped, people: s.doc.people.length, updatedAt: s.updatedAt }, { headers: noStore });
   });
 }
 

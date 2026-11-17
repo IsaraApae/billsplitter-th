@@ -6,7 +6,7 @@ import { calculate } from "@/lib/calc";
 import { formatMoney } from "@/lib/money";
 import { splitVersion } from "@/lib/shareVersion";
 import { resolveQr } from "@/lib/server/payQr";
-import { fastestBoardOfSplit, getPayments, isValidId, paidStateOf, storageReady } from "@/lib/server/redis";
+import { fastestBoardOfSplit, getPayments, isValidId, paidStateOf, slipRefs, storageReady } from "@/lib/server/redis";
 import { loadSplit } from "@/lib/server/splits";
 
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
@@ -44,10 +44,11 @@ export default async function SharedPage({ params }: PageProps<"/s/[id]">) {
     );
   }
   // The payments (and the organiser's list, for Who pays fastest) are read alongside the bill, not after it.
-  const [s, payments, board] = await Promise.all([
+  const [s, payments, board, slipped] = await Promise.all([
     loadSplit(id),
     getPayments(id).catch(() => ({ paid: [], partial: {} })),
     fastestBoardOfSplit(id).catch(() => null),
+    slipRefs(id).catch(() => []),
   ]);
   if (!s) notFound();
   const state = paidStateOf(s.doc, payments);
@@ -59,6 +60,7 @@ export default async function SharedPage({ params }: PageProps<"/s/[id]">) {
       updatedAt={s.updatedAt}
       initialPaid={state.paid}
       initialPartial={state.partial}
+      initialSlipped={slipped}
       qr={qr}
       fastestHref={board ? `/o/${board}/fastest` : null}
     />

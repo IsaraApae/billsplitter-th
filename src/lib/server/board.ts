@@ -1,21 +1,24 @@
 import "server-only";
-import { payTimes, withoutHidden, withStarts, type PayerTimes } from "../owed";
+import { payTimes, withoutHidden, withPaidTimes, withStarts, type PayerTimes } from "../owed";
 import { jsonError, readJson } from "./http";
-import { boardBills, boardHidden, boardSkipped, boardStarts, isOrganiserKey, isValidId, ownsBoard } from "./redis";
+import { boardBills, boardHidden, boardPaidAt, boardSkipped, boardStarts, isOrganiserKey, isValidId, ownsBoard } from "./redis";
 
 type Bills = NonNullable<Awaited<ReturnType<typeof boardBills>>>;
 
 /**
  * "Who pays fastest" for a list, for the page and its link preview alike: bills the organiser
- * left out don't count, their own start times do, and people they chose to hide aren't ranked.
+ * left out don't count, their own start and paid times do, and people they chose to hide aren't ranked.
  * Null if there's no such list.
  */
 export async function fastestRanking(id: string, now = Date.now()): Promise<{ bills: Bills; times: PayerTimes[]; billCount: number } | null> {
-  const [bills, hidden, skipped, starts] = await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id), boardStarts(id)]);
+  const [bills, hidden, skipped, starts, paidAt] = await Promise.all([boardBills(id), boardHidden(id), boardSkipped(id), boardStarts(id), boardPaidAt(id)]);
   if (!bills) return null;
-  const counted = withStarts(
-    bills.filter((b) => !skipped.includes(b.id)),
-    starts,
+  const counted = withPaidTimes(
+    withStarts(
+      bills.filter((b) => !skipped.includes(b.id)),
+      starts,
+    ),
+    paidAt,
   );
   return { bills, times: withoutHidden(payTimes(counted, now), hidden), billCount: counted.length };
 }

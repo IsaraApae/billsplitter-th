@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { checkSlip, receiverCheck, sanitizeSlip, slipMatches, type SlipRead } from "./slip";
+import { checkSlip, fitsShare, receiverCheck, sanitizeSlip, slipMatches, slipMoment, type SlipRead } from "./slip";
 
 const now = new Date(2026, 9, 6, 20);
 const slip = (over: Partial<SlipRead> = {}): SlipRead => ({
   isSlip: true,
   amount: 220,
   date: "2026-10-06",
+  time: "19:45",
   reference: "016279123456789ABC",
   senderName: "นางสาว มิ้นท์ ส.",
   receiverName: "นาย อิสรา อ.",
@@ -14,6 +15,25 @@ const slip = (over: Partial<SlipRead> = {}): SlipRead => ({
   ...over,
 });
 const opts = { billDay: "2026-10-06", currency: "THB", organiser: { promptpay: "0812345678" } };
+
+describe("when a slip's money was sent", () => {
+  it("reads the printed time, and puts it on the printed day in Thailand", () => {
+    expect(sanitizeSlip({ isSlip: true, date: "2569-10-06", time: "7:45 PM" }, now).time).toBe("19:45");
+    expect(sanitizeSlip({ isSlip: true, date: "2026-10-06", time: "19.45.12" }, now).time).toBe("19:45");
+    expect(sanitizeSlip({ isSlip: true, date: "2026-10-06", time: "evening" }, now).time).toBeNull();
+    expect(slipMoment("2026-10-06", "19:45", Date.parse("2026-10-07T00:00:00Z"))).toBe("2026-10-06T12:45:00.000Z");
+    expect(slipMoment("2026-10-06", null)).toBeNull();
+    expect(slipMoment("2026-10-06", "19:45", Date.parse("2026-10-06T12:00:00Z"))).toBeNull(); // not yet: a misread
+  });
+
+  it("keeps a slip for someone already ticked only if it's for what they owed", () => {
+    expect(fitsShare(30000, 30000, 30000)).toBe(true);
+    expect(fitsShare(29950, 30000, 30000)).toBe(true); // rounded down by under ฿1
+    expect(fitsShare(10000, 10000, 30000)).toBe(true); // the rest of it, after an earlier slip
+    expect(fitsShare(12000, 30000, 30000)).toBe(false); // part of another bill's money
+    expect(fitsShare(90000, 30000, 30000)).toBe(false); // several bills at once
+  });
+});
 
 describe("slip reading", () => {
   it("cleans the model output and converts Buddhist-era dates", () => {

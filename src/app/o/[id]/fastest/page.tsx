@@ -4,7 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { FastestHide } from "@/components/FastestHide";
+import { FastestPaidEdit } from "@/components/FastestPaidEdit";
 import { FastestShare } from "@/components/FastestShare";
+import { FastestSlipTimes } from "@/components/FastestSlipTimes";
 import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
 import { PLACE_COLORS, PODIUM_ORDER } from "@/lib/colors";
@@ -18,7 +20,9 @@ export const dynamic = "force-dynamic";
 const load = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
   const r = await fastestRanking(id); // a storage failure shows the error page
-  return r && { organiser: whoStillOwes(r.bills).organiser, times: r.times, billCount: r.billCount };
+  // Slips kept before their transfer time was read: the organiser's phone has them read.
+  const untimed = r ? r.bills.some((b) => Object.values(b.slips ?? {}).some((list) => list.some((s) => s.paidAt === undefined))) : false;
+  return r && { organiser: whoStillOwes(r.bills).organiser, times: r.times, billCount: r.billCount, untimed };
 });
 
 export async function generateMetadata({ params }: PageProps<"/o/[id]/fastest">): Promise<Metadata> {
@@ -71,6 +75,7 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
         </Link>
         <FastestHide id={id} />
       </div>
+      {b.untimed && <FastestSlipTimes id={id} />}
 
       {n === 0 ? (
         <p className="card p-8 text-center text-ink-2">Once friends are ticked paid, they&apos;re ranked here.</p>
@@ -84,7 +89,7 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
       {n > 0 && (
         <ol className="space-y-3">
           {b.times.map((p, i) => (
-            <PayerCard key={p.key} p={p} rank={i + 1} />
+            <PayerCard key={p.key} id={id} p={p} rank={i + 1} />
           ))}
         </ol>
       )}
@@ -92,7 +97,7 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
   );
 }
 
-function PayerCard({ p, rank }: { p: PayerTimes; rank: number }) {
+function PayerCard({ id, p, rank }: { id: string; p: PayerTimes; rank: number }) {
   const bills = p.paid + p.unpaid;
   const late = p.waitingMs >= 7 * DAY;
   return (
@@ -158,7 +163,24 @@ function PayerCard({ p, rank }: { p: PayerTimes; rank: number }) {
                     )}
                   </span>
                 </span>
-                <Money value={x.amount} currency={x.currency} className="text-[15px] font-semibold" />
+                {/* The organiser's Change button sits under the amount, so the row keeps its width. */}
+                <span className="flex shrink-0 flex-col items-end">
+                  <Money value={x.amount} currency={x.currency} className="text-[15px] font-semibold" />
+                  {paid && (
+                    <FastestPaidEdit
+                      id={id}
+                      bill={x.id}
+                      person={x.ref}
+                      name={p.look.name}
+                      title={x.title}
+                      day={x.day}
+                      paidAt={x.paidAt!}
+                      from={x.from}
+                      source={x.source ?? "tick"}
+                      auto={x.auto}
+                    />
+                  )}
+                </span>
               </li>
             );
           })}
