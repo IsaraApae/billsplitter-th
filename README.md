@@ -37,6 +37,7 @@ The link preview friends see in chat:
 </p>
 
 **Sharing and getting paid**
+- **Finish & share** on Review saves the split and opens its page straight away, with Share and Copy link; **Edit this split** there reopens it (Save & share keeps the same link).
 - **One link per bill**, with a link preview (date, title, the total on a paper receipt, the people) that refreshes when the bill is edited. Titles and names in Thai, English or with accents (é, ü, ğ) keep their letters in the poster type, on the pages and the previews. Tap a person to see what they had.
 - **PromptPay:** upload your bank's QR, or generate one from your PromptPay number with each person's exact amount. Bank details copy as just the account number.
 - **Big tick / small tick:** the organiser marks people paid in full, paid part (with the amount; "left to pay" shows what's still owed), or not paid; friends see the same ticks. The organiser is never counted as unpaid.
