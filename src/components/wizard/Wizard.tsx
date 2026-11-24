@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { calculate } from "@/lib/calc";
 import { rememberPeople, rememberPromptPays } from "@/lib/client/friendsStore";
 import { claimSplit } from "@/lib/client/claim";
+import { copyWhenReady, markLinkCopied } from "@/lib/client/clipboard";
 import { askConfirm } from "@/lib/client/confirm";
 import { hasPendingScan, SCAN_EVENT } from "@/lib/client/pendingScan";
 import { getProfile, paymentFromProfile } from "@/lib/client/profile";
@@ -21,6 +22,7 @@ import {
 import { billDate, defaultTitle, newDoc, toDay } from "@/lib/draft";
 import { toPeople } from "@/lib/friends";
 import { paymentSummary, settlesDirectly } from "@/lib/settle";
+import { splitVersion } from "@/lib/shareVersion";
 import type { Person, SplitDoc } from "@/lib/types";
 import { CrewSheet } from "../CrewSheet";
 import { Pawn, Queen } from "../Poster";
@@ -193,6 +195,14 @@ export function Wizard() {
       items: doc.items.map((it, i) => ({ ...it, name: it.name.trim() || `Item ${i + 1}` })),
       payment: paymentFromProfile(getProfile()),
     };
+    // Copy the link as part of this tap (phones only allow copying then); it's filled in once saved.
+    let giveLink: (url: string) => void = () => {};
+    let noLink: () => void = () => {};
+    const link = new Promise<string>((resolve, reject) => {
+      giveLink = resolve;
+      noLink = () => reject(new Error("not saved"));
+    });
+    const copied = copyWhenReady(link);
     try {
       const editing = state!.editingId;
       const token = editing ? getEditToken(editing) : null;
@@ -218,11 +228,15 @@ export function Wizard() {
         currency: clean.currency,
         ...paymentSummary(clean, { paid: [], partial: {} }),
       });
+      // The same link as the page's Copy link (?v= refreshes chat previews after an edit).
+      giveLink(`${window.location.origin}/s/${id}?v=${splitVersion(clean)}`);
+      if (await Promise.race([copied, new Promise<boolean>((done) => setTimeout(() => done(false), 1500))])) markLinkCopied(id);
       // Straight to the bill's own page (it has Share and Copy link); the next split starts fresh.
       remove(DRAFT_KEY);
       router.push(`/s/${id}`);
       return; // stays "Saving…" until the page opens
     } catch (e) {
+      noLink();
       setError(
         !navigator.onLine
           ? "You're offline. Your draft is saved — try again when you're connected."

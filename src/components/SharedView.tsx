@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { calculate, wholeUnit } from "@/lib/calc";
 import { useBrowserValue } from "@/lib/client/hooks";
 import { photoSrc } from "@/lib/client/photo";
+import { linkJustCopied } from "@/lib/client/clipboard";
 import { getEditToken, getHistory, historyFromDoc, patchHistory, rememberMe, rememberSeen } from "@/lib/client/storage";
 import { billDate } from "@/lib/draft";
 import { ME_ID, organiserFirstByName } from "@/lib/friends";
@@ -82,6 +83,8 @@ export function SharedView({
   const canEdit = !!editToken;
   // ?v= changes when the bill does, so chat apps show a fresh preview.
   const url = `${useBrowserValue(() => window.location.origin, "")}/s/${id}?v=${splitVersion(doc)}`;
+  // Just saved with Finish & share, which copied the link.
+  const justCopied = useBrowserValue(() => linkJustCopied(id), false);
   const [payFor, setPayFor] = useState<string | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoBroken, setPhotoBroken] = useState(false);
@@ -319,6 +322,8 @@ export function SharedView({
       >
         <Money value={calc.total} currency={doc.currency} className="scene-total mt-3" />
       </BillHeader>
+
+      {justCopied && <Callout tone="success">Link copied. Paste it in your group chat.</Callout>}
 
       <section className="card px-5 py-4">
         <div role="group" aria-label="Payment progress">
