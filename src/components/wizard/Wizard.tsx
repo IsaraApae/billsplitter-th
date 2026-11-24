@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ClipboardCheck, ReceiptText, Share2, SlidersHorizontal, UsersRound } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { ChevronLeft, ChevronRight, ClipboardCheck, ReceiptText, SlidersHorizontal, UsersRound } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { calculate } from "@/lib/calc";
 import { rememberPeople, rememberPromptPays } from "@/lib/client/friendsStore";
@@ -29,15 +29,14 @@ import { ExtrasStep } from "./ExtrasStep";
 import { ItemsStep } from "./ItemsStep";
 import { PeopleStep } from "./PeopleStep";
 import { ReviewStep } from "./ReviewStep";
-import { ShareStep } from "./ShareStep";
 
 const STEPS = [
   { label: "Items", Icon: ReceiptText },
   { label: "People", Icon: UsersRound },
   { label: "Extras", Icon: SlidersHorizontal },
   { label: "Review", Icon: ClipboardCheck },
-  { label: "Share", Icon: Share2 },
 ] as const;
+const LAST = STEPS.length - 1;
 const DRAFT_KEY = "bs:draft";
 
 export interface DraftState {
@@ -80,7 +79,7 @@ function usableDraft(s: DraftState | null): s is DraftState {
     typeof d.receipt === "object" &&
     Number.isInteger(s!.step) &&
     s!.step >= 0 &&
-    s!.step <= 4
+    s!.step <= LAST
   );
 }
 
@@ -104,6 +103,7 @@ export function Wizard() {
   // navigation (Shared page → "Edit this split") this component can render
   // before the address bar changes, and would miss the request.
   const editParam = useSearchParams().get("edit");
+  const router = useRouter();
   const [init] = useState(() => boot(editParam));
   const [state, setState] = useState<DraftState | null>(init.editId ? null : init.draft);
   const [busy, setBusy] = useState(false);
@@ -132,11 +132,9 @@ export function Wizard() {
     if (state) save(DRAFT_KEY, state);
   }, [state]);
 
-  // A photo picked with the navigation's Scan button: open the Items step
-  // (a fresh split if the current one was already shared) so it can be read.
+  // A photo picked with the navigation's Scan button: open the Items step so it can be read.
   useEffect(() => {
-    const open = () =>
-      setState((s) => (!s ? s : s.step === 4 ? freshState() : s.step === 0 ? s : { ...s, step: 0 }));
+    const open = () => setState((s) => (!s || s.step === 0 ? s : { ...s, step: 0 }));
     if (hasPendingScan()) open();
     window.addEventListener(SCAN_EVENT, open);
     return () => window.removeEventListener(SCAN_EVENT, open);
@@ -175,7 +173,6 @@ export function Wizard() {
   async function startNew() {
     if (
       doc.items.length &&
-      step !== 4 &&
       !(await askConfirm({ title: "Discard this draft?", message: "Start a new split instead.", confirmLabel: "Discard", destructive: true }))
     )
       return;
@@ -221,17 +218,18 @@ export function Wizard() {
         currency: clean.currency,
         ...paymentSummary(clean, { paid: [], partial: {} }),
       });
-      setState({ doc: clean, step: 4, editingId: id });
-      window.scrollTo({ top: 0 });
+      // Straight to the bill's own page (it has Share and Copy link); the next split starts fresh.
+      remove(DRAFT_KEY);
+      router.push(`/s/${id}`);
+      return; // stays "Saving…" until the page opens
     } catch (e) {
       setError(
         !navigator.onLine
           ? "You're offline. Your draft is saved — try again when you're connected."
           : (e as Error).message || "Saving failed.",
       );
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   }
 
   const canNext = [doc.items.length > 0, doc.people.length > 0, true, calc.complete][step] ?? true;
@@ -244,19 +242,18 @@ export function Wizard() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-[150px] md:pb-44">
-      {/* The steps are a rank of a chessboard; the pawn walks along it and promotes on Share. */}
+      {/* The steps are a rank of a chessboard; the pawn walks along it and promotes as the split is saved. */}
       <nav aria-label="Steps" className="mb-6">
         <div className="rank" style={{ "--step": step } as CSSProperties}>
           <span className="rank-track" aria-hidden />
-          <ol className="relative grid grid-cols-5">
+          <ol className="relative grid grid-cols-4">
             {STEPS.map(({ label, Icon }, i) => {
-              const reachable = i < 4 || (state.editingId !== null && step === 4);
               const current = i === step;
               return (
                 <li key={label}>
                   <button
                     type="button"
-                    disabled={!reachable || current}
+                    disabled={current}
                     onClick={() => go(i)}
                     aria-current={current ? "step" : undefined}
                     className={cx("rank-square disabled:cursor-default", !current && (i < step ? "text-accent-strong" : "text-ink-2"))}
@@ -269,7 +266,7 @@ export function Wizard() {
             })}
           </ol>
           <span className="rank-piece" aria-hidden>
-            {step === 4 ? (
+            {busy ? (
               <span className="rank-promote">
                 <Queen size={15} />
               </span>
@@ -280,7 +277,7 @@ export function Wizard() {
         </div>
       </nav>
 
-      {state.editingId && step < 4 && (
+      {state.editingId && (
         <div className="mb-4">
           <Callout tone="info">Editing a shared split — saving updates the same link.</Callout>
         </div>
@@ -292,10 +289,9 @@ export function Wizard() {
         {step === 1 && <PeopleStep doc={doc} setDoc={setDoc} calc={calc} onPickFriends={() => setCrewOpen(true)} />}
         {step === 2 && <ExtrasStep doc={doc} setDoc={setDoc} calc={calc} />}
         {step === 3 && <ReviewStep doc={doc} setDoc={setDoc} calc={calc} goTo={go} />}
-        {step === 4 && state.editingId && <ShareStep doc={doc} calc={calc} id={state.editingId} />}
       </div>
 
-      {step < 4 && doc.items.length > 0 && (
+      {doc.items.length > 0 && (
         <div className="mt-8 text-center">
           <button type="button" className="btn-ghost text-[15px]" onClick={startNew}>
             Discard draft & start over
@@ -322,7 +318,7 @@ export function Wizard() {
             </div>
           )}
           <div className="flex items-center gap-2">
-            {step > 0 && step < 4 && (
+            {step > 0 && (
               <button type="button" className="press raised-flat grid size-11 shrink-0 place-items-center rounded-full text-ink" aria-label="Back" onClick={() => go(step - 1)}>
                 <ChevronLeft size={22} {...ICON} />
               </button>
@@ -333,26 +329,16 @@ export function Wizard() {
               </span>
               <Money value={calc.total} currency={doc.currency} className="font-display text-[20px] font-black" />
             </div>
-            {step < 3 && (
+            {step < LAST && (
               <button type="button" className="btn-primary h-11 shrink-0 px-5" disabled={!canNext} onClick={() => go(step + 1)}>
                 Next
                 <ChevronRight size={20} {...ICON} aria-hidden />
               </button>
             )}
-            {step === 3 && (
+            {step === LAST && (
               <button type="button" className="btn-primary h-11 shrink-0 px-5" disabled={!canNext || busy} onClick={finish}>
                 {busy ? "Saving…" : state.editingId ? "Save & share" : "Finish & share"}
               </button>
-            )}
-            {step === 4 && (
-              <>
-                <button type="button" className="btn-secondary h-11 shrink-0 px-4" onClick={() => go(0)}>
-                  Edit
-                </button>
-                <button type="button" className="btn-secondary h-11 shrink-0 px-4" onClick={startNew}>
-                  New split
-                </button>
-              </>
             )}
           </div>
         </div>

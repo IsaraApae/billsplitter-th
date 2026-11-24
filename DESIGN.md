@@ -231,7 +231,7 @@ The world rejects the soft fintech card stack and the frosted glass it replaced.
 - A full-bleed scene at the top of the home and shared-bill pages, breaking into the page through two rows of squares.
 - Ultra-wide black caps for short titles and headline totals only.
 - Solid panels, 8px corners, hairline borders, no glass.
-- Chess as the interface's own metaphor: steps are a rank, the pawn promotes to a queen on Share.
+- Chess as the interface's own metaphor: steps are a rank, the pawn promotes to a queen as the split is saved.
 - A meadow growing from the bottom of every page.
 
 ## Colors
@@ -362,7 +362,7 @@ A solid bar across the whole screen with a single 1px border on its inner edge: 
 Native dialogs in Pale Panel with the checker band along the top, 12px corners and the Panel shadow over a scrim. Sheets slide up over 0.45s, hold a drag handle and a 44px close circle at the top left, and dismiss on a 90px swipe. They rest 8px from the screen edges on phones and centre at 640px wide. Alerts are 320px wide and scale in from 0.88 over 0.35s. All motion uses one spring, `cubic-bezier(0.16, 1, 0.3, 1)`, and is removed under reduced-motion.
 
 ### Step Rank
-The signature component: the wizard's five steps as one rank of a chessboard, 60px tall with 8px corners and the Raised shadow. Squares alternate between the two Rank colours, each with its own 22px line icon (Items a receipt, People, Extras sliders, Review a checklist, Share) above a 12px label; the pawn rides as a small badge in the corner of the green square. A Brand Green square carrying a pawn slides to the current step over 0.45s, and on Share the pawn promotes to a queen with a small pop. The pieces are inline SVG from `src/components/Poster.tsx`.
+The signature component: the wizard's four steps as one rank of a chessboard, 60px tall with 8px corners and the Raised shadow. Squares alternate between the two Rank colours, each with its own 22px line icon (Items a receipt, People, Extras sliders, Review a checklist) above a 12px label; the pawn rides as a small badge in the corner of the green square. A Brand Green square carrying a pawn slides to the current step over 0.45s, and on Share the pawn promotes to a queen with a small pop. The pieces are inline SVG from `src/components/Poster.tsx`.
 
 ### Scene Header
 A full-bleed image from the generated set, day or night, with a smaller file under 900px. The title and total sit in the upper sky, with the date and details line beneath them. The image sits at a page-specific vertical position and ends in two rows of squares that dissolve it into the page.

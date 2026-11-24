@@ -18,6 +18,6 @@ STORY: The visitor sees the poster and the app's name, scans a receipt, moves a 
 
 FIRST VIEWPORT: Phone: full-bleed scene about 46% of screen height, BILL SPLITTER in huge wide caps over the sky, server-rendered so it paints before JavaScript. Below it the five-square rank, then the New split panel with Scan as the primary action; the fixed dock with the green camera square sits at the bottom. Once a draft has items or is past step one the scene collapses to a slim strip.
 
-FORM: Pinned reference world (user-chosen), translated to green. Seed key dcb4f1a9, pinned brief beats the roll; signature interaction: the pawn advances square by square and promotes to a queen on Share.
+FORM: Pinned reference world (user-chosen), translated to green. Seed key dcb4f1a9, pinned brief beats the roll; signature interaction: the pawn advances square by square and promotes to a queen as the split is saved.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

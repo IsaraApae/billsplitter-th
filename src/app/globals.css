@@ -373,7 +373,7 @@ input[type="number"]::-webkit-outer-spin-button {
   display: block;
 }
 
-/* The five steps as a rank of a chessboard. The pawn's square travels along it. */
+/* The four steps as a rank of a chessboard. The pawn's square travels along it. */
 .rank {
   position: relative;
   border-radius: var(--r);
@@ -409,7 +409,7 @@ li:nth-child(even) > .rank-square {
   z-index: 2;
   top: 0;
   left: 0;
-  width: 20%;
+  width: 25%;
   height: 60px;
   display: flex;
   justify-content: flex-end;
@@ -422,7 +422,7 @@ li:nth-child(even) > .rank-square {
 .rank-track {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 20%;
+  width: 25%;
   background: var(--accent-fill);
   transform: translateX(calc(var(--step, 0) * 100%));
   transition: transform 0.45s var(--ease-spring);

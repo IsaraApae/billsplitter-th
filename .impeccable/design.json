@@ -983,7 +983,7 @@
       "name": "Step Rank",
       "kind": "custom",
       "refersTo": "rank-square-current",
-      "description": "The wizard's five steps as a rank of a chessboard; the pawn's green square travels along it.",
+      "description": "The wizard's four steps as a rank of a chessboard; the pawn's green square travels along it.",
       "html": "<ol class=\"ds-rank\"><li class=\"ds-sq ds-sq-on\"><svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"currentColor\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"5.4\" r=\"3.9\"/><rect x=\"8.2\" y=\"9.4\" width=\"7.6\" height=\"1.7\" rx=\".85\"/><path d=\"M10.3 11.1c0 3.2-1 5.5-2.8 7.3h9c-1.8-1.8-2.8-4.1-2.8-7.3z\"/><rect x=\"5.3\" y=\"19\" width=\"13.4\" height=\"3.2\" rx=\"1.1\"/></svg><span>Items</span></li><li class=\"ds-sq ds-b\"><span>People</span></li><li class=\"ds-sq\"><span>Extras</span></li><li class=\"ds-sq ds-b\"><span>Review</span></li><li class=\"ds-sq\"><span>Share</span></li></ol>",
       "css": ".ds-rank{display:grid;grid-template-columns:repeat(5,1fr);margin:0;padding:0;list-style:none;border-radius:8px;overflow:hidden;box-shadow:var(--raised-shadow);}.ds-sq{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:60px;padding-bottom:7px;box-sizing:border-box;background:var(--square-a);color:var(--ink-2);font:600 12px system-ui,sans-serif;}.ds-b{background:var(--square-b);}.ds-sq-on{background:var(--accent-fill);color:var(--accent-ink);font-weight:700;}.ds-sq svg{position:absolute;top:7px;}"
     },
@@ -1003,7 +1003,7 @@
       "A full-bleed scene at the top of the home and shared-bill pages, breaking into the page through two rows of squares.",
       "Ultra-wide black caps for short titles and headline totals only.",
       "Solid panels, 8px corners, hairline borders, no glass.",
-      "Chess as the interface's own metaphor: steps are a rank, the pawn promotes to a queen on Share.",
+      "Chess as the interface's own metaphor: steps are a rank, the pawn promotes to a queen as the split is saved.",
       "A meadow growing from the bottom of every page."
     ],
     "rules": [
