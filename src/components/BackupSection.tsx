@@ -4,6 +4,7 @@ import { Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { BACKUP_KEYS, backupSummary, makeBackup, mergeBackup, parseBackup, type BackupData } from "@/lib/backup";
 import { askConfirm } from "@/lib/client/confirm";
+import { usePickerButton } from "@/lib/client/pickerButton";
 import { load, save } from "@/lib/client/storage";
 import { toDay } from "@/lib/draft";
 import { Callout, ICON, Section } from "./ui";
@@ -20,6 +21,7 @@ function readAll(): BackupData {
 /** Me page: save everything this phone keeps to a file, or restore it on another phone. */
 export function BackupSection() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const restoreButton = usePickerButton(fileRef);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   async function saveBackup() {
@@ -80,7 +82,7 @@ export function BackupSection() {
           <button type="button" className="btn-secondary h-12 px-3 whitespace-nowrap" onClick={saveBackup}>
             <Download size={20} {...ICON} aria-hidden /> Save backup
           </button>
-          <button type="button" className="btn-secondary h-12 px-3 whitespace-nowrap" onClick={() => fileRef.current?.click()}>
+          <button type="button" className="btn-secondary h-12 px-3 whitespace-nowrap" {...restoreButton}>
             <Upload size={20} {...ICON} aria-hidden /> Restore
           </button>
         </div>

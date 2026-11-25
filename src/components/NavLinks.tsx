@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { setPendingScan } from "@/lib/client/pendingScan";
+import { usePickerButton } from "@/lib/client/pickerButton";
 import { ICON, cx } from "./ui";
 
 const LINKS = [
@@ -23,6 +24,7 @@ export function NavLinks() {
   const path = usePathname();
   const router = useRouter();
   const cameraRef = useRef<HTMLInputElement>(null);
+  const scan = usePickerButton(cameraRef);
 
   // Once the page has settled, fetch the other tabs so the first tap is instant.
   // Not for friends opening a shared link, or on Data Saver.
@@ -66,7 +68,7 @@ export function NavLinks() {
           type="button"
           aria-label="Scan receipt"
           className="press grid size-[62px] shrink-0 place-items-center rounded-[8px] bg-accent-fill text-accent-ink shadow-[var(--raised-shadow)]"
-          onClick={() => cameraRef.current?.click()}
+          {...scan}
         >
           <Camera size={24} {...ICON} aria-hidden />
         </button>

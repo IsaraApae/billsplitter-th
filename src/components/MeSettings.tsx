@@ -8,6 +8,7 @@ import { renameEverywhere } from "@/lib/client/rename";
 import { getProfile, qrImageUrl, saveProfile, type Profile } from "@/lib/client/profile";
 import { formatPromptPayId, isValidPromptPayId, normalizePromptPayInput } from "@/lib/promptpay";
 import { PERSON_COLORS, type QrMode } from "@/lib/types";
+import { usePickerButton } from "@/lib/client/pickerButton";
 import { BackupSection } from "./BackupSection";
 import { PayQr } from "./PayQr";
 import { ThemePicker } from "./ThemeToggle";
@@ -21,6 +22,9 @@ export function MeSettings() {
   const [error, setError] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const cameraButton = usePickerButton(cameraRef);
+  const galleryButton = usePickerButton(galleryRef);
+  const replaceButton = usePickerButton(galleryRef);
 
   // Renaming yourself updates the splits you've shared (once per change).
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
@@ -159,7 +163,7 @@ export function MeSettings() {
                     className="size-32 rounded-[8px] bg-white object-contain p-2 shadow-[var(--card-shadow)]"
                   />
                   <div className="flex flex-1 flex-col gap-2">
-                    <button type="button" className="btn-secondary h-11" disabled={uploading} onClick={() => galleryRef.current?.click()}>
+                    <button type="button" className="btn-secondary h-11" disabled={uploading} {...replaceButton}>
                       <RefreshCw size={20} {...ICON} aria-hidden /> Replace
                     </button>
                     <button type="button" className="btn-secondary h-11" disabled={uploading} onClick={removeQr}>
@@ -169,10 +173,10 @@ export function MeSettings() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" className="btn-primary h-13" disabled={uploading} onClick={() => cameraRef.current?.click()}>
+                  <button type="button" className="btn-primary h-13" disabled={uploading} {...cameraButton}>
                     <Camera size={22} {...ICON} aria-hidden /> Camera
                   </button>
-                  <button type="button" className="btn-secondary h-13" disabled={uploading} onClick={() => galleryRef.current?.click()}>
+                  <button type="button" className="btn-secondary h-13" disabled={uploading} {...galleryButton}>
                     <ImageIcon size={22} {...ICON} aria-hidden /> Gallery
                   </button>
                 </div>

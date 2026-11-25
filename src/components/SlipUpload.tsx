@@ -3,6 +3,7 @@
 import { ImageUp, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { compressImage } from "@/lib/client/image";
+import { usePickerButton } from "@/lib/client/pickerButton";
 import { formatMoney } from "@/lib/money";
 import { Callout, ICON } from "./ui";
 
@@ -72,6 +73,7 @@ export function SlipUpload<T extends SlipResult>({
   bare?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const pickButton = usePickerButton(fileRef);
   const [progress, setProgress] = useState<{ stage: Stage; pct: number; of?: string } | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<{ tone: "success" | "error"; text: string }[]>([]);
@@ -212,7 +214,7 @@ export function SlipUpload<T extends SlipResult>({
         </div>
       ) : (
         !done && (
-          <button type="button" className={failed ? "btn-primary h-12 w-full" : "btn-secondary h-12 w-full"} disabled={busy} onClick={() => fileRef.current?.click()}>
+          <button type="button" className={failed ? "btn-primary h-12 w-full" : "btn-secondary h-12 w-full"} disabled={busy} {...pickButton}>
             <ImageUp size={20} {...ICON} aria-hidden /> {failed ? "Try another slip" : msgs.length ? "Upload another slip" : "Upload slip"}
           </button>
         )

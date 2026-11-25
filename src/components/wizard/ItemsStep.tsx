@@ -13,6 +13,7 @@ import { formatMoney } from "@/lib/money";
 import type { DroppedLine } from "@/lib/scanFilter";
 import type { ScanResult } from "@/lib/scanResult";
 import type { SplitDoc } from "@/lib/types";
+import { usePickerButton } from "@/lib/client/pickerButton";
 import { DateField } from "../DateField";
 import { ZoomableImage } from "../ZoomableImage";
 import { Callout, ICON, Money, MoneyInput, QtyStepper, Section, Sheet, cx } from "../ui";
@@ -69,6 +70,8 @@ export function ItemsStep({
   const [now, setNow] = useState(() => Date.now());
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
+  const scanButton = usePickerButton(cameraRef);
+  const photosButton = usePickerButton(galleryRef);
   const docRef = useRef(doc);
   useEffect(() => {
     docRef.current = doc;
@@ -190,10 +193,10 @@ export function ItemsStep({
       <div className="space-y-3.5">
         <h1 className="large-title">{editing ? "Edit split" : "New split"}</h1>
         <div className="grid grid-cols-2 gap-2.5">
-          <button type="button" className={cx(doc.items.length ? "btn-secondary" : "btn-primary", "h-[52px] gap-2 px-3 whitespace-nowrap")} disabled={busy} onClick={() => cameraRef.current?.click()}>
+          <button type="button" className={cx(doc.items.length ? "btn-secondary" : "btn-primary", "h-[52px] gap-2 px-3 whitespace-nowrap")} disabled={busy} {...scanButton}>
             <Camera size={22} {...ICON} aria-hidden /> Scan receipt
           </button>
-          <button type="button" className="btn-secondary h-[52px] gap-2 px-3 whitespace-nowrap" disabled={busy} onClick={() => galleryRef.current?.click()}>
+          <button type="button" className="btn-secondary h-[52px] gap-2 px-3 whitespace-nowrap" disabled={busy} {...photosButton}>
             <ImageIcon size={22} {...ICON} aria-hidden /> From photos
           </button>
           <input
