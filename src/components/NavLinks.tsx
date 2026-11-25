@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { setPendingScan } from "@/lib/client/pendingScan";
+import { load } from "@/lib/client/storage";
 import { ICON, cx } from "./ui";
 
 const LINKS = [
@@ -14,15 +15,29 @@ const LINKS = [
   { href: "/me", label: "Me", Icon: UserRound },
 ];
 
+/** A split under way on this phone (past the first step, items added, or an edit): Home shows it as it is. */
+function splitUnderWay(): boolean {
+  const s = load<{ step?: number; editingId?: string | null; doc?: { items?: unknown[] } } | null>("bs:draft", null);
+  return !!s && ((s.step ?? 0) > 0 || (s.doc?.items?.length ?? 0) > 0 || !!s.editingId);
+}
+
 /**
  * The bar across the screen (bottom on phones, top on desktop) with "Scan receipt" as a separate
- * filled green square beside it. Routes are fetched on first touch or hover
- * rather than all at once on every page load.
+ * filled green square beside it. On a phone, Home also opens the camera for a new split's
+ * receipt. Routes are fetched on first touch or hover rather than all at once on every page load.
  */
 export function NavLinks() {
   const path = usePathname();
   const router = useRouter();
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  // Home on a phone: the camera, straight from the tap (phones only open it then), for a new
+  // split's receipt. Not on a computer (a file dialog would be in the way), and not over a split
+  // that's under way. Cancelling the camera leaves Home as it is.
+  function homeCamera() {
+    if (!matchMedia("(pointer: coarse)").matches || splitUnderWay()) return;
+    cameraRef.current?.click();
+  }
 
   // Once the page has settled, fetch the other tabs so the first tap is instant.
   // Not for friends opening a shared link, or on Data Saver.
@@ -50,6 +65,7 @@ export function NavLinks() {
                 href={href}
                 prefetch={false}
                 onPointerEnter={() => router.prefetch(href)}
+                onClick={href === "/" ? homeCamera : undefined}
                 aria-current={active ? "page" : undefined}
                 className={cx(
                   "press flex h-[52px] min-w-[64px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[var(--r)] text-[11px] font-semibold md:flex-row md:gap-2 md:text-[15px]",
