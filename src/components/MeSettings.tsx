@@ -9,6 +9,7 @@ import { getProfile, qrImageUrl, saveProfile, type Profile } from "@/lib/client/
 import { formatPromptPayId, isValidPromptPayId, normalizePromptPayInput } from "@/lib/promptpay";
 import { PERSON_COLORS, type QrMode } from "@/lib/types";
 import { BackupSection } from "./BackupSection";
+import { PaakeenLink } from "./PaakeenLink";
 import { PayQr } from "./PayQr";
 import { ThemePicker } from "./ThemeToggle";
 import { Avatar, COLOR_HEX, Callout, ICON, Section, Segmented, cx } from "./ui";
@@ -255,6 +256,8 @@ export function MeSettings() {
       <Section title="Appearance">
         <ThemePicker />
       </Section>
+
+      <PaakeenLink />
 
       <BackupSection />
 
