@@ -72,12 +72,12 @@ export function PaakeenLink() {
         </p>
         <div className={connected ? "grid grid-cols-2 gap-2.5" : ""}>
           <button type="button" className="btn-secondary h-12 w-full px-3 whitespace-nowrap" disabled={connected === null} onClick={copyNew}>
-            <Link2 size={20} {...ICON} aria-hidden />
-            {connected ? "Copy a new link" : "Copy link for ป้าคีน"}
+            <Link2 size={20} {...ICON} className="shrink-0" aria-hidden />
+            {connected ? "New link" : "Copy link for ป้าคีน"}
           </button>
           {connected && (
             <button type="button" className="btn-secondary h-12 px-3 whitespace-nowrap text-danger" onClick={disconnect}>
-              <Unlink size={20} {...ICON} aria-hidden />
+              <Unlink size={20} {...ICON} className="shrink-0" aria-hidden />
               Disconnect
             </button>
           )}
