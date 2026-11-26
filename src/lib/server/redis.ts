@@ -734,6 +734,60 @@ export async function otherSplitsWith(
   return out;
 }
 
+// ---- ป้าคีน: a private, read-only link to this organiser's newest bills -----
+// ป้าคีน (a LINE bot that records spending from bank alerts) matches an alert to the bill just made for it here, to
+// take the bill's name and the organiser's own share. Only a hash of the link's secret is kept, and making a new
+// link ends the old one, so the organiser can cut it off.
+
+const feedKey = (hashed: string) => `feed:${hashed}`;
+const organiserFeedKey = (owner: string) => `organiser:${owner}:feed`;
+/** newToken(): 32 random bytes, base64url */
+export const isFeedToken = (t: string) => /^[\w-]{43}$/.test(t);
+
+/** A new link secret for this organiser; the one before stops working. */
+export async function makeFeed(owner: string): Promise<string> {
+  const old = await db().get<string>(organiserFeedKey(owner));
+  if (old) await db().del(feedKey(old));
+  const token = newToken();
+  const hashed = hash(token);
+  await Promise.all([db().set(feedKey(hashed), owner, { ex: ORGANISER_TTL }), db().set(organiserFeedKey(owner), hashed, { ex: ORGANISER_TTL })]);
+  return token;
+}
+
+/** Ends this organiser's link, if any. */
+export async function dropFeed(owner: string): Promise<void> {
+  const old = await db().get<string>(organiserFeedKey(owner));
+  if (old) await db().del(feedKey(old));
+  await db().del(organiserFeedKey(owner));
+}
+
+export async function hasFeed(owner: string): Promise<boolean> {
+  const hashed = await db().get<string>(organiserFeedKey(owner));
+  return !!hashed && (await db().get<string>(feedKey(hashed))) === owner;
+}
+
+/** The organiser a link secret belongs to; each use keeps the link alive. */
+export async function feedOwner(token: string): Promise<string | null> {
+  if (!isFeedToken(token)) return null;
+  const owner = await db().get<string>(feedKey(hash(token)));
+  if (owner) await Promise.all([db().expire(feedKey(hash(token)), ORGANISER_TTL), db().expire(organiserFeedKey(owner), ORGANISER_TTL)]);
+  return owner;
+}
+
+/** This organiser's bills saved or changed since `since` (ms), newest first, at most `max`. */
+export async function recentOwnerSplits(owner: string, since: number, max = 20): Promise<{ id: string; doc: SplitDoc; savedAt: number }[]> {
+  const ids = (await db().hkeys(organiserKey(owner))).filter(isValidId).slice(-300);
+  const found = await Promise.all(
+    ids.map(async (id) => {
+      const s = await db().get<StoredSplit>(docKey(id));
+      if (!s) return null;
+      const savedAt = Math.max(...[s.sharedAt, s.updatedAt, s.doc.createdAt].map((t) => (t ? Date.parse(t) : 0)).filter(Number.isFinite));
+      return savedAt >= since ? { id, doc: s.doc, savedAt } : null;
+    }),
+  );
+  return found.filter((x) => x !== null).sort((a, b) => b.savedAt - a.savedAt).slice(0, max);
+}
+
 // ---- "Who still owes" lists: one shareable link per organiser ---------------
 
 const boardKey = (id: string) => `board:${id}`;
