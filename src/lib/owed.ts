@@ -373,6 +373,27 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
 
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/**
+ * For each person in the ranking who still has a bill unpaid: when a friend ranked below them
+ * will pass them, and who (the first to). While a bill waits, its time keeps growing, so their
+ * average rises by (unpaid bills ÷ bills) for every hour that passes; a friend below passes
+ * them once the averages meet. null: paid up, or nobody below catches up.
+ */
+export function passTimes(times: PayerTimes[], now = Date.now()): ({ at: number; by: Look } | null)[] {
+  const rate = (p: PayerTimes) => p.unpaid / p.bills.length;
+  return times.map((a, i) => {
+    if (a.unpaid === 0) return null;
+    let first: { at: number; by: Look } | null = null;
+    for (const b of times.slice(i + 1)) {
+      const closing = rate(a) - rate(b);
+      if (closing <= 0) continue; // they're slipping at least as fast
+      const at = now + Math.max(0, (b.avgMs - a.avgMs) / closing);
+      if (!first || at < first.at) first = { at, by: b.look };
+    }
+    return first;
+  });
+}
+
 /** The bills with the organiser's own paid times (billId → payment ref → ms) on them. */
 export function withPaidTimes<T extends { id: string }>(bills: T[], fixes: Record<string, Record<string, number>>): (T & { paidFix?: Record<string, number> })[] {
   return bills.map((b) => (fixes[b.id] ? { ...b, paidFix: fixes[b.id] } : b));

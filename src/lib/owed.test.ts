@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { daysBetween, duration, namesIn, owedToYou, paidTime, payFrom, payTimes, whenPaid, withoutHidden, withPaidTimes, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill } from "./owed";
+import { daysBetween, duration, namesIn, owedToYou, paidTime, payFrom, payTimes, whenPaid, withoutHidden, withPaidTimes, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill, passTimes, type PayerTimes } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -228,5 +228,45 @@ describe("who are you (people who still owe)", () => {
     const dinner = bill("b1", "Dinner", [isara, mint, ploy], 90000, { paid: ["ploy01"] });
     const lunch = bill("b2", "Lunch", [isara, { id: "x1", name: "Bank" }, { id: "x2", name: "ploy" }], 30000, { paid: ["x1", "x2"] });
     expect(unpaidPeople([dinner, lunch]).map((p) => p.name)).toEqual(["Mint"]);
+  });
+});
+
+describe("when someone unpaid gets passed (Who pays fastest countdown)", () => {
+  const H = 3_600_000;
+  const D = 24 * H;
+  /** Someone with `paid` paid bills and `unpaid` unpaid ones, averaging `avg`. */
+  const p = (name: string, avg: number, paid: number, unpaid: number): PayerTimes => ({
+    key: name,
+    look: { name },
+    avgMs: avg,
+    paid,
+    unpaid,
+    waitingMs: 0,
+    bills: Array.from({ length: paid + unpaid }, (_, i) => ({ id: `${name}${i}`, title: "", day: "", amount: 1, currency: "THB", ms: 0, ref: "", from: 0 })),
+  });
+  const now = 1_000_000;
+
+  it("someone paid up below catches up as the unpaid bill waits", () => {
+    // Boss: one bill, unpaid for 1 day (average grows 1 hour an hour). Ploy paid in 3 days.
+    const r = passTimes([p("Boss", 1 * D, 0, 1), p("Ploy", 3 * D, 1, 0)], now);
+    expect(r).toEqual([{ at: now + 2 * D, by: { name: "Ploy" } }, null]);
+  });
+
+  it("grows slower when only some of their bills wait", () => {
+    // Mint: 2 bills, one paid in 12 h and one waiting 1 day: average 18 h, growing half an hour an hour.
+    // Bank (paid in 2 days) catches up in (48 − 18) ÷ 0.5 = 60 hours.
+    const r = passTimes([p("Mint", 18 * H, 1, 1), p("Bank", 2 * D, 1, 0)], now);
+    expect(r[0]).toEqual({ at: now + 60 * H, by: { name: "Bank" } });
+  });
+
+  it("names the first to pass, not just the one right below", () => {
+    // Below Boss: Ploy (unpaid too, slipping as fast: never passes) and Bank (paid, 4 days).
+    const r = passTimes([p("Boss", 1 * D, 0, 1), p("Ploy", 2 * D, 0, 1), p("Bank", 4 * D, 1, 0)], now);
+    expect(r[0]).toEqual({ at: now + 3 * D, by: { name: "Bank" } });
+    expect(r[1]).toEqual({ at: now + 2 * D, by: { name: "Bank" } });
+  });
+
+  it("nobody below, or everyone paid: no countdown", () => {
+    expect(passTimes([p("Mint", 1 * D, 2, 0), p("Boss", 2 * D, 0, 1)], now)).toEqual([null, null]);
   });
 });

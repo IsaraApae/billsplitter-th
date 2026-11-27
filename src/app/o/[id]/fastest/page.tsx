@@ -5,13 +5,14 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { FastestHide } from "@/components/FastestHide";
 import { FastestPaidEdit } from "@/components/FastestPaidEdit";
+import { FastestPassCountdown } from "@/components/FastestPassCountdown";
 import { FastestShare } from "@/components/FastestShare";
 import { FastestSlipTimes } from "@/components/FastestSlipTimes";
 import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
 import { PLACE_COLORS, PODIUM_ORDER } from "@/lib/colors";
 import { langOf } from "@/lib/lang";
-import { DAY, duration, whoStillOwes, type PayerTimes } from "@/lib/owed";
+import { DAY, duration, passTimes, whoStillOwes, type PayerTimes } from "@/lib/owed";
 import { fastestRanking } from "@/lib/server/board";
 import { isValidId, storageReady } from "@/lib/server/redis";
 
@@ -19,10 +20,11 @@ export const dynamic = "force-dynamic";
 
 const load = cache(async (id: string) => {
   if (!isValidId(id) || !storageReady) return null;
-  const r = await fastestRanking(id); // a storage failure shows the error page
+  const now = Date.now();
+  const r = await fastestRanking(id, now); // a storage failure shows the error page
   // Slips kept before their transfer time was read: the organiser's phone has them read.
   const untimed = r ? r.bills.some((b) => Object.values(b.slips ?? {}).some((list) => list.some((s) => s.paidAt === undefined))) : false;
-  return r && { organiser: whoStillOwes(r.bills).organiser, times: r.times, billCount: r.billCount, untimed };
+  return r && { organiser: whoStillOwes(r.bills).organiser, times: r.times, billCount: r.billCount, untimed, now, passes: passTimes(r.times, now) };
 });
 
 export async function generateMetadata({ params }: PageProps<"/o/[id]/fastest">): Promise<Metadata> {
@@ -89,7 +91,7 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
       {n > 0 && (
         <ol className="space-y-3">
           {b.times.map((p, i) => (
-            <PayerCard key={p.key} id={id} p={p} rank={i + 1} />
+            <PayerCard key={p.key} id={id} p={p} rank={i + 1} pass={b.passes[i]} now={b.now} />
           ))}
         </ol>
       )}
@@ -97,7 +99,20 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
   );
 }
 
-function PayerCard({ id, p, rank }: { id: string; p: PayerTimes; rank: number }) {
+function PayerCard({
+  id,
+  p,
+  rank,
+  pass,
+  now,
+}: {
+  id: string;
+  p: PayerTimes;
+  rank: number;
+  /** when a friend below passes them (still unpaid), and who */
+  pass: { at: number; by: { name: string } } | null;
+  now: number;
+}) {
   const bills = p.paid + p.unpaid;
   const late = p.waitingMs >= 7 * DAY;
   return (
@@ -135,6 +150,7 @@ function PayerCard({ id, p, rank }: { id: string; p: PayerTimes; rank: number })
                 {p.unpaid} unpaid · waiting {duration(p.waitingMs)}
               </span>
             )}
+            {pass && <FastestPassCountdown at={pass.at} by={pass.by.name} serverNow={now} />}
           </span>
           <ChevronDown size={20} {...ICON} aria-hidden className="shrink-0 text-ink-3 transition-transform group-open:rotate-180" />
         </summary>
