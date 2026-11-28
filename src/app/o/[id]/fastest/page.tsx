@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { FastestHide } from "@/components/FastestHide";
 import { FastestPaidEdit } from "@/components/FastestPaidEdit";
+import { FastestChart } from "@/components/FastestChart";
 import { FastestNextPass } from "@/components/FastestNextPass";
 import { FastestPassCountdown } from "@/components/FastestPassCountdown";
 import { FastestShare } from "@/components/FastestShare";
@@ -13,7 +14,7 @@ import { BillHeader } from "@/components/Poster";
 import { Avatar, ICON, Money } from "@/components/ui";
 import { PLACE_COLORS, PODIUM_ORDER } from "@/lib/colors";
 import { langOf } from "@/lib/lang";
-import { DAY, duration, passTimes, whoStillOwes, type PayerTimes } from "@/lib/owed";
+import { DAY, duration, passTimes, payChart, whoStillOwes, type PayerTimes } from "@/lib/owed";
 import { fastestRanking } from "@/lib/server/board";
 import { isValidId, storageReady } from "@/lib/server/redis";
 
@@ -68,6 +69,7 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
   const b = await load(id);
   if (!b) notFound();
   const n = b.times.length;
+  const chart = payChart(b.times);
   // The soonest place change: someone unpaid about to be passed by a friend below.
   const next = b.passes.reduce<{ i: number; at: number } | null>((best, p, i) => (p && (!best || p.at < best.at) ? { i, at: p.at } : best), null);
   return (
@@ -91,6 +93,13 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
         <>
           <Podium top={b.times.slice(0, 5)} />
           <FastestShare id={id} organiser={b.organiser.name} />
+          {chart.days.length > 1 && (
+            <section className="card px-3 pt-3 pb-2" aria-label="Place through time">
+              <h2 className="section-label px-1">Place through time</h2>
+              <p className="mb-1 px-1 text-[13px] text-ink-2">Where each friend ranked at the end of each day with a bill. Tap a day for its bills.</p>
+              <FastestChart days={chart.days} lines={chart.lines} />
+            </section>
+          )}
         </>
       )}
 
