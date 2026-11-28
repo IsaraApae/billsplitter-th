@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { daysBetween, duration, namesIn, owedToYou, paidTime, payFrom, payTimes, whenPaid, withoutHidden, withPaidTimes, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill, passTimes, type PayerTimes } from "./owed";
+import { payChart, daysBetween, duration, namesIn, owedToYou, paidTime, payFrom, payTimes, whenPaid, withoutHidden, withPaidTimes, withStarts, unpaidPeople, whatIOwe, whoAmI, whoStillOwes, type LoadedBill, passTimes, type PayerTimes } from "./owed";
 import type { SplitDoc } from "./types";
 
 const isara = { id: "me", name: "Isara" };
@@ -268,5 +268,32 @@ describe("when someone unpaid gets passed (Who pays fastest countdown)", () => {
 
   it("nobody below, or everyone paid: no countdown", () => {
     expect(passTimes([p("Mint", 1 * D, 2, 0), p("Boss", 2 * D, 0, 1)], now)).toEqual([null, null]);
+  });
+});
+
+describe("the ranking through the bills (Who pays fastest chart)", () => {
+  const H = 3_600_000;
+  const bill = (id: string, from: number, ms: number) => ({ id, title: id, day: "2026-11-01", amount: 1, currency: "THB", ms, ref: "", from });
+  const person = (name: string, bills: ReturnType<typeof bill>[]): PayerTimes => ({
+    key: name,
+    look: { name },
+    avgMs: bills.reduce((s, b) => s + b.ms, 0) / bills.length,
+    paid: bills.length,
+    unpaid: 0,
+    waitingMs: 0,
+    bills,
+  });
+
+  it("orders the bills by start and keeps each person's running average", () => {
+    const mint = person("Mint", [bill("b2", 200, 4 * H), bill("b1", 100, 2 * H)]);
+    const ploy = person("Ploy", [bill("b2", 200, 10 * H)]);
+    const c = payChart([mint, ploy]);
+    expect(c.bills.map((b) => b.title)).toEqual(["b1", "b2"]);
+    expect(c.lines).toEqual([
+      { name: "Mint", place: 1, vals: [2 * H, 3 * H] },
+      { name: "Ploy", place: 2, vals: [null, 10 * H] },
+    ]);
+    // The last point is the ranking's average.
+    expect(c.lines.map((l) => l.vals.at(-1))).toEqual([mint.avgMs, ploy.avgMs]);
   });
 });

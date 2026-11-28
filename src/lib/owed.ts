@@ -374,6 +374,39 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
+ * The ranking through time, for the chart: every bill once, in the order they started, and
+ * each person's average time to pay after each bill (null before their first). A bill
+ * they're not in keeps their average where it was; the last point is the ranking's.
+ */
+export function payChart(times: PayerTimes[]): {
+  bills: { title: string; day: string }[];
+  lines: { name: string; place: number; vals: (number | null)[] }[];
+} {
+  const byId = new Map(times.flatMap((p) => p.bills.map((b) => [b.id, b] as const)));
+  const order = [...byId.values()].sort((a, b) => a.from - b.from || byText(a.id, b.id));
+  return {
+    bills: order.map((b) => ({ title: b.title, day: b.day })),
+    lines: times.map((p, i) => {
+      const mine = new Map(p.bills.map((b) => [b.id, b.ms]));
+      let sum = 0;
+      let count = 0;
+      return {
+        name: p.look.name,
+        place: i + 1,
+        vals: order.map((b) => {
+          const ms = mine.get(b.id);
+          if (ms !== undefined) {
+            sum += ms;
+            count++;
+          }
+          return count ? sum / count : null;
+        }),
+      };
+    }),
+  };
+}
+
+/**
  * For each person in the ranking who still has a bill unpaid: when a friend ranked below them
  * will pass them, and who (the first to). While a bill waits, its time keeps growing, so their
  * average rises by (unpaid bills ÷ bills) for every hour that passes; a friend below passes
