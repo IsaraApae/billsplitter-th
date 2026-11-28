@@ -80,7 +80,7 @@ function apply(){var t=pref();d.classList.toggle('dark',t==='dark'||(t!=='light'
 function changed(){apply();setTimeout(meta,50)}
 apply();
 try{var s=JSON.parse(localStorage.getItem('bs:draft'));if(s&&(s.step>0||(s.doc&&s.doc.items&&s.doc.items.length)))d.setAttribute('data-compact','')}catch(e){}
-var p=location.pathname;if(p==='/'||p.indexOf('/s/')===0||p.indexOf('/e/')===0||p.indexOf('/o/')===0){var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';l.href='/scene/'+(d.classList.contains('dark')?'night':'day')+'-'+(innerWidth>=900?1800:1000)+'.webp';document.head.appendChild(l)}
+var p=location.pathname;if(p==='/'||p.indexOf('/s/')===0||p.indexOf('/o/')===0){var l=document.createElement('link');l.rel='preload';l.as='image';l.fetchPriority='high';l.href='/scene/'+(d.classList.contains('dark')?'night':'day')+'-'+(innerWidth>=900?1800:1000)+'.webp';document.head.appendChild(l)}
 var auto=function(){var t=pref();if(t!=='light'&&t!=='dark')changed()};
 mq.addEventListener?mq.addEventListener('change',auto):mq.addListener(auto);
 addEventListener('bs-theme',changed);

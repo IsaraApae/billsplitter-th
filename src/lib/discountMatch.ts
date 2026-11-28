@@ -23,7 +23,7 @@ export interface DiscountMatch {
   alternatives: number;
 }
 
-/** Stop searching after this many steps: a big bill can have millions of combinations. */
+/** Stop searching after this many steps: a long bill can have millions of combinations. */
 const BUDGET = 200_000;
 
 /** True when a percentage of `sum` gives the printed discount, allowing a satang of rounding. */

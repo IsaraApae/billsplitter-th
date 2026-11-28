@@ -75,19 +75,10 @@ async function loadSeenBills(): Promise<{ bills: LoadedBill[]; failed: number }>
   };
   await inBatches(getSeen(), AT_ONCE, async (s) => {
     try {
-      if (s.kind === "split") {
-        const r = await fetch(`/api/splits/${s.id}`, { cache: "no-store" });
-        if (!ok(r)) return;
-        const d = (await r.json()) as BillData;
-        out.set(s.id, { id: s.id, doc: d.doc, paid: d.paid, partial: d.partial ?? {}, href: `/s/${s.id}` });
-      } else {
-        const r = await fetch(`/api/events/${s.id}`, { cache: "no-store" });
-        if (!ok(r)) return;
-        const d = (await r.json()) as { bills: (BillData & { id: string })[] };
-        for (const b of d.bills) {
-          if (!out.has(b.id)) out.set(b.id, { id: b.id, doc: b.doc, paid: b.paid, partial: b.partial ?? {}, href: `/e/${s.id}` });
-        }
-      }
+      const r = await fetch(`/api/splits/${s.id}`, { cache: "no-store" });
+      if (!ok(r)) return;
+      const d = (await r.json()) as BillData;
+      out.set(s.id, { id: s.id, doc: d.doc, paid: d.paid, partial: d.partial ?? {}, href: `/s/${s.id}` });
     } catch {
       failed++; // offline
     }

@@ -19,7 +19,7 @@ export interface LoadedBill {
   doc: SplitDoc;
   paid: string[];
   partial: Record<string, number>;
-  /** where to open it (the bill, or the big bill it came from) */
+  /** where to open it */
   href: string;
 }
 
