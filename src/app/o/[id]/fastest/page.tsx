@@ -96,7 +96,7 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
           {chart.days.length > 1 && (
             <section className="card px-3 pt-3 pb-2" aria-label="Place through time">
               <h2 className="section-label px-1">Place through time</h2>
-              <p className="mb-1 px-1 text-[13px] text-ink-2">Where each friend ranked at the end of each day with a bill. Tap a day for its bills.</p>
+              <p className="mb-1 px-1 text-[13px] text-ink-2">Where each friend ranked at the end of each day with a bill. Tap a day for its bills, or a name to pick them out.</p>
               <FastestChart days={chart.days} lines={chart.lines} />
             </section>
           )}
