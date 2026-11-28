@@ -11,7 +11,9 @@ import { ICON, Money } from "./ui";
 function owedSummary() {
   const friends = owedToYou(getHistory());
   const thb = friends.filter((f) => f.currency === "THB").reduce((s, f) => s + f.total, 0);
-  return { thb, people: new Set(friends.map((f) => f.key)).size };
+  // Every bill someone still owes on, newest first, each once.
+  const bills = [...new Map(friends.flatMap((f) => f.bills).sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).map((b) => [b.id, b.title])).values()];
+  return { thb, people: new Set(friends.map((f) => f.key)).size, bills };
 }
 
 /** At the top of History: "Owed to you" (when friends owe you), "What I owe" (always, so friends can find it) and "Who pays fastest". */
@@ -36,6 +38,7 @@ export function OwedLinks() {
               <span className="block text-[13px] text-ink-2">
                 {owed.people} {owed.people === 1 ? "friend" : "friends"} still to pay
               </span>
+              {owed.bills.length > 0 && <span className="block text-[13px] text-ink-2">{owed.bills.join(", ")}</span>}
             </span>
             {owed.thb > 0 && <Money value={owed.thb} currency="THB" className="text-[17px] font-bold tracking-tight" />}
             <ChevronRight size={20} {...ICON} className="shrink-0 text-ink-3" aria-hidden />
