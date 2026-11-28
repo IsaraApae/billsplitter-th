@@ -70,7 +70,8 @@ export function FastestNextPass({ at, by, who, place, serverNow }: { at: number;
         <Racer look={by} />
         <span className="flex min-w-0 flex-1 flex-col items-center">
           {/* Read out once (in the label), not every second. */}
-          <span className="text-[24px] leading-none font-bold tracking-tight tabular-nums" aria-hidden>
+          {/* The poster type, like the "Next place change" heading. */}
+          <span className="display text-[18px] leading-none whitespace-nowrap tabular-nums" aria-hidden>
             {done ? "Now" : clock(left)}
           </span>
           <span className="mt-2 flex w-full items-center" aria-hidden>
