@@ -3,42 +3,35 @@
 import { useEffect, useRef, useState } from "react";
 import { duration } from "@/lib/owed";
 
-export interface ChartBill {
-  title: string;
-  /** the bill's day, YYYY-MM-DD */
+export interface ChartDay {
+  /** YYYY-MM-DD */
   day: string;
+  /** that day's bills */
+  titles: string[];
 }
 export interface ChartLine {
   name: string;
-  /** place in the ranking, 1 = fastest */
+  /** place in the ranking now, 1 = fastest */
   place: number;
-  /** their average time to pay after each bill (ms); null before their first bill */
+  /** their average time to pay at the end of each day (ms); null before their first bill */
   vals: (number | null)[];
+  /** their place at the end of each day; null before their first bill */
+  places: (number | null)[];
 }
 
 /** Line colours by place: the podium's, deep enough to read as lines; everyone else dashed grey. */
 const STROKE = ["#D19A00", "#7D8A97", "#C0662A", "#27A873", "#3A86D0"];
 const strokeOf = (place: number) => STROKE[place - 1] ?? "var(--ink-3)";
-
-const M = 60_000;
-const H = 60 * M;
-const D = 24 * H;
-const STEPS = [5 * M, 10 * M, 15 * M, 30 * M, H, 2 * H, 3 * H, 6 * H, 12 * H, D, 2 * D, 3 * D, 5 * D, 7 * D, 14 * D, 30 * D];
-/** A round top for the axis, about four gridlines. */
-function scale(max: number) {
-  const step = STEPS.find((s) => s >= max / 4) ?? Math.ceil(max / 4 / (30 * D)) * 30 * D;
-  return { top: Math.max(step, Math.ceil(max / step) * step), step };
-}
-const tick = (v: number) => (v === 0 ? "0" : v % D === 0 ? `${v / D}d` : v % H === 0 ? `${v / H}h` : `${Math.round(v / M)}m`);
+const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;
 const shortDay = (day: string) => new Date(`${day}T12:00:00+07:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Bangkok" });
 
 /**
- * "Average through the bills", like a season's points chart: bills along the bottom in the
- * order they started, and each friend's average time to pay after each one (lower is
- * faster), so their line ends where the ranking puts them. The fastest gets a filled line;
- * tap or hover a bill for everyone's average there.
+ * "Place through time", like a season's positions chart: the days with bills along the
+ * bottom, 1st at the top, and a line per friend showing where they ranked at the end of each
+ * day (by average time to pay). Their line ends at today's place. Tap or hover a day for its
+ * bills and everyone's place and average then.
  */
-export function FastestChart({ bills, lines }: { bills: ChartBill[]; lines: ChartLine[] }) {
+export function FastestChart({ days, lines }: { days: ChartDay[]; lines: ChartLine[] }) {
   const box = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
   const [at, setAt] = useState<number | null>(null);
@@ -50,31 +43,22 @@ export function FastestChart({ bills, lines }: { bills: ChartBill[]; lines: Char
     return () => ro.disconnect();
   }, []);
 
-  const n = bills.length;
-  const h = w < 520 ? 210 : 250;
-  const L = 36, R = 64, T = 12, B = 24;
-  const all = lines.flatMap((l) => l.vals.filter((v): v is number => v !== null));
-  const { top, step } = scale(Math.max(H, ...all));
+  const n = days.length;
+  const people = lines.length;
+  const places = lines.map((l) => l.places);
+  const L = 34, R = 64, T = 14, B = 30;
+  // A row for each place.
+  const h = T + B + Math.max(1, people - 1) * (people > 6 ? 24 : 32);
   const x = (i: number) => L + (i * (w - L - R)) / Math.max(1, n - 1);
-  const y = (v: number) => T + (1 - v / top) * (h - T - B);
-  const every = Math.max(1, Math.ceil(n / Math.max(1, Math.floor((w - L - R) / 26))));
-  const path = (l: ChartLine) =>
-    l.vals
-      .map((v, i) => (v === null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`))
-      .reduce<string>((d, p) => (p === null ? d : `${d}${d ? "L" : "M"}${p}`), "");
+  const y = (p: number) => (people === 1 ? (T + h - B) / 2 : T + ((p - 1) * (h - T - B)) / (people - 1));
+  // Dates need about 44px each.
+  const every = Math.max(1, Math.ceil(n / Math.max(1, Math.floor((w - L - R) / 44))));
+  const path = (k: number) =>
+    places[k]
+      .map((p, i) => (p === null ? null : `${x(i).toFixed(1)},${y(p).toFixed(1)}`))
+      .reduce<string>((d, pt) => (pt === null ? d : `${d}${d ? "L" : "M"}${pt}`), "");
   // Slowest first, so the faster lines sit on top.
-  const drawn = [...lines].sort((a, b) => b.place - a.place);
-  const first = lines.find((l) => l.place === 1);
-  const firstStart = first ? first.vals.findIndex((v) => v !== null) : -1;
-
-  // Name labels at the line ends, pushed apart when lines finish close together.
-  const ends = lines
-    .filter((l) => l.vals[n - 1] !== null)
-    .map((l) => ({ l, y: y(l.vals[n - 1]!) }))
-    .sort((a, b) => a.y - b.y);
-  for (let k = 1; k < ends.length; k++) ends[k].y = Math.max(ends[k].y, ends[k - 1].y + 13);
-  const over = ends.length ? ends[ends.length - 1].y - (h - B) : 0;
-  if (over > 0) for (const e of ends) e.y -= over;
+  const drawn = lines.map((l, k) => ({ l, k })).sort((a, b) => b.l.place - a.l.place);
 
   function pick(clientX: number) {
     const el = box.current;
@@ -84,8 +68,14 @@ export function FastestChart({ bills, lines }: { bills: ChartBill[]; lines: Char
     for (let k = 0; k < n; k++) if (Math.abs(x(k) - px) < Math.abs(x(i) - px)) i = k;
     setAt(i);
   }
-  const tipRows = at === null ? [] : lines.filter((l) => l.vals[at] !== null).sort((a, b) => a.vals[at]! - b.vals[at]!);
-  const tipW = 180;
+  const tipRows =
+    at === null
+      ? []
+      : lines
+          .map((l, k) => ({ l, p: places[k][at], v: l.vals[at] }))
+          .filter((r): r is { l: ChartLine; p: number; v: number } => r.p !== null && r.v !== null)
+          .sort((a, b) => a.p - b.p);
+  const tipW = 196;
 
   return (
     <div
@@ -96,56 +86,49 @@ export function FastestChart({ bills, lines }: { bills: ChartBill[]; lines: Char
       onPointerLeave={(e) => e.pointerType === "mouse" && setAt(null)}
     >
       {w > 0 && (
-        <svg viewBox={`0 0 ${w} ${h}`} className="block h-auto w-full overflow-visible" role="img" aria-label="Average time to pay after each bill">
-          <defs>
-            <linearGradient id="fastest-fill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor={STROKE[0]} stopOpacity={0.26} />
-              <stop offset="1" stopColor={STROKE[0]} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          {Array.from({ length: Math.floor(top / step) + 1 }, (_, k) => k * step).map((v) => (
-            <g key={v}>
-              <line x1={L} x2={w - R} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeWidth={1} />
-              <text x={L - 6} y={y(v) + 3.5} textAnchor="end" className="fill-ink-2 text-[10.5px] font-bold">
-                {tick(v)}
+        <svg viewBox={`0 0 ${w} ${h}`} className="block h-auto w-full overflow-visible" role="img" aria-label="Each friend's place at the end of each day with a bill">
+          {Array.from({ length: people }, (_, k) => k + 1).map((p) => (
+            <g key={p}>
+              <line x1={L} x2={w - R} y1={y(p)} y2={y(p)} stroke="var(--line)" strokeWidth={1} />
+              <text x={L - 6} y={y(p) + 3.5} textAnchor="end" className="fill-ink-2 text-[10.5px] font-bold">
+                {ordinal(p)}
               </text>
             </g>
           ))}
-          {bills.map((_, i) =>
+          {days.map((d, i) =>
             (n - 1 - i) % every === 0 ? (
-              <text key={i} x={x(i)} y={h - 6} textAnchor="middle" className="fill-ink-2 text-[10.5px] font-bold">
-                {i + 1}
+              <text key={d.day} x={x(i)} y={h - 6} textAnchor="middle" className="fill-ink-2 text-[10.5px] font-bold">
+                {shortDay(d.day)}
               </text>
             ) : null,
           )}
-          {at !== null && <line x1={x(at)} x2={x(at)} y1={T} y2={h - B} stroke="var(--ink-2)" strokeWidth={1} strokeDasharray="3 3" opacity={0.8} />}
-          {first && firstStart >= 0 && (
-            <path d={`${path(first)}L${x(n - 1)},${y(0)}L${x(firstStart)},${y(0)}Z`} fill="url(#fastest-fill)" />
-          )}
-          {drawn.map((l) => {
-            const last = l.vals[n - 1];
+          {at !== null && <line x1={x(at)} x2={x(at)} y1={T - 6} y2={h - B + 6} stroke="var(--ink-2)" strokeWidth={1} strokeDasharray="3 3" opacity={0.8} />}
+          {drawn.map(({ l, k }) => {
             const podium = l.place <= 5;
+            const last = places[k][n - 1];
             return (
               <g key={l.name + l.place}>
                 <path
-                  d={path(l)}
+                  d={path(k)}
                   fill="none"
                   stroke={strokeOf(l.place)}
-                  strokeWidth={l.place === 1 ? 2.8 : podium ? 2 : 1.6}
+                  strokeWidth={l.place === 1 ? 3 : podium ? 2.2 : 1.6}
                   strokeLinejoin="round"
                   strokeLinecap="round"
                   strokeDasharray={podium ? undefined : "4 4"}
                   opacity={podium ? 1 : 0.75}
                 />
-                {last !== null && <circle cx={x(n - 1)} cy={y(last)} r={l.place === 1 ? 4 : 3} fill={strokeOf(l.place)} />}
+                {/* A dot at each day, so a step reads as a day that changed things. */}
+                {places[k].map((p, i) => (p === null || i === n - 1 ? null : <circle key={i} cx={x(i)} cy={y(p)} r={2.2} fill={strokeOf(l.place)} />))}
+                {last !== null && <circle cx={x(n - 1)} cy={y(last)} r={l.place === 1 ? 4.5 : 3.5} fill={strokeOf(l.place)} />}
+                {last !== null && (
+                  <text x={x(n - 1) + 8} y={y(last) + 4} fill={strokeOf(l.place)} className="text-[11.5px] font-black">
+                    {l.name.length > 8 ? `${l.name.slice(0, 7)}…` : l.name}
+                  </text>
+                )}
               </g>
             );
           })}
-          {ends.map(({ l, y: ly }) => (
-            <text key={l.name + l.place} x={x(n - 1) + 8} y={ly + 4} fill={strokeOf(l.place)} className="text-[11.5px] font-black">
-              {l.name.length > 8 ? `${l.name.slice(0, 7)}…` : l.name}
-            </text>
-          ))}
         </svg>
       )}
       {at !== null && (
@@ -154,13 +137,14 @@ export function FastestChart({ bills, lines }: { bills: ChartBill[]; lines: Char
           style={{ left: Math.min(Math.max(0, x(at) - tipW / 2), Math.max(0, w - tipW)), width: tipW }}
         >
           <b className="block truncate text-[10.5px] font-bold text-ink-2 uppercase">
-            Bill {at + 1} · {bills[at].title} · {shortDay(bills[at].day)}
+            {shortDay(days[at].day)} · {days[at].titles.join(", ")}
           </b>
-          {tipRows.map((l) => (
+          {tipRows.map(({ l, p, v }) => (
             <span key={l.name + l.place} className="flex items-center gap-1.5">
+              <b className="w-7 shrink-0 tabular-nums">{ordinal(p)}</b>
               <i className="inline-block size-[9px] shrink-0 rounded-[3px]" style={{ background: strokeOf(l.place) }} />
               <span className="min-w-0 flex-1 truncate">{l.name}</span>
-              <b className="tabular-nums">{duration(l.vals[at]!)}</b>
+              <span className="text-ink-2 tabular-nums">{duration(v)}</span>
             </span>
           ))}
         </div>

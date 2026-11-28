@@ -374,36 +374,48 @@ export function payTimes(bills: StoredBill[], now = Date.now()): PayerTimes[] {
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
- * The ranking through time, for the chart: every bill once, in the order they started, and
- * each person's average time to pay after each bill (null before their first). A bill
- * they're not in keeps their average where it was; the last point is the ranking's.
+ * The ranking through time, for the chart, a day at a time: every day with a bill, oldest
+ * first (bills of a day count as one step, in the order they started), and each person's
+ * average time to pay at the end of each day and their place then. A day they had no bill
+ * keeps their average; null before their first. The last day is today's ranking.
  */
 export function payChart(times: PayerTimes[]): {
-  bills: { title: string; day: string }[];
-  lines: { name: string; place: number; vals: (number | null)[] }[];
+  days: { day: string; titles: string[] }[];
+  lines: { name: string; place: number; vals: (number | null)[]; places: (number | null)[] }[];
 } {
   const byId = new Map(times.flatMap((p) => p.bills.map((b) => [b.id, b] as const)));
-  const order = [...byId.values()].sort((a, b) => a.from - b.from || byText(a.id, b.id));
-  return {
-    bills: order.map((b) => ({ title: b.title, day: b.day })),
-    lines: times.map((p, i) => {
-      const mine = new Map(p.bills.map((b) => [b.id, b.ms]));
-      let sum = 0;
-      let count = 0;
-      return {
-        name: p.look.name,
-        place: i + 1,
-        vals: order.map((b) => {
-          const ms = mine.get(b.id);
-          if (ms !== undefined) {
-            sum += ms;
-            count++;
-          }
-          return count ? sum / count : null;
-        }),
-      };
-    }),
-  };
+  const order = [...byId.values()].sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0) || a.from - b.from || byText(a.id, b.id));
+  const days: { day: string; titles: string[]; last: number }[] = [];
+  order.forEach((b, i) => {
+    const d = days.at(-1);
+    if (d && d.day === b.day) {
+      d.titles.push(b.title);
+      d.last = i;
+    } else days.push({ day: b.day, titles: [b.title], last: i });
+  });
+  const lines = times.map((p, k) => {
+    const mine = new Map(p.bills.map((b) => [b.id, b.ms]));
+    let sum = 0;
+    let count = 0;
+    const perBill = order.map((b) => {
+      const ms = mine.get(b.id);
+      if (ms !== undefined) {
+        sum += ms;
+        count++;
+      }
+      return count ? sum / count : null;
+    });
+    return { name: p.look.name, place: k + 1, vals: days.map((d) => perBill[d.last]), places: [] as (number | null)[] };
+  });
+  // Places each day among those who'd had a bill, ties going the way today's ranking does.
+  days.forEach((_, i) => {
+    for (const l of lines) l.places[i] = null;
+    lines
+      .filter((l) => l.vals[i] !== null)
+      .sort((a, b) => a.vals[i]! - b.vals[i]! || a.place - b.place)
+      .forEach((l, rank) => (l.places[i] = rank + 1));
+  });
+  return { days: days.map(({ day, titles }) => ({ day, titles })), lines };
 }
 
 /**

@@ -271,9 +271,9 @@ describe("when someone unpaid gets passed (Who pays fastest countdown)", () => {
   });
 });
 
-describe("the ranking through the bills (Who pays fastest chart)", () => {
+describe("the ranking through time (Who pays fastest chart)", () => {
   const H = 3_600_000;
-  const bill = (id: string, from: number, ms: number) => ({ id, title: id, day: "2026-11-01", amount: 1, currency: "THB", ms, ref: "", from });
+  const bill = (id: string, day: string, from: number, ms: number) => ({ id, title: id, day, amount: 1, currency: "THB", ms, ref: "", from });
   const person = (name: string, bills: ReturnType<typeof bill>[]): PayerTimes => ({
     key: name,
     look: { name },
@@ -284,16 +284,21 @@ describe("the ranking through the bills (Who pays fastest chart)", () => {
     bills,
   });
 
-  it("orders the bills by start and keeps each person's running average", () => {
-    const mint = person("Mint", [bill("b2", 200, 4 * H), bill("b1", 100, 2 * H)]);
-    const ploy = person("Ploy", [bill("b2", 200, 10 * H)]);
+  it("a point per day, oldest first, with each person's average and place at the end of the day", () => {
+    // 1 Nov: lunch (Ploy only). 5 Nov: dinner and karaoke, one step.
+    const mint = person("Mint", [bill("dinner", "2026-11-05", 300, 2 * H), bill("karaoke", "2026-11-05", 400, 4 * H)]);
+    const ploy = person("Ploy", [bill("lunch", "2026-11-01", 100, 1 * H), bill("dinner", "2026-11-05", 300, 9 * H)]);
     const c = payChart([mint, ploy]);
-    expect(c.bills.map((b) => b.title)).toEqual(["b1", "b2"]);
-    expect(c.lines).toEqual([
-      { name: "Mint", place: 1, vals: [2 * H, 3 * H] },
-      { name: "Ploy", place: 2, vals: [null, 10 * H] },
+    expect(c.days).toEqual([
+      { day: "2026-11-01", titles: ["lunch"] },
+      { day: "2026-11-05", titles: ["dinner", "karaoke"] },
     ]);
-    // The last point is the ranking's average.
+    expect(c.lines).toEqual([
+      { name: "Mint", place: 1, vals: [null, 3 * H], places: [null, 1] },
+      // Ploy led on 1 Nov (alone), then dropped to 2nd.
+      { name: "Ploy", place: 2, vals: [1 * H, 5 * H], places: [1, 2] },
+    ]);
+    // The last day is today's ranking.
     expect(c.lines.map((l) => l.vals.at(-1))).toEqual([mint.avgMs, ploy.avgMs]);
   });
 });

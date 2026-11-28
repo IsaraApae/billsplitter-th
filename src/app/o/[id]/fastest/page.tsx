@@ -93,11 +93,11 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
         <>
           <Podium top={b.times.slice(0, 5)} />
           <FastestShare id={id} organiser={b.organiser.name} />
-          {chart.bills.length > 1 && (
-            <section className="card px-3 pt-3 pb-2" aria-label="Average through the bills">
-              <h2 className="section-label px-1">Average through the bills</h2>
-              <p className="mb-1 px-1 text-[13px] text-ink-2">Each friend&apos;s average time to pay after each bill. Lower is faster.</p>
-              <FastestChart bills={chart.bills} lines={chart.lines} />
+          {chart.days.length > 1 && (
+            <section className="card px-3 pt-3 pb-2" aria-label="Place through time">
+              <h2 className="section-label px-1">Place through time</h2>
+              <p className="mb-1 px-1 text-[13px] text-ink-2">Where each friend ranked at the end of each day with a bill. Tap a day for its bills.</p>
+              <FastestChart days={chart.days} lines={chart.lines} />
             </section>
           )}
         </>
