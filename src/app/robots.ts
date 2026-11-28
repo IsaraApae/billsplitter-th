@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { siteUrl } from "@/lib/site";
 
 /**
- * Bills, big bills and shared lists stay out of search with their own noindex
+ * Bills and shared lists stay out of search with their own noindex
  * tag rather than here: chat apps that honour robots.txt (X, for one) would
  * otherwise stop showing their link previews.
  */

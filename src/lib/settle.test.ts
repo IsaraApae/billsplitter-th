@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { newDoc } from "./draft";
-import { eventPeople, spreadPayment } from "./event";
 import {
   findTransfer,
   organiserLines,
@@ -100,7 +99,7 @@ describe("several payers: who pays whom", () => {
     expect(settlesDirectly(doc(100000, 0))).toBe(false);
   });
 
-  it("payments are recorded per transfer; History and big bills see the organiser's side", () => {
+  it("payments are recorded per transfer; History sees the organiser's side", () => {
     const d = doc(100000, 40000);
     const keys = paymentKeys(d);
     expect(keys.has(transferKey("ploy", "mint"))).toBe(true);
@@ -119,11 +118,5 @@ describe("several payers: who pays whom", () => {
       paidIds: ["mint", "bank"],
       partialPaid: { ploy: 4000 },
     });
-
-    // A big bill ticks Ploy's transfer to me, not Ploy's id.
-    const [, , ployPerson] = eventPeople([{ id: "b1", doc: d, paid: [], partial: {} }]).filter((p) => p.name !== "Bank");
-    expect(ployPerson.name).toBe("Ploy");
-    expect(ployPerson.total).toBe(10000);
-    expect(spreadPayment(ployPerson, { kind: "full" })).toEqual([{ splitId: "b1", personId: "t:ploy:me", kind: "full" }]);
   });
 });

@@ -123,34 +123,10 @@ export function deleteHistory(id: string): void {
   save(HISTORY, getHistory().filter((h) => h.id !== id));
 }
 
-// ---- Big bills (several splits from one outing). Edit tokens live in TOKENS too.
-export interface EventEntry {
-  id: string;
-  title: string;
-  /** YYYY-MM-DD */
-  date: string;
-  splitIds: string[];
-}
-
-const EVENTS = "bs:events";
-
-export function getEvents(): EventEntry[] {
-  const e = load<EventEntry[]>(EVENTS, []);
-  return Array.isArray(e) ? e : [];
-}
-
-export function upsertEvent(entry: EventEntry): void {
-  save(EVENTS, [entry, ...getEvents().filter((e) => e.id !== entry.id)]);
-}
-
-export function deleteEvent(id: string): void {
-  save(EVENTS, getEvents().filter((e) => e.id !== id));
-}
-
 // ---- Bills opened as a friend, for "What I owe"
 export interface SeenBill {
   id: string;
-  kind: "split" | "event";
+  kind: "split";
   /** epoch ms, last opened */
   at: number;
 }
@@ -163,7 +139,8 @@ const IAM = "bs:iam";
 
 export function getSeen(): SeenBill[] {
   const s = load<SeenBill[]>(SEEN, []);
-  return Array.isArray(s) ? s : [];
+  // Big bills opened before they were removed are left out.
+  return Array.isArray(s) ? s.filter((x) => x.kind === "split") : [];
 }
 
 /** A bill someone else made was opened here (newest first, up to 100). */

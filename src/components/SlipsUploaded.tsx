@@ -21,24 +21,22 @@ export interface SlipRow {
   s: SlipInfo;
   /** who sent it */
   person: Pick<Person, "name" | "emoji" | "color">;
-  /** which bill it was for (on a big bill) */
-  bill?: string;
 }
 
 /** The person id a slip was recorded under (a person id, or the sender of a transfer). */
 export const slipPersonId = (key: string) => parseTransferKey(key)?.from ?? key;
 
 /** One bill's slips as rows, with who sent each. */
-export function slipRows(slips: Record<string, SlipInfo[]>, doc: SplitDoc, bill?: string): SlipRow[] {
+export function slipRows(slips: Record<string, SlipInfo[]>, doc: SplitDoc): SlipRow[] {
   return Object.entries(slips).flatMap(([key, list]) => {
     const person = doc.people.find((p) => p.id === slipPersonId(key)) ?? { name: "Someone" };
-    return list.map((s) => ({ s, person, bill }));
+    return list.map((s) => ({ s, person }));
   });
 }
 
 /**
  * Every slip uploaded, newest first, each with who sent it (their avatar and
- * name), the bill it was for on a big bill, and the name printed on the slip,
+ * name), and the name printed on the slip,
  * so they're easy to tell apart. Organiser only: slips show bank names.
  */
 export function SlipsUploaded({ rows: unsorted, currency }: { rows: SlipRow[]; currency: string }) {
@@ -47,7 +45,7 @@ export function SlipsUploaded({ rows: unsorted, currency }: { rows: SlipRow[]; c
   return (
     <Section title={`Slips uploaded · ${rows.length}`}>
       <ul className="card rows overflow-hidden">
-        {rows.map(({ s, person, bill }, i) => (
+        {rows.map(({ s, person }, i) => (
           <li key={i}>
             <a
               href={s.photo ? photoSrc(s.photo) : undefined}
@@ -64,7 +62,6 @@ export function SlipsUploaded({ rows: unsorted, currency }: { rows: SlipRow[]; c
                   <span className="text-ink-2">
                     {" "}
                     · {new Date(`${s.date}T12:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                    {bill && <> · {bill}</>}
                   </span>
                 </span>
                 <span className="flex items-center gap-1 truncate text-[13px] text-ink-2">

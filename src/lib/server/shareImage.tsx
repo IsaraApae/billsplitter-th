@@ -26,7 +26,7 @@ const GREEN = "#00B368";
 const ON_GREEN = "#04261A";
 
 interface Card {
-  /** small line above the title, e.g. "Tue, 6 Oct 2026" or "Big bill · 3 bills" */
+  /** small line above the title, e.g. "Tue, 6 Oct 2026" */
   kicker: string;
   title: string;
   total: number;

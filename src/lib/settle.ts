@@ -110,7 +110,7 @@ export interface OrganiserLine {
 
 /**
  * Each friend's money with the organiser, whichever way the bill settles —
- * for History, big bills and "owes you" totals. Settling directly, only the
+ * for History and "owes you" totals. Settling directly, only the
  * transfers to or from the organiser count.
  */
 export function organiserLines(doc: SplitDoc, state: PaymentState, calc: CalcResult = calculate(doc)): OrganiserLine[] {
