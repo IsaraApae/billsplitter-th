@@ -1,15 +1,16 @@
 "use client";
 
-import { Check, CheckCircle2, ChevronRight, ReceiptText, Trash2, X } from "lucide-react";
+import { Check, CheckCircle2, ChevronRight, ReceiptText, Trash2, Trophy, X } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { byBillDate, deleteHistory, getHistory, type HistoryEntry } from "@/lib/client/storage";
+import { byBillDate, deleteHistory, getHistory, load, type HistoryEntry } from "@/lib/client/storage";
 import { askConfirm } from "@/lib/client/confirm";
 import { claimMySplits } from "@/lib/client/claim";
 import { refreshEntries } from "@/lib/client/historyRefresh";
 import { getFriends } from "@/lib/client/friendsStore";
 import { ME_ID } from "@/lib/friends";
+import { duration } from "@/lib/owed";
 import { formatMoney } from "@/lib/money";
 import { Avatar, ICON, Money, cx } from "./ui";
 import { langOf } from "@/lib/lang";
@@ -124,6 +125,7 @@ export function HistoryList() {
                 </>
               )}
             </p>
+            {person.id !== ME_ID && <FriendSpeed person={person} />}
           </div>
           <button type="button" className="icon-btn" aria-label="Show all splits" onClick={() => filterBy(null)}>
             <X size={22} {...ICON} />
@@ -306,4 +308,47 @@ function myMoney(entries: HistoryEntry[]): { spent: string[]; owedToYou: string[
 /** Same person across splits: same id, or (for names typed into one split) same name. */
 function samePerson(a: Member, b: Member): boolean {
   return a.id === b.id || a.name.trim().toLocaleLowerCase() === b.name.trim().toLocaleLowerCase();
+}
+
+type Ranked = { key: string; name: string; avgMs: number; paid: number; unpaid: number };
+const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th")}`;
+const normName = (s: string) => s.normalize("NFC").trim().toLocaleLowerCase();
+
+/**
+ * Under "Splits with Mint": how fast they pay you on average and their place in Who pays
+ * fastest ("Pays in 3 hr 20 min on average · 1st of 4"), linking to it. Nothing until
+ * this phone has a list, or when they aren't ranked (hidden, or nothing paid or owed yet).
+ */
+function FriendSpeed({ person }: { person: Member }) {
+  const [board] = useState(() => load<string | null>("bs:board", null));
+  const [ranked, setRanked] = useState<{ me: Ranked; place: number; of: number } | null>(null);
+  useEffect(() => {
+    if (!board) return;
+    let cancelled = false;
+    fetch(`/api/boards/${board}/fastest`, { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ times: Ranked[] }>) : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        const i = d.times.findIndex((t) => t.key === person.id || normName(t.name) === normName(person.name));
+        setRanked(i < 0 ? null : { me: d.times[i], place: i + 1, of: d.times.length });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [board, person.id, person.name]);
+  if (!board || !ranked) return null;
+  return (
+    <Link href={`/o/${board}/fastest`} className="mt-1 flex items-center gap-1.5 text-[13px] text-ink-2">
+      <Trophy size={14} {...ICON} aria-hidden className="shrink-0 text-accent" />
+      <span>
+        {ranked.me.unpaid > 0 ? "So far " : "Pays in "}
+        <b className="font-semibold text-ink">{duration(ranked.me.avgMs)}</b> on average ·{" "}
+        <b className="font-semibold text-accent">
+          {ordinal(ranked.place)} of {ranked.of}
+        </b>{" "}
+        in Who pays fastest
+      </span>
+    </Link>
+  );
 }

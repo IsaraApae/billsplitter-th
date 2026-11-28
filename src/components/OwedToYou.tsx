@@ -198,6 +198,8 @@ function FriendRow({
               {w === 0 ? "since today" : `for ${dayCount(w)}`}
             </span>
           </span>
+          {/* Which bills, newest first. */}
+          <span className="block text-[13px] text-ink-2">{f.bills.map((b) => b.title).join(", ")}</span>
         </span>
         <Money value={f.total} currency={f.currency} className="text-[17px] font-bold tracking-tight" />
         <ChevronDown size={20} {...ICON} aria-hidden className={cx("shrink-0 text-ink-3", open && "rotate-180")} />
