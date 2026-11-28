@@ -35,6 +35,8 @@ interface Card {
   people: { name: string; color?: PersonColor; organiser?: boolean }[];
   /** e.g. "3 people · split by item" */
   detail: string;
+  /** the bills' names, under `detail` ("Naklaa Mookata, SWENSEN'S +2" when they don't fit) */
+  bills?: string[];
   /** the receipt's heading (default "TOTAL") */
   label?: string;
   /** words on the receipt in place of the total */
@@ -180,6 +182,12 @@ export async function shareImage(card: Card | null) {
                   </div>
                 )}
                 {card && <div style={{ fontSize: 26, color: INK_2, marginTop: -6 }}>{card.detail}</div>}
+                {/* All the bills, on up to two lines ("+N" only when even that's too short). */}
+                {card?.bills && card.bills.length > 0 && (
+                  <div style={{ display: "flex", maxWidth: paper - 72, maxHeight: 56, fontSize: 22, lineHeight: 1.25, color: INK_2, marginTop: -6, textAlign: "center", overflow: "hidden" }}>
+                    {nameLine(card.bills, 64)}
+                  </div>
+                )}
               </div>
             </div>
             <div

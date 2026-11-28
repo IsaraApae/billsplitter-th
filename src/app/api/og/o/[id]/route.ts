@@ -14,6 +14,8 @@ export async function GET(req: Request, ctx: RouteContext<"/api/og/o/[id]">) {
   else {
     const b = whoStillOwes(bills);
     const n = b.people.length;
+    // Every bill someone still owes on, newest first, each once.
+    const billNames = [...new Map(b.people.flatMap((p) => p.bills).sort((x, y) => y.date.getTime() - x.date.getTime()).map((x) => [x.id, x.title])).values()];
     img = await shareImage({
       kicker: new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }),
       title: `Owed to ${b.organiser.name}`,
@@ -21,6 +23,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/og/o/[id]">) {
       currency: b.currency,
       people: b.people.map((p) => p.look),
       detail: n === 0 ? "Everyone has paid" : `${n} ${n === 1 ? "person" : "people"} · ${b.billCount} ${b.billCount === 1 ? "bill" : "bills"}`,
+      bills: billNames,
       label: "STILL TO PAY",
       cta: "See who owes →",
       tagline: "Everyone who hasn't paid yet, and for what",
