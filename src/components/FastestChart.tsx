@@ -75,12 +75,37 @@ export function FastestChart({ days, lines }: { days: ChartDay[]; lines: ChartLi
     .sort((a, b) => Number(a.k === focus) - Number(b.k === focus) || b.l.place - a.l.place);
   const toggle = (k: number) => setFocus((f) => (f === k ? null : k));
 
-  function pick(clientX: number) {
+  /** The day nearest a pointer, or null. */
+  function dayAt(clientX: number): number | null {
     const el = box.current;
-    if (!el || n < 2) return;
+    if (!el || n < 2) return null;
     const px = clientX - el.getBoundingClientRect().left;
     let i = 0;
     for (let k = 0; k < n; k++) if (Math.abs(x(k) - px) < Math.abs(x(i) - px)) i = k;
+    return i;
+  }
+  // A day whose box was just closed by tapping it again: moving over it doesn't reopen it.
+  const closed = useRef<number | null>(null);
+  const downX = useRef(0);
+  /** A tap: open that day's box, or close it when it's the one already open. */
+  function tap(clientX: number) {
+    const i = dayAt(clientX);
+    if (i === null) return;
+    downX.current = clientX;
+    if (i === at) {
+      closed.current = i;
+      setAt(null);
+    } else {
+      closed.current = null;
+      setAt(i);
+    }
+  }
+  /** Hovering with a mouse, or sliding a finger along: follow the pointer. */
+  function follow(e: React.PointerEvent) {
+    if (e.pointerType !== "mouse" && (e.buttons === 0 || Math.abs(e.clientX - downX.current) < 8)) return;
+    const i = dayAt(e.clientX);
+    if (i === null || i === closed.current) return;
+    closed.current = null;
     setAt(i);
   }
   const tipRows =
@@ -90,15 +115,20 @@ export function FastestChart({ days, lines }: { days: ChartDay[]; lines: ChartLi
           .map((l, k) => ({ l, p: places[k][at], v: l.vals[at] }))
           .filter((r): r is { l: ChartLine; p: number; v: number } => r.p !== null && r.v !== null)
           .sort((a, b) => a.p - b.p);
-  const tipW = 196;
+  // Wider with ten or more, so "10th" fits beside the name.
+  const tipW = people >= 10 ? 212 : 196;
 
   return (
     <div
       ref={box}
       className="relative min-h-[120px] touch-pan-y select-none"
-      onPointerMove={(e) => pick(e.clientX)}
-      onPointerDown={(e) => pick(e.clientX)}
-      onPointerLeave={(e) => e.pointerType === "mouse" && setAt(null)}
+      onPointerMove={follow}
+      onPointerDown={(e) => tap(e.clientX)}
+      onPointerLeave={(e) => {
+        if (e.pointerType !== "mouse") return;
+        closed.current = null;
+        setAt(null);
+      }}
     >
       {w > 0 && (
         <svg viewBox={`0 0 ${w} ${h}`} className="block h-auto w-full overflow-visible" role="img" aria-label="Each friend's place at the end of each day with a bill">
@@ -186,10 +216,10 @@ export function FastestChart({ days, lines }: { days: ChartDay[]; lines: ChartLi
           </b>
           {tipRows.map(({ l, p, v }) => (
             <span key={l.name + l.place} className={cx("flex items-center gap-1.5", focus !== null && lines[focus] !== l && "opacity-40")}>
-              <b className="w-7 shrink-0 tabular-nums">{ordinal(p)}</b>
+              <b className={cx("shrink-0 whitespace-nowrap tabular-nums", people >= 10 ? "w-9" : "w-7")}>{ordinal(p)}</b>
               <i className="inline-block size-[9px] shrink-0 rounded-[3px]" style={{ background: strokeOf(l.place) }} />
               <span className="min-w-0 flex-1 truncate">{l.name}</span>
-              <span className="text-ink-2 tabular-nums">{duration(v)}</span>
+              <span className="shrink-0 whitespace-nowrap text-ink-2 tabular-nums">{duration(v)}</span>
             </span>
           ))}
         </div>
