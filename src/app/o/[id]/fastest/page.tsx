@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { FastestHide } from "@/components/FastestHide";
 import { FastestPaidEdit } from "@/components/FastestPaidEdit";
+import { FastestNextPass } from "@/components/FastestNextPass";
 import { FastestPassCountdown } from "@/components/FastestPassCountdown";
 import { FastestShare } from "@/components/FastestShare";
 import { FastestSlipTimes } from "@/components/FastestSlipTimes";
@@ -67,6 +68,8 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
   const b = await load(id);
   if (!b) notFound();
   const n = b.times.length;
+  // The soonest place change: someone unpaid about to be passed by a friend below.
+  const next = b.passes.reduce<{ i: number; at: number } | null>((best, p, i) => (p && (!best || p.at < best.at) ? { i, at: p.at } : best), null);
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 pb-6 md:pb-16">
       <BillHeader title="Who pays fastest" details={n === 0 ? "No payments yet" : `Paying ${b.organiser.name} · ${n} ${n === 1 ? "person" : "people"} · ${b.billCount} ${b.billCount === 1 ? "bill" : "bills"}`} />
@@ -78,6 +81,9 @@ export default async function FastestPage({ params }: PageProps<"/o/[id]/fastest
         <FastestHide id={id} />
       </div>
       {b.untimed && <FastestSlipTimes id={id} />}
+      {next && (
+        <FastestNextPass at={next.at} by={b.passes[next.i]!.by} who={b.times[next.i].look} place={next.i + 1} serverNow={b.now} />
+      )}
 
       {n === 0 ? (
         <p className="card p-8 text-center text-ink-2">Once friends are ticked paid, they&apos;re ranked here.</p>
